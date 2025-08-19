@@ -1,6 +1,5 @@
 package com.app.usochicamochabackend.machine.web;
 
-import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.machine.application.service.MachineService;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import io.swagger.v3.oas.annotations.Operation;
