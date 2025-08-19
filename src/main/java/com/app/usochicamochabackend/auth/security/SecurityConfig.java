@@ -33,16 +33,26 @@ public class SecurityConfig  {
     @Bean
     SecurityFilterChain securityFilterChain (HttpSecurity httpSecurity) throws Exception {
         httpSecurity
+                // 1. AÑADE ESTA LÍNEA para activar la configuración CORS que definiste abajo
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(new JwtTokenValidator(jwtUtils), BasicAuthenticationFilter.class)
                 .authorizeHttpRequests(http -> {
+                    // 2. AÑADE ESTA REGLA para permitir las peticiones de permiso del navegador
+                    http.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+
+                    // Tus reglas existentes
                     http.requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll();
                     http.requestMatchers(
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
                             "/v3/api-docs.yaml"
                     ).permitAll();
+
+                    // 3. AÑADE ESTA REGLA para proteger tod lo demás
+                    http.anyRequest().authenticated();
                 });
 
         return httpSecurity.build();
@@ -56,10 +66,18 @@ public class SecurityConfig  {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowCredentials(true);
-        configuration.addAllowedOrigin("*");
+
+        // ======================= CAMBIO CLAVE =======================
+        // En lugar de "*", especificamos el origen exacto de tu frontend.
+        configuration.addAllowedOrigin("http://localhost:5173");
+
+        // Permitimos todas las cabeceras y métodos
         configuration.addAllowedHeader("*");
         configuration.addAllowedMethod("*");
+
+        // Ahora sí podemos permitir credenciales
+        configuration.setAllowCredentials(true);
+        // ==========================================================
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

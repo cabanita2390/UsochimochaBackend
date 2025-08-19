@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "users")
+@Table(name = "usuarios")
 public class UserEntity {
 
     @Id
@@ -21,7 +21,6 @@ public class UserEntity {
     private String status;
     private String username;
     private String password;
-    private String email;
-    @Enumerated(EnumType.STRING)
-    private RoleEnum role;
+    private String gmail;
+    private String role;
 }

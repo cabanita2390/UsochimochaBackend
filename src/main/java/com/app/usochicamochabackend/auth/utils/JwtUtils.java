@@ -52,7 +52,7 @@ public class JwtUtils {
                 .withIssuer(userGenerator)
                 .withIssuedAt(new Date())
                 .withNotBefore(new Date(System.currentTimeMillis()))
-                .withExpiresAt(new Date(System.currentTimeMillis() + 604800000)) // 7 días
+                .withExpiresAt(new Date(System.currentTimeMillis() + (1000*60*60*24*7)))
                 .sign(getAlgorithm());
     }
 
