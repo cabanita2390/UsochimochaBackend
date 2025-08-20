@@ -36,7 +36,7 @@ public class UserService implements
 
         UserEntity userSaved = userRepository.save(user);
 
-        return new CreateUserResponse(user.getId(), userSaved.getUsername(), userSaved.getEmail(), userSaved.getStatus(), "User created successfully");
+        return new CreateUserResponse(user.getId(), userSaved.getUsername(), userSaved.getEmail(),userSaved.getStatus(), userSaved.getRole(), userSaved.getFullName(), "User created successfully");
     }
 
     @Override

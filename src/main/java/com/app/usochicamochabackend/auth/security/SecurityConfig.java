@@ -33,7 +33,9 @@ public class SecurityConfig  {
     @Bean
     SecurityFilterChain securityFilterChain (HttpSecurity httpSecurity) throws Exception {
         httpSecurity
+                // 1. AÑADE ESTA LÍNEA para activar la configuración CORS que definiste abajo
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(new JwtTokenValidator(jwtUtils), BasicAuthenticationFilter.class)
@@ -64,10 +66,18 @@ public class SecurityConfig  {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOrigin("http://localhost:5173");
+
+        // ======================= CAMBIO CLAVE =======================
+        // En lugar de "*", especificamos el origen exacto de tu frontend.
+        configuration.addAllowedOrigin("http://localhost:5173,https://pdxs8r4k-8080.use2.devtunnels.ms");
+
+        // Permitimos todas las cabeceras y métodos
         configuration.addAllowedHeader("*");
         configuration.addAllowedMethod("*");
+
+        // Ahora sí podemos permitir credenciales
         configuration.setAllowCredentials(true);
+        // ==========================================================
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

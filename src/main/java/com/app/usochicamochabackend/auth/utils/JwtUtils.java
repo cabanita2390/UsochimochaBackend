@@ -37,7 +37,7 @@ public class JwtUtils {
                 .withIssuer(userGenerator)
                 .withIssuedAt(new Date())
                 .withNotBefore(new Date(System.currentTimeMillis()))
-                .withExpiresAt(new Date(System.currentTimeMillis() + 900000)) // 15 minutos
+                .withExpiresAt(new Date(System.currentTimeMillis() + (1000*60*15)))
                 .sign(getAlgorithm());
     }
 
