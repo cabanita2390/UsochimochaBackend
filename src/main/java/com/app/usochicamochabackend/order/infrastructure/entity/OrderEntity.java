@@ -25,18 +25,19 @@ public class OrderEntity {
     private LocalDateTime orderDate;
     private String description;
 
-    @ManyToOne
-    @JoinColumn(name = "inspection_id")
+    @OneToOne
+    @JoinColumn(name = "inspeccion_id")
     private InspectionEntity inspection;
 
     @OneToOne
+    @JoinColumn(name = "resultado_id")
     private ResultEntity result;
 
     @ManyToOne
-    @JoinColumn(name = "assigner_user_id")
+    @JoinColumn(name = "usuario_asignador_id")
     private UserEntity assignerUser;
 
     @ManyToOne
-    @JoinColumn(name = "assigned_user_id")
+    @JoinColumn(name = "usuario_asignado_id")
     private UserEntity assignedUser;
 }

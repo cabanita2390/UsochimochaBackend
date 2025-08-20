@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Entity
@@ -22,9 +23,11 @@ public class ResultEntity {
     @Column(name = "tiempo_empleado")
     private String tiempoEmpleado;
 
-    @Column(name = "manos_de_obra_id")
-    private Long manosDeObraId;
+    @OneToOne
+    @JoinColumn(name = "mano_obra_id")
+    private LaborEntity manoId;
 
-    @Column(name = "repuestos_id")
-    private Long repuestosId;
+    @OneToMany
+    @JoinColumn(name = "resultado_id")
+    private List<SparePartEntity> repuestoId;
 }

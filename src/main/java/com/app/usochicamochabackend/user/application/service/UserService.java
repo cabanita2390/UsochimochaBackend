@@ -28,6 +28,7 @@ public class UserService implements
         UserEntity user = UserEntity.builder()
                 .username(request.username())
                 .fullName(request.fullName())
+                .status(true)
                 .email(request.email())
                 .role(request.role())
                 .password(passwordEncoder.encode(request.password()))

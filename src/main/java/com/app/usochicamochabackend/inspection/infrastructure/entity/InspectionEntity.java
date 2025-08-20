@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Entity
@@ -42,12 +43,11 @@ public class InspectionEntity {
     @Column(name = "vigencia_extintor")        private String vigenciaExtintor;
     private String observaciones;
 
-    /* Relaciones */
     @ManyToOne
-    @JoinColumn(name = "equipos_id")
+    @JoinColumn(name = "equipo_id")
     private MachineEntity machine;
 
     @ManyToOne
-    @JoinColumn(name = "usuarios_id")
+    @JoinColumn(name = "user_id")
     private UserEntity user;
 }

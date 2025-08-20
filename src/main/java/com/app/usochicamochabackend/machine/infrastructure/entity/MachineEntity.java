@@ -12,7 +12,7 @@ import java.time.LocalDate;
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "machines")
+@Table(name = "equipos")
 public class MachineEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,16 +20,15 @@ public class MachineEntity {
 
     private String name;
     private String model;
+    private LocalDate soat;
+    private String brand;
+    private LocalDate runt;
 
     @Column(name = "num_engine")
     private String numEngine;
 
     @Column(name = "num_inter_identification")
     private String numInterIdentification;
-
-    private LocalDate soat;
-    private String brand;
-    private LocalDate runt;
 
     @OneToOne
     @JoinColumn(name = "user_id")
