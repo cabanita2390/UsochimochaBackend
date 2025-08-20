@@ -5,8 +5,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Data
 @Entity
 @NoArgsConstructor
@@ -18,4 +16,8 @@ public class ImageEntity {
     private Long id;
 
     private String url;
+
+    @ManyToOne
+    @JoinColumn(name = "inspection_id")
+    private InspectionEntity inspection;
 }
