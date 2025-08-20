@@ -1,8 +1,8 @@
 package com.app.usochicamochabackend.order.domain;
 
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
-import com.app.usochicamochabackend.execution.domain.Result;
-import com.app.usochicamochabackend.inspection.domain.Inspection;
+import com.app.usochicamochabackend.performance.domain.Result;
+import com.app.usochicamochabackend.review.domain.Inspection;
 
 import java.time.LocalDateTime;
 
