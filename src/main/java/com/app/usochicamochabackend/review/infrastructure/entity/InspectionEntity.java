@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Entity
@@ -25,7 +26,7 @@ public class InspectionEntity {
     @Column(name = "date_stamp")
     private LocalDateTime dateStamp;
 
-    private String hourmeter;
+    private String horometro;
 
     @Column(name = "estado_fugas")             private String estadoFugas;
     @Column(name = "estado_frenos")            private String estadoFrenos;
@@ -49,4 +50,8 @@ public class InspectionEntity {
     @ManyToOne
     @JoinColumn(name = "user_id")
     private UserEntity user;
+
+    @OneToMany
+    @JoinColumn(name = "inspection_id")
+    private List<ImageEntity> images;
 }
