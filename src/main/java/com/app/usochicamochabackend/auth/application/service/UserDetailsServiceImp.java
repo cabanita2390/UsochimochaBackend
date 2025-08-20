@@ -50,7 +50,7 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
         String jwtToken = jwtUtils.createToken(authentication);
         String refreshToken = jwtUtils.createRefreshToken(authentication);
 
-        return new AuthResponse(username, "Login exitoso!", jwtToken, refreshToken,true);
+        return new AuthResponse(userEntity.getId(), username, "Login exitoso!", jwtToken, refreshToken,true);
     }
 
     @Override

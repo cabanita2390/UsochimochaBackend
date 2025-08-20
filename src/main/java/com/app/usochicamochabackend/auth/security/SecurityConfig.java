@@ -23,6 +23,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.List;
+
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -33,26 +35,19 @@ public class SecurityConfig  {
     @Bean
     SecurityFilterChain securityFilterChain (HttpSecurity httpSecurity) throws Exception {
         httpSecurity
-                // 1. AÑADE ESTA LÍNEA para activar la configuración CORS que definiste abajo
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(new JwtTokenValidator(jwtUtils), BasicAuthenticationFilter.class)
                 .authorizeHttpRequests(http -> {
-                    // 2. AÑADE ESTA REGLA para permitir las peticiones de permiso del navegador
                     http.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
-
-                    // Tus reglas existentes
                     http.requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll();
                     http.requestMatchers(
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
                             "/v3/api-docs.yaml"
                     ).permitAll();
-
-                    // 3. AÑADE ESTA REGLA para proteger tod lo demás
-                    http.anyRequest().permitAll();
+                    http.anyRequest().authenticated();
                 });
 
         return httpSecurity.build();
@@ -67,17 +62,10 @@ public class SecurityConfig  {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // ======================= CAMBIO CLAVE =======================
-        // En lugar de "*", especificamos el origen exacto de tu frontend.
-        configuration.addAllowedOrigin("http://localhost:5173,https://pdxs8r4k-8080.use2.devtunnels.ms");
-
-        // Permitimos todas las cabeceras y métodos
+        configuration.setAllowedOriginPatterns(List.of("*"));
         configuration.addAllowedHeader("*");
         configuration.addAllowedMethod("*");
-
-        // Ahora sí podemos permitir credenciales
         configuration.setAllowCredentials(true);
-        // ==========================================================
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
