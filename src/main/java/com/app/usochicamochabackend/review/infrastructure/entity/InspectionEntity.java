@@ -51,7 +51,7 @@ public class InspectionEntity {
     @JoinColumn(name = "user_id")
     private UserEntity user;
 
-    @OneToMany
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "inspection_id")
     private List<ImageEntity> images;
 }

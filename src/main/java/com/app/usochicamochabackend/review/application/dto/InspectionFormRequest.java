@@ -1,7 +1,5 @@
 package com.app.usochicamochabackend.review.application.dto;
 
-import java.util.List;
-
 public record InspectionFormRequest(
         String horometro,
         String estadoFugas,
@@ -18,6 +16,6 @@ public record InspectionFormRequest(
         String estadoEstructural,
         String vigenciaExtintor,
         String observaciones,
-        Long userId,
-        Long machineId
+        Long userId, //usa el 10
+        Long machineId //usa el 5
 ) {}

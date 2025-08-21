@@ -28,10 +28,10 @@ public class InspectionController {
 
     private final InspectionService inspectionService;
 
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
             summary = "Crear una nueva inspección",
-            description = "Este endpoint permite crear una inspección con datos en formato JSON y múltiples imágenes en formato multipart."
+            description = "Este endpoint permite crear una inspección únicamente con datos JSON (sin imágenes)."
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Inspección creada exitosamente"),
@@ -39,26 +39,54 @@ public class InspectionController {
             @ApiResponse(responseCode = "500", description = "Error interno del servidor")
     })
     public ResponseEntity<InspectionEntity> createInspection(
-            @Parameter(description = "Datos de la inspección en formato JSON", required = true)
-            @RequestPart("data") InspectionFormRequest request,
+            @RequestBody InspectionFormRequest request
+    ) throws URISyntaxException {
 
-            @Parameter(description = "Lista de imágenes opcionales en formato multipart", required = false)
-            @RequestPart(value = "imagenes", required = false) List<MultipartFile> imagenes
-    ) throws URISyntaxException, IOException {
-
-        InspectionEntity saved = inspectionService.createInspection(request, imagenes);
+        InspectionEntity saved = inspectionService.createInspectionOnlyData(request);
 
         return ResponseEntity
                 .created(new URI("/api/v1/inspection/" + saved.getId()))
                 .body(saved);
     }
 
+    @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(
+            summary = "Subir una imagen de una inspección",
+            description = "Este endpoint permite subir una sola imagen para una inspección existente. " +
+                    "Requiere el ID y el UUID de la inspección."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", description = "Imagen subida exitosamente"),
+            @ApiResponse(responseCode = "400", description = "Solicitud inválida"),
+            @ApiResponse(responseCode = "404", description = "Inspección no encontrada"),
+            @ApiResponse(responseCode = "500", description = "Error interno del servidor")
+    })
+    public ResponseEntity<ImageEntity> uploadInspectionImage(
+            @Parameter(description = "ID de la inspección", required = true)
+            @PathVariable("id") Long inspectionId,
+
+            @Parameter(description = "UUID de la inspección", required = true)
+            @RequestParam("uuid") String uuid,
+
+            @Parameter(description = "Imagen a subir", required = true)
+            @RequestPart("imagen") MultipartFile imagen
+    ) throws IOException, URISyntaxException {
+
+        ImageEntity savedImage = inspectionService.saveInspectionImage(inspectionId, uuid, imagen);
+
+        return ResponseEntity
+                .created(new URI("/api/v1/inspection/" + inspectionId + "/image/" + savedImage.getId()))
+                .body(savedImage);
+    }
+
     @GetMapping("/{id}")
     @Operation(
             summary = "Obtener una inspección por ID",
-            description = "Devuelve toda la información de una inspección, incluyendo usuario y máquina asociada"
+            description = "Devuelve toda la información de una inspección, incluyendo usuario y máquina asociada."
     )
-    public ResponseEntity<InspectionEntity> getInspectionById(@PathVariable Long id) {
+    public ResponseEntity<InspectionEntity> getInspectionById(
+            @PathVariable Long id
+    ) {
         InspectionEntity inspection = inspectionService.getInspectionById(id);
         return ResponseEntity.ok(inspection);
     }
@@ -66,11 +94,22 @@ public class InspectionController {
     @GetMapping("/{id}/imagenes")
     @Operation(
             summary = "Obtener imágenes de una inspección",
-            description = "Devuelve todas las imágenes asociadas a una inspección"
+            description = "Devuelve todas las imágenes asociadas a una inspección."
     )
-    public ResponseEntity<List<ImageEntity>> getInspectionImages(@PathVariable Long id) {
+    public ResponseEntity<List<ImageEntity>> getInspectionImages(
+            @PathVariable Long id
+    ) {
         List<ImageEntity> images = inspectionService.getInspectionImages(id);
         return ResponseEntity.ok(images);
     }
 
+    @GetMapping
+    @Operation(
+            summary = "Obtener todas las inspecciones",
+            description = "Devuelve todas las inspecciones sin incluir las imágenes"
+    )
+    public ResponseEntity<List<InspectionEntity>> getAllInspections() {
+        List<InspectionEntity> inspections = inspectionService.getAllInspectionsWithoutImages();
+        return ResponseEntity.ok(inspections);
+    }
 }

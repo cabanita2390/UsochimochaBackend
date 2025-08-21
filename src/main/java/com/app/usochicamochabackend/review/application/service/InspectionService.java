@@ -27,45 +27,62 @@ public class InspectionService {
     private final UserRepositoryJpa userRepository;
     private final MachineRepository machineRepository;
 
-    public InspectionEntity createInspection(InspectionFormRequest request, List<MultipartFile> imagenes) throws IOException {
-        // Crear carpeta de uploads si no existe
+    public InspectionEntity createInspectionOnlyData(InspectionFormRequest request) {
+        InspectionEntity entity = mapToEntity(request, null);
+        return inspectionRepository.save(entity);
+    }
+
+    public ImageEntity saveInspectionImage(Long inspectionId, String uuid, MultipartFile imagen) throws IOException {
+        InspectionEntity inspection = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
+
+        if (!inspection.getUuid().equals(uuid)) {
+            throw new IllegalArgumentException("UUID does not match with inspection");
+        }
+
         Path uploadsPath = Paths.get("uploads");
         if (!Files.exists(uploadsPath)) {
             Files.createDirectories(uploadsPath);
         }
 
-        // Crear carpeta única para la inspección
-        String inspectionId = UUID.randomUUID().toString();
-        Path inspectionFolder = uploadsPath.resolve(inspectionId);
-        Files.createDirectories(inspectionFolder);
-
-        List<String> imagePaths = saveImages(imagenes, inspectionFolder);
-
-        // Guardar entidad en base de datos
-        InspectionEntity entity = mapToEntity(request, imagePaths);
-        return inspectionRepository.save(entity);
-    }
-
-    private List<String> saveImages(List<MultipartFile> imagenes, Path inspectionFolder) throws IOException {
-        List<String> imagePaths = new ArrayList<>();
-
-        if (imagenes != null && !imagenes.isEmpty()) {
-            int index = 1;
-            for (MultipartFile imagen : imagenes) {
-                if (!imagen.isEmpty()) {
-                    // Detectar extensión
-                    String extension = getFileExtension(imagen);
-
-                    // Guardar con nombre seguro
-                    Path filePath = inspectionFolder.resolve("img_" + index + extension);
-                    Files.write(filePath, imagen.getBytes());
-                    imagePaths.add(filePath.toString());
-                    index++;
-                }
-            }
+        Path inspectionFolder = uploadsPath.resolve(uuid);
+        if (!Files.exists(inspectionFolder)) {
+            Files.createDirectories(inspectionFolder);
         }
 
-        return imagePaths;
+        int nextIndex = inspection.getImages() != null ? inspection.getImages().size() + 1 : 1;
+
+        String extension = getFileExtension(imagen);
+
+        String filename = uuid + "-" + nextIndex + extension;
+        Path filePath = inspectionFolder.resolve(filename);
+
+        Files.write(filePath, imagen.getBytes());
+
+        ImageEntity img = new ImageEntity();
+        img.setUrl(filePath.toString());
+        img.setUuid(uuid);
+        img.setInspection(inspection);
+
+        if (inspection.getImages() == null) {
+            inspection.setImages(new ArrayList<>());
+        }
+        inspection.getImages().add(img);
+
+        inspectionRepository.save(inspection);
+
+        return img;
+    }
+
+    public InspectionEntity getInspectionById(Long id) {
+        return inspectionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
+    }
+
+    public List<ImageEntity> getInspectionImages(Long id) {
+        InspectionEntity inspection = inspectionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
+        return inspection.getImages();
     }
 
     private String getFileExtension(MultipartFile file) {
@@ -88,8 +105,6 @@ public class InspectionService {
 
         entity.setUuid(UUID.randomUUID().toString());
         entity.setDateStamp(LocalDateTime.now());
-
-        // Mapeo DTO → Entity
         entity.setHorometro(request.horometro());
         entity.setEstadoFrenos(request.estadoFrenos());
         entity.setEstadoFugas(request.estadoFugas());
@@ -106,43 +121,53 @@ public class InspectionService {
         entity.setVigenciaExtintor(request.vigenciaExtintor());
         entity.setObservaciones(request.observaciones());
 
-        // Mapeo de User
         if (request.userId() != null) {
             entity.setUser(userRepository.findById(request.userId())
                     .orElseThrow(() -> new IllegalArgumentException("User not found")));
         }
 
-        // Mapeo de Machine
         if (request.machineId() != null) {
             entity.setMachine(machineRepository.findById(request.machineId())
                     .orElseThrow(() -> new IllegalArgumentException("Machine not found")));
         }
 
-        // Mapeo de imágenes
-        if (imagePaths != null && !imagePaths.isEmpty()) {
-            List<ImageEntity> images = imagePaths.stream()
-                    .map(path -> {
-                        ImageEntity img = new ImageEntity();
-                        img.setUrl(path);
-                        img.setInspection(entity); // relación inversa si la tienes en ImageEntity
-                        return img;
-                    })
-                    .toList();
-            entity.setImages(images);
-        }
-
         return entity;
     }
 
-    public InspectionEntity getInspectionById(Long id) {
-        return inspectionRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
-    }
+    public List<InspectionEntity> getAllInspectionsWithoutImages() {
+        List<InspectionEntity> inspections = inspectionRepository.findAll();
 
-    public List<ImageEntity> getInspectionImages(Long id) {
-        InspectionEntity inspection = inspectionRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
-        return inspection.getImages();
+        // Crear una copia de cada inspección sin la lista de imágenes
+        List<InspectionEntity> result = new ArrayList<>();
+        for (InspectionEntity insp : inspections) {
+            InspectionEntity copy = new InspectionEntity();
+
+            copy.setId(insp.getId());
+            copy.setUuid(insp.getUuid());
+            copy.setDateStamp(insp.getDateStamp());
+            copy.setHorometro(insp.getHorometro());
+            copy.setEstadoFugas(insp.getEstadoFugas());
+            copy.setEstadoFrenos(insp.getEstadoFrenos());
+            copy.setEstadoCorreasPoleas(insp.getEstadoCorreasPoleas());
+            copy.setEstadoLlantasCarriles(insp.getEstadoLlantasCarriles());
+            copy.setEstadoEncendido(insp.getEstadoEncendido());
+            copy.setEstadoElectrico(insp.getEstadoElectrico());
+            copy.setEstadoMecanico(insp.getEstadoMecanico());
+            copy.setEstadoTemperatura(insp.getEstadoTemperatura());
+            copy.setEstadoAceite(insp.getEstadoAceite());
+            copy.setEstadoHidraulico(insp.getEstadoHidraulico());
+            copy.setEstadoRefrigerante(insp.getEstadoRefrigerante());
+            copy.setEstadoEstructural(insp.getEstadoEstructural());
+            copy.setVigenciaExtintor(insp.getVigenciaExtintor());
+            copy.setObservaciones(insp.getObservaciones());
+            copy.setUser(insp.getUser());
+            copy.setMachine(insp.getMachine());
+            copy.setImages(null);
+
+            result.add(copy);
+        }
+
+        return result;
     }
 
 }
