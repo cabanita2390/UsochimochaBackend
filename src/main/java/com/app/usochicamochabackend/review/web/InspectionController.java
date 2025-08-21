@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/inspection")
@@ -96,12 +97,21 @@ public class InspectionController {
             summary = "Obtener imágenes de una inspección",
             description = "Devuelve todas las imágenes asociadas a una inspección."
     )
-    public ResponseEntity<List<ImageEntity>> getInspectionImages(
+    public ResponseEntity<List<Map<String, String>>> getInspectionImages(
             @PathVariable Long id
     ) {
-        List<ImageEntity> images = inspectionService.getInspectionImages(id);
+        InspectionEntity inspection = inspectionService.getInspectionById(id);
+
+        List<Map<String, String>> images = inspection.getImages().stream()
+                .map(img -> Map.of(
+                        "url", img.getUrl(),
+                        "uuid", img.getUuid()
+                ))
+                .toList();
+
         return ResponseEntity.ok(images);
     }
+
 
     @GetMapping
     @Operation(

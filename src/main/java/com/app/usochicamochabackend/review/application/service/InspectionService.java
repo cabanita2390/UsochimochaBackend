@@ -79,6 +79,7 @@ public class InspectionService {
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
     }
 
+
     public List<ImageEntity> getInspectionImages(Long id) {
         InspectionEntity inspection = inspectionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
