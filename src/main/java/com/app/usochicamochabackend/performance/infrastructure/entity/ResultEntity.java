@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.performance.infrastructure.entity;
 
+import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;

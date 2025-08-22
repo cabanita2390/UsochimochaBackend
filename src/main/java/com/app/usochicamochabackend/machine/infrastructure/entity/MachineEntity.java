@@ -29,8 +29,4 @@ public class MachineEntity {
 
     @Column(name = "num_inter_identification")
     private String numInterIdentification;
-
-    @OneToOne
-    @JoinColumn(name = "user_id")
-    private UserEntity user;
 }
