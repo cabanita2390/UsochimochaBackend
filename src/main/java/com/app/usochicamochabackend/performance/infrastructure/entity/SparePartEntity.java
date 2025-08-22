@@ -5,18 +5,20 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "repuestos")
+@Table(name = "spare_parts")
 public class SparePartEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String ref;
-    private String nombre;
-    private String cantidad;
-    private String precio;
+    private String name;
+    private String quantity;
+    private BigDecimal price;
 }

@@ -12,22 +12,22 @@ import java.util.List;
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "resultados")
+@Table(name = "results")
 public class ResultEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private LocalDateTime fecha;
+    private LocalDateTime date;
 
-    @Column(name = "tiempo_empleado")
-    private String tiempoEmpleado;
+    @Column(name = "time_spent")
+    private String timeSpent;
 
     @OneToOne
-    @JoinColumn(name = "mano_obra_id")
-    private LaborEntity manoId;
+    @JoinColumn(name = "labor_force_id")
+    private LaborEntity laborForceId;
 
     @OneToMany
-    @JoinColumn(name = "resultado_id")
-    private List<SparePartEntity> repuestoId;
+    @JoinColumn(name = "result_id")
+    private List<SparePartEntity> resultId;
 }

@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.review.web;
 
+import com.app.usochicamochabackend.review.application.dto.ImagesDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
 import com.app.usochicamochabackend.review.application.service.InspectionService;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
@@ -31,18 +32,15 @@ public class InspectionController {
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
-            summary = "Crear una nueva inspección",
-            description = "Este endpoint permite crear una inspección únicamente con datos JSON (sin imágenes)."
+            summary = "Create a new inspection",
+            description = "This endpoint allows creating an inspection using only JSON data (without images)."
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Inspección creada exitosamente"),
-            @ApiResponse(responseCode = "400", description = "Solicitud inválida"),
-            @ApiResponse(responseCode = "500", description = "Error interno del servidor")
+            @ApiResponse(responseCode = "201", description = "Inspection successfully created"),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<InspectionEntity> createInspection(
-            @RequestBody InspectionFormRequest request
-    ) throws URISyntaxException {
-
+    public ResponseEntity<InspectionEntity> createInspection(@RequestBody InspectionFormRequest request) throws URISyntaxException {
         InspectionEntity saved = inspectionService.createInspectionOnlyData(request);
 
         return ResponseEntity
@@ -52,24 +50,24 @@ public class InspectionController {
 
     @PostMapping(value = "/{id}/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
-            summary = "Subir una imagen de una inspección",
-            description = "Este endpoint permite subir una sola imagen para una inspección existente. " +
-                    "Requiere el ID y el UUID de la inspección."
+            summary = "Upload an inspection image",
+            description = "This endpoint allows uploading a single image for an existing inspection. " +
+                    "Requires the inspection ID and UUID."
     )
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "201", description = "Imagen subida exitosamente"),
-            @ApiResponse(responseCode = "400", description = "Solicitud inválida"),
-            @ApiResponse(responseCode = "404", description = "Inspección no encontrada"),
-            @ApiResponse(responseCode = "500", description = "Error interno del servidor")
+            @ApiResponse(responseCode = "201", description = "Image successfully uploaded"),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "404", description = "Inspection not found"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
     })
     public ResponseEntity<ImageEntity> uploadInspectionImage(
-            @Parameter(description = "ID de la inspección", required = true)
+            @Parameter(description = "Inspection ID", required = true)
             @PathVariable("id") Long inspectionId,
 
-            @Parameter(description = "UUID de la inspección", required = true)
+            @Parameter(description = "Inspection UUID", required = true)
             @RequestParam("uuid") String uuid,
 
-            @Parameter(description = "Imagen a subir", required = true)
+            @Parameter(description = "Image to upload", required = true)
             @RequestPart("imagen") MultipartFile imagen
     ) throws IOException, URISyntaxException {
 
@@ -82,41 +80,27 @@ public class InspectionController {
 
     @GetMapping("/{id}")
     @Operation(
-            summary = "Obtener una inspección por ID",
-            description = "Devuelve toda la información de una inspección, incluyendo usuario y máquina asociada."
+            summary = "Get an inspection by ID",
+            description = "Returns all the information of an inspection, including the associated user and machine."
     )
-    public ResponseEntity<InspectionEntity> getInspectionById(
-            @PathVariable Long id
-    ) {
+    public ResponseEntity<InspectionEntity> getInspectionById(@PathVariable Long id) {
         InspectionEntity inspection = inspectionService.getInspectionById(id);
         return ResponseEntity.ok(inspection);
     }
 
-    @GetMapping("/{id}/imagenes")
+    @GetMapping("/{id}/images")
     @Operation(
-            summary = "Obtener imágenes de una inspección",
-            description = "Devuelve todas las imágenes asociadas a una inspección."
+            summary = "Get inspection images",
+            description = "Returns all images associated with an inspection."
     )
-    public ResponseEntity<List<Map<String, String>>> getInspectionImages(
-            @PathVariable Long id
-    ) {
-        InspectionEntity inspection = inspectionService.getInspectionById(id);
-
-        List<Map<String, String>> images = inspection.getImages().stream()
-                .map(img -> Map.of(
-                        "url", img.getUrl(),
-                        "uuid", img.getUuid()
-                ))
-                .toList();
-
-        return ResponseEntity.ok(images);
+    public ResponseEntity<List<ImagesDTO>> getInspectionImages(@PathVariable Long id) {
+        return ResponseEntity.ok(inspectionService.getInspectionImages(id));
     }
-
 
     @GetMapping
     @Operation(
-            summary = "Obtener todas las inspecciones",
-            description = "Devuelve todas las inspecciones sin incluir las imágenes"
+            summary = "Get all inspections",
+            description = "Returns all inspections without including images."
     )
     public ResponseEntity<List<InspectionEntity>> getAllInspections() {
         List<InspectionEntity> inspections = inspectionService.getAllInspectionsWithoutImages();

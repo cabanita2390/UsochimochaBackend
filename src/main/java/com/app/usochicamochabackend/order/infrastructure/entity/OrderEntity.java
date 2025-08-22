@@ -14,29 +14,29 @@ import java.time.LocalDateTime;
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "ordenes")
+@Table(name = "orders")
 public class OrderEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String status;
-    private LocalDateTime orderDate;
+    private LocalDateTime date;
     private String description;
 
     @OneToOne
-    @JoinColumn(name = "inspeccion_id")
+    @JoinColumn(name = "inspection_id")
     private InspectionEntity inspection;
 
     @OneToOne
-    @JoinColumn(name = "resultado_id")
+    @JoinColumn(name = "result_id")
     private ResultEntity result;
 
     @ManyToOne
-    @JoinColumn(name = "usuario_asignador_id")
+    @JoinColumn(name = "assigner_user_id")
     private UserEntity assignerUser;
 
     @ManyToOne
-    @JoinColumn(name = "usuario_asignado_id")
+    @JoinColumn(name = "assigned_user_id")
     private UserEntity assignedUser;
 }

@@ -45,12 +45,12 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
 
         // Obtener información completa del usuario
         UserEntity userEntity = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
+                .orElseThrow(() -> new UsernameNotFoundException("user not found!"));
 
         String jwtToken = jwtUtils.createToken(authentication);
         String refreshToken = jwtUtils.createRefreshToken(authentication);
 
-        return new AuthResponse(userEntity.getId(), username, "Login exitoso!", jwtToken, refreshToken,true);
+        return new AuthResponse(userEntity.getId(), username, "logged successfully!", jwtToken, refreshToken,true);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
         }
 
         if (!passwordEncoder.matches(password, userDetails.getPassword())) {
-            throw new BadCredentialsException("Invalid password");
+            throw new BadCredentialsException("invalid password");
         }
 
         return new UsernamePasswordAuthenticationToken(userDetails.getUsername(), null, userDetails.getAuthorities());
@@ -70,9 +70,9 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
 
     @Override
     public UserDetails searchUserDetails(String username) {
-        UserEntity userEntity = userRepository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        UserEntity userEntity = userRepository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException("user not found"));
 
-        GrantedAuthority role = new SimpleGrantedAuthority("ROLE_".concat(userEntity.getRole().toString()));
+        GrantedAuthority role = new SimpleGrantedAuthority("ROLE_".concat(userEntity.getRole()));
 
         return new User(username, userEntity.getPassword(), Set.of(role));
     }
@@ -84,9 +84,9 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
             String username = jwtUtils.extractUsername(decodedJWT);
 
             UserEntity userEntity = userRepository.findByUsername(username)
-                    .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado"));
+                    .orElseThrow(() -> new UsernameNotFoundException("user not found"));
 
-            GrantedAuthority role = new SimpleGrantedAuthority("ROLE_".concat(userEntity.getRole().toString()));
+            GrantedAuthority role = new SimpleGrantedAuthority("ROLE_".concat(userEntity.getRole()));
             Authentication authentication = new UsernamePasswordAuthenticationToken(
                     username, null, Set.of(role)
             );
