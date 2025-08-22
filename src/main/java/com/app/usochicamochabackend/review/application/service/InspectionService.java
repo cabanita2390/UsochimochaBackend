@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.review.application.service;
 
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import com.app.usochicamochabackend.review.application.dto.ImagesDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
@@ -36,7 +37,7 @@ public class InspectionService {
         InspectionEntity inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
 
-        if (!inspection.getUuid().equals(uuid)) {
+        if (!inspection.getUUID().equals(uuid)) {
             throw new IllegalArgumentException("UUID does not match with inspection");
         }
 
@@ -80,10 +81,10 @@ public class InspectionService {
     }
 
 
-    public List<ImageEntity> getInspectionImages(Long id) {
+    public List<ImagesDTO> getInspectionImages(Long id) {
         InspectionEntity inspection = inspectionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
-        return inspection.getImages();
+        return inspection.getImages().stream().map(image -> new ImagesDTO(image.getUrl(), image.getUuid(), image.getInspection().getId())).toList();
     }
 
     private String getFileExtension(MultipartFile file) {
@@ -104,23 +105,23 @@ public class InspectionService {
     private InspectionEntity mapToEntity(InspectionFormRequest request, List<String> imagePaths) {
         InspectionEntity entity = new InspectionEntity();
 
-        entity.setUuid(UUID.randomUUID().toString());
+        entity.setUUID(UUID.randomUUID().toString());
         entity.setDateStamp(LocalDateTime.now());
-        entity.setHorometro(request.horometro());
-        entity.setEstadoFrenos(request.estadoFrenos());
-        entity.setEstadoFugas(request.estadoFugas());
-        entity.setEstadoCorreasPoleas(request.estadoCorreasPoleas());
-        entity.setEstadoLlantasCarriles(request.estadoLlantasCarriles());
-        entity.setEstadoEncendido(request.estadoEncendido());
-        entity.setEstadoElectrico(request.estadoElectrico());
-        entity.setEstadoMecanico(request.estadoMecanico());
-        entity.setEstadoTemperatura(request.estadoTemperatura());
-        entity.setEstadoAceite(request.estadoAceite());
-        entity.setEstadoHidraulico(request.estadoHidraulico());
-        entity.setEstadoRefrigerante(request.estadoRefrigerante());
-        entity.setEstadoEstructural(request.estadoEstructural());
-        entity.setVigenciaExtintor(request.vigenciaExtintor());
-        entity.setObservaciones(request.observaciones());
+        entity.setHourmeter(request.hourmeter());
+        entity.setBrakeStatus(request.brakeStatus());
+        entity.setLeakStatus(request.leakStatus());
+        entity.setBeltsPulleysStatus(request.beltsPulleysStatus());
+        entity.setTireLanesStatus(request.tireLanesStatus());
+        entity.setCarIgnitionStatus(request.carIgnitionStatus());
+        entity.setElectricalStatus(request.electricalStatus());
+        entity.setMechanicalStatus(request.mechanicalStatus());
+        entity.setTemperatureStatus(request.temperatureStatus());
+        entity.setOilStatus(request.oilStatus());
+        entity.setHydraulicStatus(request.hydraulicStatus());
+        entity.setCoolantStatus(request.coolantStatus());
+        entity.setStructuralStatus(request.structuralStatus());
+        entity.setExpirationDateFireExtinguisher(request.expirationDateFireExtinguisher());
+        entity.setObservations(request.observations());
 
         if (request.userId() != null) {
             entity.setUser(userRepository.findById(request.userId())
@@ -144,23 +145,23 @@ public class InspectionService {
             InspectionEntity copy = new InspectionEntity();
 
             copy.setId(insp.getId());
-            copy.setUuid(insp.getUuid());
+            copy.setUUID(insp.getUUID());
             copy.setDateStamp(insp.getDateStamp());
-            copy.setHorometro(insp.getHorometro());
-            copy.setEstadoFugas(insp.getEstadoFugas());
-            copy.setEstadoFrenos(insp.getEstadoFrenos());
-            copy.setEstadoCorreasPoleas(insp.getEstadoCorreasPoleas());
-            copy.setEstadoLlantasCarriles(insp.getEstadoLlantasCarriles());
-            copy.setEstadoEncendido(insp.getEstadoEncendido());
-            copy.setEstadoElectrico(insp.getEstadoElectrico());
-            copy.setEstadoMecanico(insp.getEstadoMecanico());
-            copy.setEstadoTemperatura(insp.getEstadoTemperatura());
-            copy.setEstadoAceite(insp.getEstadoAceite());
-            copy.setEstadoHidraulico(insp.getEstadoHidraulico());
-            copy.setEstadoRefrigerante(insp.getEstadoRefrigerante());
-            copy.setEstadoEstructural(insp.getEstadoEstructural());
-            copy.setVigenciaExtintor(insp.getVigenciaExtintor());
-            copy.setObservaciones(insp.getObservaciones());
+            copy.setHourmeter(insp.getHourmeter());
+            copy.setLeakStatus(insp.getLeakStatus());
+            copy.setBrakeStatus(insp.getBrakeStatus());
+            copy.setBeltsPulleysStatus(insp.getBeltsPulleysStatus());
+            copy.setTireLanesStatus(insp.getTireLanesStatus());
+            copy.setCarIgnitionStatus(insp.getCarIgnitionStatus());
+            copy.setElectricalStatus(insp.getElectricalStatus());
+            copy.setMechanicalStatus(insp.getMechanicalStatus());
+            copy.setTemperatureStatus(insp.getTemperatureStatus());
+            copy.setOilStatus(insp.getOilStatus());
+            copy.setHydraulicStatus(insp.getHydraulicStatus());
+            copy.setCoolantStatus(insp.getCoolantStatus());
+            copy.setStructuralStatus(insp.getStructuralStatus());
+            copy.setExpirationDateFireExtinguisher(insp.getExpirationDateFireExtinguisher());
+            copy.setObservations(insp.getObservations());
             copy.setUser(insp.getUser());
             copy.setMachine(insp.getMachine());
             copy.setImages(null);

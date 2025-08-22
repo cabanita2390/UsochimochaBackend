@@ -14,37 +14,51 @@ import java.util.List;
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "inspecciones")
+@Table(name = "inspections")
 public class InspectionEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String uuid;
+    private String UUID;
 
     @Column(name = "date_stamp")
     private LocalDateTime dateStamp;
 
-    private String horometro;
+    private String hourmeter;
 
-    @Column(name = "estado_fugas")             private String estadoFugas;
-    @Column(name = "estado_frenos")            private String estadoFrenos;
-    @Column(name = "estado_correas_poleas")    private String estadoCorreasPoleas;
-    @Column(name = "estado_llantas_carriles")  private String estadoLlantasCarriles;
-    @Column(name = "estado_encendido")         private String estadoEncendido;
-    @Column(name = "estado_electrico")         private String estadoElectrico;
-    @Column(name = "estado_mecanico")          private String estadoMecanico;
-    @Column(name = "estado_temperatura")       private String estadoTemperatura;
-    @Column(name = "estado_aceite")            private String estadoAceite;
-    @Column(name = "estado_hidraulico")        private String estadoHidraulico;
-    @Column(name = "estado_refrigerante")      private String estadoRefrigerante;
-    @Column(name = "estado_estructural")       private String estadoEstructural;
-    @Column(name = "vigencia_extintor")        private String vigenciaExtintor;
-    private String observaciones;
+    @Column(name = "leak_status")
+    private String leakStatus;
+    @Column(name = "brake_status")
+    private String brakeStatus;
+    @Column(name = "belts_pulleys_status")
+    private String beltsPulleysStatus;
+    @Column(name = "tire_lanes_status")
+    private String tireLanesStatus;
+    @Column(name = "car_ignition_status")
+    private String carIgnitionStatus;
+    @Column(name = "electrical_status")
+    private String electricalStatus;
+    @Column(name = "mechanical_status")
+    private String mechanicalStatus;
+    @Column(name = "temperature_status")
+    private String temperatureStatus;
+    @Column(name = "oil_status")
+    private String oilStatus;
+    @Column(name = "hydraulic_status")
+    private String hydraulicStatus;
+    @Column(name = "coolant_status")
+    private String coolantStatus;
+    @Column(name = "structuralStatus")
+    private String structuralStatus;
+    @Column(name = "expiration_date_fire_extinguisher")
+    private String expirationDateFireExtinguisher;
+
+    private String observations;
 
     @ManyToOne
-    @JoinColumn(name = "equipo_id")
+    @JoinColumn(name = "machine_id")
     private MachineEntity machine;
 
     @ManyToOne

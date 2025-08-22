@@ -11,14 +11,14 @@ import java.time.LocalDateTime;
 @Entity
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "manos_de_obra")
+@Table(name = "labor_force")
 public class LaborEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private LocalDateTime fecha;
-    private String precio;
-    private Boolean mecanico;
-    private String contratista;
+    private LocalDateTime date;
+    private String price;
+    private Boolean mecanic;
+    private String contractor;
 }
