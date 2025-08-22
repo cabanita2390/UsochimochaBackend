@@ -2,7 +2,7 @@ package com.app.usochicamochabackend.review.application.service;
 
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
-import com.app.usochicamochabackend.review.application.dto.ImagesDTO;
+import com.app.usochicamochabackend.review.application.dto.ImagesResponse;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
@@ -81,10 +81,10 @@ public class InspectionService {
     }
 
 
-    public List<ImagesDTO> getInspectionImages(Long id) {
+    public List<ImagesResponse> getInspectionImages(Long id) {
         InspectionEntity inspection = inspectionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
-        return inspection.getImages().stream().map(image -> new ImagesDTO(image.getUrl(), image.getUuid(), image.getInspection().getId())).toList();
+        return inspection.getImages().stream().map(image -> new ImagesResponse(image.getUrl(), image.getUuid(), image.getInspection().getId())).toList();
     }
 
     private String getFileExtension(MultipartFile file) {

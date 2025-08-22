@@ -36,6 +36,7 @@ public class OrderController {
     }
 
     /* --- CREATE --- */
+    /*
     @PostMapping
     @Operation(summary = "Create order")
     @ApiResponse(responseCode = "201", description = "Order created")
@@ -46,8 +47,9 @@ public class OrderController {
                 .created(new URI("/api/v1/order/" + saved.getId()))
                 .body(saved);
     }
+    */
 
-    /* --- UPDATE --- */
+    /*
     @PutMapping("/{id}")
     @Operation(summary = "Update Order")
     public ResponseEntity<OrderEntity> updateOrder(
@@ -60,8 +62,8 @@ public class OrderController {
                 .created(new URI("/api/v1/order/" + updated.getId()))
                 .body(updated);
     }
-
-    /* --- DELETE --- */
+    */
+/*
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete Order")
     @ApiResponses({
@@ -71,4 +73,6 @@ public class OrderController {
         orderService.deleteOrder(id);
         return ResponseEntity.noContent().build();
     }
+
+ */
 }

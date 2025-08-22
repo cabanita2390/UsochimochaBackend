@@ -1,6 +1,6 @@
 package com.app.usochicamochabackend.review.web;
 
-import com.app.usochicamochabackend.review.application.dto.ImagesDTO;
+import com.app.usochicamochabackend.review.application.dto.ImagesResponse;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
 import com.app.usochicamochabackend.review.application.service.InspectionService;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/inspection")
@@ -93,7 +92,7 @@ public class InspectionController {
             summary = "Get inspection images",
             description = "Returns all images associated with an inspection."
     )
-    public ResponseEntity<List<ImagesDTO>> getInspectionImages(@PathVariable Long id) {
+    public ResponseEntity<List<ImagesResponse>> getInspectionImages(@PathVariable Long id) {
         return ResponseEntity.ok(inspectionService.getInspectionImages(id));
     }
 
