@@ -23,7 +23,9 @@ public class OrderEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String status;
+
     private LocalDateTime date;
+
     private String description;
 
     @OneToOne
@@ -41,4 +43,9 @@ public class OrderEntity {
     @ManyToOne
     @JoinColumn(name = "assigned_user_id")
     private UserEntity assignedUser;
+
+    @PrePersist
+    protected void onCreate() {
+        this.date = LocalDateTime.now();
+    }
 }

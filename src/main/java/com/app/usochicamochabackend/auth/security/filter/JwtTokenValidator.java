@@ -29,18 +29,13 @@ public class JwtTokenValidator extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
 
-        // ======================= CAMBIO 1 =======================
-        // Si la petición es de tipo OPTIONS, la dejamos pasar inmediatamente.
         if (request.getMethod().equalsIgnoreCase("OPTIONS")) {
             filterChain.doFilter(request, response);
             return;
         }
-        // ==========================================================
 
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
 
-        // ======================= CAMBIO 2 =======================
-        // Verificamos que el encabezado exista Y que comience con "Bearer ".
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
 
@@ -51,7 +46,6 @@ public class JwtTokenValidator extends OncePerRequestFilter {
 
             SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(username, null, Set.of(role)));
         }
-        // ==========================================================
 
         filterChain.doFilter(request, response);
     }

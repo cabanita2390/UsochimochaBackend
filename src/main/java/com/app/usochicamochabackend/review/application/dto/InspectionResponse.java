@@ -26,5 +26,5 @@ public record InspectionResponse(Long id,
                                  String observations,
                                  UserResponse user,
                                  MachineResponse machine,
-                                 List<ImagesResponse> images) {
+                                 ImagesDTO images) {
 }

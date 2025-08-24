@@ -2,14 +2,17 @@ package com.app.usochicamochabackend.user.application.service;
 
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
-import com.app.usochicamochabackend.user.application.dto.CreateUserRequest;
-import com.app.usochicamochabackend.user.application.dto.CreateUserResponse;
+import com.app.usochicamochabackend.exception.ResourceNotFoundException;
+import com.app.usochicamochabackend.mapper.UserMapper;
+import com.app.usochicamochabackend.user.application.dto.*;
 import com.app.usochicamochabackend.user.application.port.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.net.URISyntaxException;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -18,7 +21,8 @@ public class UserService implements
         DeleteUserUseCase,
         FindAllUsersUseCase,
         FindUserByIdUseCase,
-        UpdateUserUseCase {
+        UpdateUserUseCase,
+        ChangePasswordUseCase {
 
     private final UserRepositoryJpa userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -41,21 +45,55 @@ public class UserService implements
 
     @Override
     public void deleteUser(Long id) {
-        userRepository.deleteById(id);
+        UserEntity user = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        user.setStatus(false);
+        userRepository.save(user);
     }
 
     @Override
-    public List<UserEntity> findAllUsers() {
-        return userRepository.findAll();
+    public UsersResponse findAllUsers() {
+        List<UserEntity> userEntities = userRepository.findAll()
+                .stream()
+                .filter(UserEntity::getStatus)
+                .toList();
+
+        return UserMapper.toResponse(userEntities);
     }
 
     @Override
-    public UserEntity findUserById(Long id) {
-        return userRepository.findById(id).orElse(null);
+    public UserResponse findUserById(Long id) {
+         UserEntity user = userRepository.findById(id).orElseThrow(()-> new ResourceNotFoundException("User not found with id: " + id));
+         return UserMapper.toResponse(user);
     }
 
     @Override
-    public UserEntity updateUser(UserEntity userEntity) {
-        return userRepository.save(userEntity);
+    public UserResponse updateUser(UpdateUserRequest request) throws ResourceNotFoundException, URISyntaxException {
+        UserEntity currentUser = userRepository.getUserEntityById(request.id());
+
+        Optional.ofNullable(request.username())
+                .ifPresent(currentUser::setUsername);
+
+        Optional.ofNullable(request.fullName())
+                .ifPresent(currentUser::setFullName);
+
+        Optional.ofNullable(request.email())
+                .ifPresent(currentUser::setEmail);
+
+        Optional.ofNullable(request.role())
+                .ifPresent(currentUser::setRole);
+
+        UserEntity userUpdated = userRepository.save(currentUser);
+
+        return UserMapper.toResponse(userUpdated);
+    }
+
+    @Override
+    public ChangePasswordResponse changePassword(ChangePasswordRequest request) {
+        UserEntity currentUser = userRepository.findById(request.id()).orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + request.id()));
+
+        currentUser.setPassword(passwordEncoder.encode(request.newPassword()));
+        UserResponse userUpdated = UserMapper.toResponse(userRepository.save(currentUser));
+
+        return new ChangePasswordResponse(userUpdated, "Password was change successfully", true);
     }
 }

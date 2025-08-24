@@ -1,7 +1,7 @@
 package com.app.usochicamochabackend.user.application.port;
 
-import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
+import com.app.usochicamochabackend.user.application.dto.UserResponse;
 
 public interface FindUserByIdUseCase {
-    UserEntity findUserById(Long id);
+    UserResponse findUserById(Long id);
 }

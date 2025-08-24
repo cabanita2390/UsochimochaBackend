@@ -1,18 +1,17 @@
 package com.app.usochicamochabackend.order.web;
 
-import com.app.usochicamochabackend.order.application.service.OrderService;
-import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
+import com.app.usochicamochabackend.order.application.dto.AssignOrderRequest;
+import com.app.usochicamochabackend.order.application.dto.AssignOrderResponse;
+import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/order")
@@ -20,59 +19,30 @@ import java.util.List;
 @Tag(name = "Orders", description = "Endpoints for managing orders")
 public class OrderController {
 
-    private final OrderService orderService;
+    private final AssignOrderUseCase assignOrderUseCase;
 
-    /* --- READ --- */
-    @GetMapping("/{id}")
-    @Operation(summary = "Get orders by ID")
-    public ResponseEntity<OrderEntity> getOrderById(@PathVariable Long id) {
-        return ResponseEntity.ok(orderService.findOrderById(id));
-    }
-
-    @GetMapping
-    @Operation(summary = "Get all orders")
-    public ResponseEntity<List<OrderEntity>> getInspections() {
-        return ResponseEntity.ok(orderService.findAllOrder());
-    }
-
-    /* --- CREATE --- */
-    /*
-    @PostMapping
-    @Operation(summary = "Create order")
-    @ApiResponse(responseCode = "201", description = "Order created")
-    public ResponseEntity<OrderEntity> createOrder(@RequestBody OrderEntity orderEntity)
-            throws URISyntaxException {
-        OrderEntity saved = orderService.createOrder(orderEntity);
-        return ResponseEntity
-                .created(new URI("/api/v1/order/" + saved.getId()))
-                .body(saved);
-    }
-    */
-
-    /*
-    @PutMapping("/{id}")
-    @Operation(summary = "Update Order")
-    public ResponseEntity<OrderEntity> updateOrder(
-            @PathVariable Long id,
-            @RequestBody OrderEntity orderEntity) throws URISyntaxException {
-
-        orderEntity.setId(id);
-        OrderEntity updated = orderService.updateOrder(orderEntity);
-        return ResponseEntity
-                .created(new URI("/api/v1/order/" + updated.getId()))
-                .body(updated);
-    }
-    */
-/*
-    @DeleteMapping("/{id}")
-    @Operation(summary = "Delete Order")
-    @ApiResponses({
-            @ApiResponse(responseCode = "204", description = "Order deleted")
+    @Operation(
+            summary = "Assign a new order",
+            description = "Creates a new order for a given inspection, assigning it to a specific user with an optional description."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Order successfully created",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = AssignOrderResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Inspection, assigner user, or assigned user not found",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
+            @ApiResponse(responseCode = "400", description = "Invalid request data",
+                    content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
     })
-    public ResponseEntity<Void> deleteOrder(@PathVariable Long id) {
-        orderService.deleteOrder(id);
-        return ResponseEntity.noContent().build();
-    }
+    @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public AssignOrderResponse assignOrder(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "Order assignment data including inspectionId, assignerUserId, assignedUserId and description",
+                    required = true,
+                    content = @Content(schema = @Schema(implementation = AssignOrderRequest.class))
+            )
+            @RequestBody AssignOrderRequest assignOrderRequest) {
 
- */
+        return assignOrderUseCase.assignOrder(assignOrderRequest);
+    }
 }
