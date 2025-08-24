@@ -10,4 +10,5 @@ public class UsochicamochaBackendApplication {
         SpringApplication.run(UsochicamochaBackendApplication.class, args);
     }
 
+
 }

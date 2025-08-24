@@ -1,6 +1,6 @@
 package com.app.usochicamochabackend.review.web;
 
-import com.app.usochicamochabackend.review.application.dto.ImagesResponse;
+import com.app.usochicamochabackend.review.application.dto.ImageDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
 import com.app.usochicamochabackend.review.application.service.InspectionService;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
@@ -92,7 +92,7 @@ public class InspectionController {
             summary = "Get inspection images",
             description = "Returns all images associated with an inspection."
     )
-    public ResponseEntity<List<ImagesResponse>> getInspectionImages(@PathVariable Long id) {
+    public ResponseEntity<List<ImageDTO>> getInspectionImages(@PathVariable Long id) {
         return ResponseEntity.ok(inspectionService.getInspectionImages(id));
     }
 

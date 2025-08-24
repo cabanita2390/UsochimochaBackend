@@ -3,53 +3,60 @@ package com.app.usochicamochabackend.order.application.service;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
+import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
+import com.app.usochicamochabackend.mapper.ImagesMapper;
+import com.app.usochicamochabackend.mapper.OrderMapper;
 import com.app.usochicamochabackend.order.application.dto.AssignOrderRequest;
-import com.app.usochicamochabackend.order.application.port.*;
+import com.app.usochicamochabackend.order.application.dto.AssignOrderResponse;
+import com.app.usochicamochabackend.order.application.dto.GetAllOrdersDTO;
+import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
+import com.app.usochicamochabackend.order.application.port.GetAllOrdersUseCase;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
 import com.app.usochicamochabackend.order.infrastructure.repository.OrderRepository;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Optional;
-
 @Service
 @RequiredArgsConstructor
-public class OrderService implements
-        AssignOrderUseCase,
-        FindAllOrdersUseCase,
-        FindOrderByIdUseCase {
+public class OrderService implements AssignOrderUseCase, GetAllOrdersUseCase {
 
     private final OrderRepository orderRepository;
     private final InspectionRepository inspectionRepository;
     private final UserRepositoryJpa userRepository;
 
     @Override
-    public OrderEntity assignOrder(AssignOrderRequest assignOrderRequest) {
+    public AssignOrderResponse assignOrder(AssignOrderRequest assignOrderRequest) {
         InspectionEntity inspectionEntity = inspectionRepository.findById(assignOrderRequest.inspectionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Inspection not found with ID: " + assignOrderRequest.inspectionId()));
 
         UserEntity assignerUser = userRepository.findById(assignOrderRequest.assignerUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Assigner user not found with ID: " + assignOrderRequest.assignerUserId()));
 
-        UserEntity assignedUser = userRepository.findById(assignOrderRequest.assignedUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Assigned user not found with ID: " + assignOrderRequest.assignedUserId()));
+        UserEntity inspectionUser = inspectionEntity.getUser();
+        MachineEntity inspectionMachine = inspectionEntity.getMachine();
 
-        orderRepository.save(new OrderEntity());
+        OrderEntity orderEntity = orderRepository.save(
+                OrderEntity.builder()
+                        .status("Pending")
+                        .description(assignOrderRequest.description())
+                        .assignerUser(assignerUser)
+                        .assignedUser(inspectionUser)
+                        .inspection(inspectionEntity)
+                        .build()
+        );
 
-        return null;
+        return OrderMapper.toDto(orderEntity);
     }
 
     @Override
-    public List<OrderEntity> findAllOrder() {
-        return orderRepository.findAll();
-    }
-
-    @Override
-    public OrderEntity findOrderById(Long id) {
-        return orderRepository.findById(id).orElse(null);
+    public GetAllOrdersDTO getAllOrders() {
+        return new GetAllOrdersDTO(
+                orderRepository.findAll()
+                        .stream()
+                        .map(OrderMapper::toDto)
+                        .toList()
+        );
     }
 }
