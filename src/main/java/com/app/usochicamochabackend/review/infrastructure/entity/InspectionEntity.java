@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.review.infrastructure.entity;
 
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
+import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -66,6 +67,9 @@ public class InspectionEntity {
     @ManyToOne
     @JoinColumn(name = "user_id")
     private UserEntity user;
+
+    @OneToOne(mappedBy = "inspection")
+    private OrderEntity order;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "inspection_id")

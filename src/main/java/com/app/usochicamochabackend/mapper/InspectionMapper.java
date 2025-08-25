@@ -35,7 +35,39 @@ public class InspectionMapper {
                 entity.getObservations(),
                 UserMapper.toResponse(entity.getUser()),
                 MachineMapper.toResponse(entity.getMachine()),
-                ImagesMapper.toDtoList(entity.getImages())
+                ImagesMapper.toDtoList(entity.getImages()),
+                OrderMapper.toDtoWithoutInspection(entity.getOrder())
+        );
+    }
+
+    public static InspectionResponse toDtoWithoutOrder(InspectionEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+
+        return new InspectionResponse(
+                entity.getId(),
+                entity.getUUID(),
+                entity.getDateStamp(),
+                entity.getHourmeter(),
+                entity.getLeakStatus(),
+                entity.getBrakeStatus(),
+                entity.getBeltsPulleysStatus(),
+                entity.getTireLanesStatus(),
+                entity.getCarIgnitionStatus(),
+                entity.getElectricalStatus(),
+                entity.getMechanicalStatus(),
+                entity.getTemperatureStatus(),
+                entity.getOilStatus(),
+                entity.getHydraulicStatus(),
+                entity.getCoolantStatus(),
+                entity.getStructuralStatus(),
+                entity.getExpirationDateFireExtinguisher(),
+                entity.getObservations(),
+                UserMapper.toResponse(entity.getUser()),
+                MachineMapper.toResponse(entity.getMachine()),
+                ImagesMapper.toDtoList(entity.getImages()),
+                null
         );
     }
 }

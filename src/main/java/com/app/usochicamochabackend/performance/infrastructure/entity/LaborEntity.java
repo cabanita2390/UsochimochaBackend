@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.performance.infrastructure.entity;
 
+import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -19,6 +20,11 @@ public class LaborEntity {
 
     private LocalDateTime date;
     private String price;
-    private Boolean mecanic;
+
+    private Boolean sameMecanic;
+
+    @ManyToOne
+    private UserEntity mecanic;
+
     private String contractor;
 }

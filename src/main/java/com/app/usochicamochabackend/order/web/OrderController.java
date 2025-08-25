@@ -3,6 +3,8 @@ package com.app.usochicamochabackend.order.web;
 import com.app.usochicamochabackend.order.application.dto.AssignOrderRequest;
 import com.app.usochicamochabackend.order.application.dto.AssignOrderResponse;
 import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
+import com.app.usochicamochabackend.order.application.port.GetOrderByInspectionId;
+import com.app.usochicamochabackend.order.application.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     private final AssignOrderUseCase assignOrderUseCase;
+    private final GetOrderByInspectionId getOrderByInspectionId;
 
     @Operation(
             summary = "Assign a new order",
@@ -44,5 +47,14 @@ public class OrderController {
             @RequestBody AssignOrderRequest assignOrderRequest) {
 
         return assignOrderUseCase.assignOrder(assignOrderRequest);
+    }
+
+    @Operation(
+            summary = "Get order by inspection ID",
+            description = "Fetches the order associated with a given inspection ID."
+    )
+    @GetMapping(value = "/inspection/{inspectionId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public AssignOrderResponse getOrderByInspectionId(@PathVariable Long inspectionId) {
+        return getOrderByInspectionId.getOrderByInspectionId(inspectionId);
     }
 }

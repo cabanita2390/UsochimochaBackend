@@ -15,10 +15,27 @@ public class OrderMapper {
         }
 
         return new AssignOrderResponse(
+                entity.getId(),
                 entity.getStatus(),
                 entity.getDate(),
                 entity.getDescription(),
-                InspectionMapper.toDto(entity.getInspection()),
+                InspectionMapper.toDtoWithoutOrder(entity.getInspection()), // ← rompe ciclo
+                UserMapper.toResponse(entity.getAssignerUser()),
+                UserMapper.toResponse(entity.getAssignedUser())
+        );
+    }
+
+    public static AssignOrderResponse toDtoWithoutInspection(OrderEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+
+        return new AssignOrderResponse(
+                entity.getId(),
+                entity.getStatus(),
+                entity.getDate(),
+                entity.getDescription(),
+                null,
                 UserMapper.toResponse(entity.getAssignerUser()),
                 UserMapper.toResponse(entity.getAssignedUser())
         );

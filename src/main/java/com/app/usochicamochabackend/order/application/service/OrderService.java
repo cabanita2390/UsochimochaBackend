@@ -4,13 +4,11 @@ import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
-import com.app.usochicamochabackend.mapper.ImagesMapper;
 import com.app.usochicamochabackend.mapper.OrderMapper;
 import com.app.usochicamochabackend.order.application.dto.AssignOrderRequest;
 import com.app.usochicamochabackend.order.application.dto.AssignOrderResponse;
-import com.app.usochicamochabackend.order.application.dto.GetAllOrdersDTO;
 import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
-import com.app.usochicamochabackend.order.application.port.GetAllOrdersUseCase;
+import com.app.usochicamochabackend.order.application.port.GetOrderByInspectionId;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
 import com.app.usochicamochabackend.order.infrastructure.repository.OrderRepository;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
@@ -20,7 +18,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class OrderService implements AssignOrderUseCase, GetAllOrdersUseCase {
+public class OrderService implements AssignOrderUseCase, GetOrderByInspectionId {
 
     private final OrderRepository orderRepository;
     private final InspectionRepository inspectionRepository;
@@ -51,12 +49,17 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersUseCase {
     }
 
     @Override
-    public GetAllOrdersDTO getAllOrders() {
-        return new GetAllOrdersDTO(
-                orderRepository.findAll()
-                        .stream()
-                        .map(OrderMapper::toDto)
-                        .toList()
-        );
+    public AssignOrderResponse getOrderByInspectionId(Long inspectionId) {
+        InspectionEntity inspectionEntity = inspectionRepository.findById(inspectionId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Inspection not found with ID: " + inspectionId));
+
+        OrderEntity orderEntity = inspectionEntity.getOrder();
+        if (orderEntity == null) {
+            throw new ResourceNotFoundException(
+                    "No order found for Inspection ID: " + inspectionId);
+        }
+
+        return OrderMapper.toDto(orderEntity);
     }
 }

@@ -1,19 +1,15 @@
 package com.app.usochicamochabackend.config;
 
+import com.app.usochicamochabackend.actions.infrastructure.repository.ActionRepository;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
-import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
-
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
-import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.order.infrastructure.repository.OrderRepository;
-import com.app.usochicamochabackend.performance.infrastructure.repository.LaborRepository;
 import com.app.usochicamochabackend.performance.infrastructure.repository.ResultRepository;
-import com.app.usochicamochabackend.performance.infrastructure.repository.SparePartRepository;
+import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
+import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.update.infrastructure.repository.ConsolidateRepository;
-import com.app.usochicamochabackend.actions.infrastructure.repository.ActionRepository;
-
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,16 +20,13 @@ import java.util.List;
 
 @Configuration
 public class DataSeeder {
-/*
     @Bean
     CommandLineRunner initData(
             UserRepositoryJpa userRepository,
             MachineRepository machineRepository,
             InspectionRepository inspectionRepository,
             OrderRepository orderRepository,
-            LaborRepository laborRepository,
             ResultRepository resultRepository,
-            SparePartRepository sparePartRepository,
             ConsolidateRepository consolidateRepository,
             ActionRepository actionRepository
     ) {
@@ -89,6 +82,4 @@ public class DataSeeder {
 
         };
     }
-
- */
 }
