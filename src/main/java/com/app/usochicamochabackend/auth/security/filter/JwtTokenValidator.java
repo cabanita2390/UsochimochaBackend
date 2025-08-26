@@ -1,6 +1,8 @@
 package com.app.usochicamochabackend.auth.security.filter;
 
+import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
+import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -40,11 +42,12 @@ public class JwtTokenValidator extends OncePerRequestFilter {
             String token = header.substring(7);
 
             DecodedJWT decodedJWT = jwtUtils.verifyToken(token);
+            Long userId = decodedJWT.getClaim("userId").asLong();
             String username = jwtUtils.extractUsername(decodedJWT);
             String roleString = jwtUtils.extractSpecificClaim(decodedJWT, "role").asString();
             GrantedAuthority role = new SimpleGrantedAuthority(roleString);
 
-            SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(username, null, Set.of(role)));
+            SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(new UserPrincipal(userId, username), null, Set.of(role)));
         }
 
         filterChain.doFilter(request, response);

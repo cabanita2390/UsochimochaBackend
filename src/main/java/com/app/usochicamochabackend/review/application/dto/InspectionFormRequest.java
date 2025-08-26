@@ -1,6 +1,10 @@
 package com.app.usochicamochabackend.review.application.dto;
 
+import java.time.LocalDateTime;
+
 public record InspectionFormRequest(
+        String UUID,
+        LocalDateTime dateStamp,
         String hourmeter,
         String leakStatus,
         String brakeStatus,

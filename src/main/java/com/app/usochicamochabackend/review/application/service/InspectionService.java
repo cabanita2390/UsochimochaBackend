@@ -105,8 +105,8 @@ public class InspectionService {
     private InspectionEntity mapToEntity(InspectionFormRequest request, List<String> imagePaths) {
         InspectionEntity entity = new InspectionEntity();
 
-        entity.setUUID(UUID.randomUUID().toString());
-        entity.setDateStamp(LocalDateTime.now());
+        entity.setUUID(request.UUID());
+        entity.setDateStamp(request.dateStamp());
         entity.setHourmeter(request.hourmeter());
         entity.setBrakeStatus(request.brakeStatus());
         entity.setLeakStatus(request.leakStatus());

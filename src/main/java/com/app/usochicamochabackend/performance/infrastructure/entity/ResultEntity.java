@@ -1,6 +1,5 @@
 package com.app.usochicamochabackend.performance.infrastructure.entity;
 
-import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -26,9 +25,9 @@ public class ResultEntity {
 
     @OneToOne
     @JoinColumn(name = "labor_force_id")
-    private LaborEntity laborForceId;
+    private LaborEntity laborForce;
 
     @OneToMany
     @JoinColumn(name = "result_id")
-    private List<SparePartEntity> resultId;
+    private List<SparePartEntity> result;
 }
