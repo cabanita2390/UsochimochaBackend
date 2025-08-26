@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.order.application.service;
 
+import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
@@ -14,6 +15,7 @@ import com.app.usochicamochabackend.order.infrastructure.repository.OrderReposit
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -29,11 +31,13 @@ public class OrderService implements AssignOrderUseCase, GetOrderByInspectionId 
         InspectionEntity inspectionEntity = inspectionRepository.findById(assignOrderRequest.inspectionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Inspection not found with ID: " + assignOrderRequest.inspectionId()));
 
-        UserEntity assignerUser = userRepository.findById(assignOrderRequest.assignerUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Assigner user not found with ID: " + assignOrderRequest.assignerUserId()));
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Long assignerUserId = userPrincipal.id();
+
+        UserEntity assignerUser = userRepository.findById(assignerUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Assigner user not found with ID: " + assignerUserId));
 
         UserEntity inspectionUser = inspectionEntity.getUser();
-        MachineEntity inspectionMachine = inspectionEntity.getMachine();
 
         OrderEntity orderEntity = orderRepository.save(
                 OrderEntity.builder()

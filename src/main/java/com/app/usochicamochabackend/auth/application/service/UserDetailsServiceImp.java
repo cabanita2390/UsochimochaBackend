@@ -1,9 +1,6 @@
 package com.app.usochicamochabackend.auth.application.service;
 
-import com.app.usochicamochabackend.auth.application.dto.AuthRequest;
-import com.app.usochicamochabackend.auth.application.dto.AuthResponse;
-import com.app.usochicamochabackend.auth.application.dto.RefreshTokenRequest;
-import com.app.usochicamochabackend.auth.application.dto.RefreshTokenResponse;
+import com.app.usochicamochabackend.auth.application.dto.*;
 import com.app.usochicamochabackend.auth.application.port.AuthenticateUseCase;
 import com.app.usochicamochabackend.auth.application.port.LoginUseCase;
 import com.app.usochicamochabackend.auth.application.port.RefreshTokenUseCase;
@@ -40,12 +37,13 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
         String username = authLoginRequest.username();
         String password = authLoginRequest.password();
 
-        Authentication authentication = this.authenticate(username, password);
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        // Obtener información completa del usuario
         UserEntity userEntity = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("user not found!"));
+
+        Long id = userEntity.getId();
+
+        Authentication authentication = this.authenticate(new UserPrincipal(id, username), password);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
         String jwtToken = jwtUtils.createToken(authentication);
         String refreshToken = jwtUtils.createRefreshToken(authentication);
@@ -54,8 +52,8 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
     }
 
     @Override
-    public Authentication authenticate(String username, String password) {
-        UserDetails userDetails = this.searchUserDetails(username);
+    public Authentication authenticate(UserPrincipal userPrincipal, String password) {
+        UserDetails userDetails = this.searchUserDetails(userPrincipal.username());
 
         if (userDetails == null) {
             throw new BadCredentialsException("Invalid username or password");
@@ -65,7 +63,7 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
             throw new BadCredentialsException("invalid password");
         }
 
-        return new UsernamePasswordAuthenticationToken(userDetails.getUsername(), null, userDetails.getAuthorities());
+        return new UsernamePasswordAuthenticationToken(userPrincipal, null, userDetails.getAuthorities());
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.order.web;
 
+import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.order.application.dto.AssignOrderRequest;
 import com.app.usochicamochabackend.order.application.dto.AssignOrderResponse;
 import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
@@ -13,6 +14,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -46,6 +48,10 @@ public class OrderController {
             )
             @RequestBody AssignOrderRequest assignOrderRequest) {
 
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Long userId = userPrincipal.id();
+        System.out.println("userId = " + userId);
+        
         return assignOrderUseCase.assignOrder(assignOrderRequest);
     }
 

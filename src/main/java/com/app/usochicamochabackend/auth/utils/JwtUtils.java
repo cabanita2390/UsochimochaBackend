@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.auth.utils;
 
+import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
@@ -27,10 +28,13 @@ public class JwtUtils {
     }
 
     public String createToken(Authentication authentication) {
-        String username = authentication.getPrincipal().toString();
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        String username = userPrincipal.username();
+        Long id = userPrincipal.id();
         String role = authentication.getAuthorities().toString();
 
         return JWT.create()
+                .withClaim("userId", id)
                 .withSubject(username)
                 .withJWTId(UUID.randomUUID().toString())
                 .withClaim("role", role)
@@ -42,10 +46,13 @@ public class JwtUtils {
     }
 
     public String createRefreshToken(Authentication authentication) {
-        String username = authentication.getPrincipal().toString();
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        String username = userPrincipal.username();
+        Long id = userPrincipal.id();
         String role = authentication.getAuthorities().toString();
 
         return JWT.create()
+                .withClaim("userId", id)
                 .withSubject(username)
                 .withJWTId(UUID.randomUUID().toString())
                 .withClaim("role", role)
