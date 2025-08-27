@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -25,40 +26,25 @@ public class InspectionEntity {
     private Long id;
 
     private String UUID;
-
-    @Column(name = "date_stamp")
+    private Boolean isUnexpected;
     private LocalDateTime dateStamp;
-
-    private String hourmeter;
-
-    @Column(name = "leak_status")
+    private BigInteger hourMeter;
     private String leakStatus;
-    @Column(name = "brake_status")
     private String brakeStatus;
-    @Column(name = "belts_pulleys_status")
     private String beltsPulleysStatus;
-    @Column(name = "tire_lanes_status")
     private String tireLanesStatus;
-    @Column(name = "car_ignition_status")
     private String carIgnitionStatus;
-    @Column(name = "electrical_status")
     private String electricalStatus;
-    @Column(name = "mechanical_status")
     private String mechanicalStatus;
-    @Column(name = "temperature_status")
     private String temperatureStatus;
-    @Column(name = "oil_status")
     private String oilStatus;
-    @Column(name = "hydraulic_status")
     private String hydraulicStatus;
-    @Column(name = "coolant_status")
     private String coolantStatus;
-    @Column(name = "structuralStatus")
     private String structuralStatus;
-    @Column(name = "expiration_date_fire_extinguisher")
     private String expirationDateFireExtinguisher;
-
     private String observations;
+    private String greasingAction;
+    private String greasingObservations;
 
     @ManyToOne
     @JoinColumn(name = "machine_id")

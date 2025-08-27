@@ -2,11 +2,14 @@ package com.app.usochicamochabackend.review.application.service;
 
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.review.application.dto.ImageDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
+import com.app.usochicamochabackend.review.application.dto.InspectionResponse;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
+import com.app.usochicamochabackend.review.web.InspectionStreamController;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,10 +30,18 @@ public class InspectionService {
     private final InspectionRepository inspectionRepository;
     private final UserRepositoryJpa userRepository;
     private final MachineRepository machineRepository;
+    private final InspectionStreamController inspectionStreamController;
 
-    public InspectionEntity createInspectionOnlyData(InspectionFormRequest request) {
+    public InspectionResponse createInspectionOnlyData(InspectionFormRequest request) {
         InspectionEntity entity = mapToEntity(request, null);
-        return inspectionRepository.save(entity);
+        InspectionEntity saved = inspectionRepository.save(entity);
+        InspectionResponse inspectionResponse = InspectionMapper.toDtoWithoutOrder(saved);
+
+        if (saved.getIsUnexpected()) {
+            inspectionStreamController.publish(inspectionResponse);
+        }
+
+        return inspectionResponse;
     }
 
     public ImageEntity saveInspectionImage(Long inspectionId, String uuid, MultipartFile imagen) throws IOException {
@@ -80,7 +91,6 @@ public class InspectionService {
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
     }
 
-
     public List<ImageDTO> getInspectionImages(Long id) {
         InspectionEntity inspection = inspectionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
@@ -107,7 +117,8 @@ public class InspectionService {
 
         entity.setUUID(request.UUID());
         entity.setDateStamp(request.dateStamp());
-        entity.setHourmeter(request.hourmeter());
+        entity.setIsUnexpected(request.isUnexpected());
+        entity.setHourMeter(request.hourMeter());
         entity.setBrakeStatus(request.brakeStatus());
         entity.setLeakStatus(request.leakStatus());
         entity.setBeltsPulleysStatus(request.beltsPulleysStatus());
@@ -121,6 +132,8 @@ public class InspectionService {
         entity.setCoolantStatus(request.coolantStatus());
         entity.setStructuralStatus(request.structuralStatus());
         entity.setExpirationDateFireExtinguisher(request.expirationDateFireExtinguisher());
+        entity.setGreasingAction(request.greasingAction());
+        entity.setGreasingObservations(request.greasingObservations());
         entity.setObservations(request.observations());
 
         if (request.userId() != null) {
@@ -147,7 +160,7 @@ public class InspectionService {
             copy.setId(insp.getId());
             copy.setUUID(insp.getUUID());
             copy.setDateStamp(insp.getDateStamp());
-            copy.setHourmeter(insp.getHourmeter());
+            copy.setHourMeter(insp.getHourMeter());
             copy.setLeakStatus(insp.getLeakStatus());
             copy.setBrakeStatus(insp.getBrakeStatus());
             copy.setBeltsPulleysStatus(insp.getBeltsPulleysStatus());
@@ -161,6 +174,8 @@ public class InspectionService {
             copy.setCoolantStatus(insp.getCoolantStatus());
             copy.setStructuralStatus(insp.getStructuralStatus());
             copy.setExpirationDateFireExtinguisher(insp.getExpirationDateFireExtinguisher());
+            copy.setGreasingAction(insp.getGreasingAction());
+            copy.setGreasingObservations(insp.getGreasingObservations());
             copy.setObservations(insp.getObservations());
             copy.setUser(insp.getUser());
             copy.setMachine(insp.getMachine());

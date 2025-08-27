@@ -14,6 +14,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -70,7 +71,7 @@ public class DataSeeder {
             InspectionEntity inspection = InspectionEntity.builder()
                     .UUID("UUID-12345")
                     .dateStamp(LocalDateTime.now())
-                    .hourmeter("1200h")
+                    .hourMeter(new BigInteger("123456789123456789123456789"))
                     .leakStatus("OK")
                     .brakeStatus("OK")
                     .machine(machine1)

@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.review.web;
 
 import com.app.usochicamochabackend.review.application.dto.ImageDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
+import com.app.usochicamochabackend.review.application.dto.InspectionResponse;
 import com.app.usochicamochabackend.review.application.service.InspectionService;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
@@ -39,11 +40,11 @@ public class InspectionController {
             @ApiResponse(responseCode = "400", description = "Invalid request"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<InspectionEntity> createInspection(@RequestBody InspectionFormRequest request) throws URISyntaxException {
-        InspectionEntity saved = inspectionService.createInspectionOnlyData(request);
+    public ResponseEntity<InspectionResponse> createInspection(@RequestBody InspectionFormRequest request) throws URISyntaxException {
+        InspectionResponse saved = inspectionService.createInspectionOnlyData(request);
 
         return ResponseEntity
-                .created(new URI("/api/v1/inspection/" + saved.getId()))
+                .created(new URI("/api/v1/inspection/" + saved.id()))
                 .body(saved);
     }
 
@@ -105,4 +106,5 @@ public class InspectionController {
         List<InspectionEntity> inspections = inspectionService.getAllInspectionsWithoutImages();
         return ResponseEntity.ok(inspections);
     }
+
 }
