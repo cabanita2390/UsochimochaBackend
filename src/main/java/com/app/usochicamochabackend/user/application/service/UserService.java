@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.user.application.service;
 
+import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
+import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
@@ -7,6 +9,7 @@ import com.app.usochicamochabackend.mapper.UserMapper;
 import com.app.usochicamochabackend.user.application.dto.*;
 import com.app.usochicamochabackend.user.application.port.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +29,7 @@ public class UserService implements
 
     private final UserRepositoryJpa userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SaveActionUseCase saveActionUseCase;
 
     @Override
     public CreateUserResponse createUser(CreateUserRequest request) {
@@ -39,6 +43,10 @@ public class UserService implements
                 .build();
 
         UserEntity userSaved = userRepository.save(user);
+
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+
+        saveActionUseCase.save("El usuario " + userSaved.getUsername() + " ha sido creado por " + userPrincipal.username());
 
         return new CreateUserResponse(user.getId(), userSaved.getUsername(), userSaved.getEmail(),userSaved.getStatus(), userSaved.getRole(), userSaved.getFullName(), "User created successfully");
     }
