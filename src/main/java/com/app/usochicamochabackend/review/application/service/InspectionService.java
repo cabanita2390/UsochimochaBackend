@@ -37,7 +37,9 @@ public class InspectionService {
         InspectionEntity saved = inspectionRepository.save(entity);
         InspectionResponse inspectionResponse = InspectionMapper.toDtoWithoutOrder(saved);
 
-        if (saved.getIsUnexpected()) {
+        // Usamos el nuevo getter getUnexpected() y una comprobación segura para evitar NullPointerException,
+        // ya que el campo es de tipo Boolean (wrapper) y podría ser null.
+        if (Boolean.TRUE.equals(saved.getUnexpected())) {
             inspectionStreamController.publish(inspectionResponse);
         }
 
@@ -117,7 +119,7 @@ public class InspectionService {
 
         entity.setUUID(request.UUID());
         entity.setDateStamp(request.dateStamp());
-        entity.setIsUnexpected(request.isUnexpected());
+        entity.setUnexpected(request.isUnexpected());
         entity.setHourMeter(request.hourMeter());
         entity.setBrakeStatus(request.brakeStatus());
         entity.setLeakStatus(request.leakStatus());
@@ -159,6 +161,7 @@ public class InspectionService {
 
             copy.setId(insp.getId());
             copy.setUUID(insp.getUUID());
+            copy.setUnexpected(insp.getUnexpected());
             copy.setDateStamp(insp.getDateStamp());
             copy.setHourMeter(insp.getHourMeter());
             copy.setLeakStatus(insp.getLeakStatus());

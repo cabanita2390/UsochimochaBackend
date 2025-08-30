@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.review.infrastructure.entity;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -26,8 +27,11 @@ public class InspectionEntity {
     private Long id;
 
     private String UUID;
-    private Boolean isUnexpected;
+    @JsonProperty("isUnexpected")
+    @Column(name = "is_unexpected")
+    private Boolean unexpected;
     private LocalDateTime dateStamp;
+    @Column(name = "hourmeter")
     private BigInteger hourMeter;
     private String leakStatus;
     private String brakeStatus;
