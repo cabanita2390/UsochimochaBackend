@@ -13,6 +13,7 @@ import com.app.usochicamochabackend.update.infrastructure.repository.Consolidate
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 
 import java.math.BigInteger;
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Configuration
+@Profile("dev") // Es buena práctica ejecutar los seeders solo en entornos de desarrollo
 public class DataSeeder {
     @Bean
     CommandLineRunner initData(
@@ -32,12 +34,18 @@ public class DataSeeder {
             ActionRepository actionRepository
     ) {
         return args -> {
+            // Limpiar repositorios para evitar conflictos al reiniciar
+            inspectionRepository.deleteAll();
+            // Puede que necesites borrar otras entidades dependientes primero
+            // orderRepository.deleteAll();
+            machineRepository.deleteAll();
+            userRepository.deleteAll();
 
             // USUARIOS
             UserEntity admin = UserEntity.builder()
                     .fullName("Admin User")
                     .username("admin")
-                    .password("$2a$10$cMY29RPYoIHMJSuwRfoD3eQxU1J5Rww4VnNOUOAEPqCBshkNfrEf6")
+                    .password("$2a$10$cMY29RPYoIHMJSuwRfoD3eQxU1J5Rww4VnNOUOAEPqCBshkNfrEf6") // password is "password"
                     .email("admin@example.com")
                     .role("ADMIN")
                     .status(true)
@@ -46,7 +54,7 @@ public class DataSeeder {
             UserEntity mechanic = UserEntity.builder()
                     .fullName("Mechanic User")
                     .username("mechanic")
-                    .password("$2a$10$cMY29RPYoIHMJSuwRfoD3eQxU1J5Rww4VnNOUOAEPqCBshkNfrEf6")
+                    .password("$2a$10$cMY29RPYoIHMJSuwRfoD3eQxU1J5Rww4VnNOUOAEPqCBshkNfrEf6") // password is "password"
                     .email("mech@example.com")
                     .role("MECHANIC")
                     .status(true)
@@ -68,15 +76,32 @@ public class DataSeeder {
             machineRepository.save(machine1);
 
             // INSPECCIÓN
+            // Esta entidad se actualiza para reflejar los campos que se muestran en el log de error.
+            // Si ejecutas la aplicación con este seeder activo, fallará al arrancar si el esquema de la BD no es correcto,
+            // lo que ayuda a identificar el problema antes.
             InspectionEntity inspection = InspectionEntity.builder()
-                    .UUID("UUID-12345")
+                    .UUID("UUID-12345-SEEDER")
                     .dateStamp(LocalDateTime.now())
-                    .hourMeter(new BigInteger("123456789123456789123456789"))
-                    .leakStatus("OK")
-                    .brakeStatus("OK")
+                    .hourMeter(new BigInteger("1234"))
+                    .leakStatus("Óptimo")
+                    .brakeStatus("Óptimo")
+                    .beltsPulleysStatus("Óptimo")
+                    .carIgnitionStatus("Óptimo")
+                    .coolantStatus("Óptimo")
+                    .electricalStatus("Óptimo")
+                    .expirationDateFireExtinguisher("2025-08")
+                    .hydraulicStatus("Óptimo")
+                    .mechanicalStatus("Óptimo")
+                    .oilStatus("Óptimo")
+                    .structuralStatus("Óptimo")
+                    .temperatureStatus("Óptimo")
+                    .tireLanesStatus("Óptimo")
+                    .greasingAction("No action required")
+                    .greasingObservations("Greasing points checked, all OK.")
+                    .unexpected(false)
                     .machine(machine1)
                     .user(admin)
-                    .observations("Everything fine")
+                    .observations("Everything fine from seeder")
                     .build();
 
             inspectionRepository.save(inspection);

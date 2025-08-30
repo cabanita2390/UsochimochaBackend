@@ -17,7 +17,7 @@ public class InspectionMapper {
         return new InspectionResponse(
                 entity.getId(),
                 entity.getUUID(),
-                entity.getIsUnexpected(),
+                entity.getUnexpected(),
                 entity.getDateStamp(),
                 entity.getHourMeter(),
                 entity.getLeakStatus(),
@@ -51,7 +51,7 @@ public class InspectionMapper {
         return new InspectionResponse(
                 entity.getId(),
                 entity.getUUID(),
-                entity.getIsUnexpected(),
+                entity.getUnexpected(),
                 entity.getDateStamp(),
                 entity.getHourMeter(),
                 entity.getLeakStatus(),
