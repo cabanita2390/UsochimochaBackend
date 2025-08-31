@@ -2,10 +2,9 @@ package com.app.usochicamochabackend.order.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.order.application.dto.AssignOrderRequest;
-import com.app.usochicamochabackend.order.application.dto.AssignOrderResponse;
+import com.app.usochicamochabackend.order.application.dto.OrderDTO;
 import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
 import com.app.usochicamochabackend.order.application.port.GetOrderByInspectionId;
-import com.app.usochicamochabackend.order.application.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -33,14 +32,14 @@ public class OrderController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Order successfully created",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = AssignOrderResponse.class))),
+                            schema = @Schema(implementation = OrderDTO.class))),
             @ApiResponse(responseCode = "404", description = "Inspection, assigner user, or assigned user not found",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
             @ApiResponse(responseCode = "400", description = "Invalid request data",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
     })
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public AssignOrderResponse assignOrder(
+    public OrderDTO assignOrder(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Order assignment data including inspectionId, assignerUserId, assignedUserId and description",
                     required = true,
@@ -60,7 +59,7 @@ public class OrderController {
             description = "Fetches the order associated with a given inspection ID."
     )
     @GetMapping(value = "/inspection/{inspectionId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public AssignOrderResponse getOrderByInspectionId(@PathVariable Long inspectionId) {
+    public OrderDTO getOrderByInspectionId(@PathVariable Long inspectionId) {
         return getOrderByInspectionId.getOrderByInspectionId(inspectionId);
     }
 }

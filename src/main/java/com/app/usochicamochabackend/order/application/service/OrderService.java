@@ -5,11 +5,11 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
-import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.mapper.OrderMapper;
 import com.app.usochicamochabackend.order.application.dto.AssignOrderRequest;
-import com.app.usochicamochabackend.order.application.dto.AssignOrderResponse;
+import com.app.usochicamochabackend.order.application.dto.OrderDTO;
 import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
+import com.app.usochicamochabackend.order.application.port.GetOrderByIdUseCase;
 import com.app.usochicamochabackend.order.application.port.GetOrderByInspectionId;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
 import com.app.usochicamochabackend.order.infrastructure.repository.OrderRepository;
@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class OrderService implements AssignOrderUseCase, GetOrderByInspectionId {
+public class OrderService implements AssignOrderUseCase, GetOrderByInspectionId, GetOrderByIdUseCase {
 
     private final OrderRepository orderRepository;
     private final InspectionRepository inspectionRepository;
@@ -29,7 +29,7 @@ public class OrderService implements AssignOrderUseCase, GetOrderByInspectionId 
     private final SaveActionUseCase saveActionUseCase;
 
     @Override
-    public AssignOrderResponse assignOrder(AssignOrderRequest assignOrderRequest) {
+    public OrderDTO assignOrder(AssignOrderRequest assignOrderRequest) {
         InspectionEntity inspectionEntity = inspectionRepository.findById(assignOrderRequest.inspectionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Inspection not found with ID: " + assignOrderRequest.inspectionId()));
 
@@ -58,7 +58,7 @@ public class OrderService implements AssignOrderUseCase, GetOrderByInspectionId 
     }
 
     @Override
-    public AssignOrderResponse getOrderByInspectionId(Long inspectionId) {
+    public OrderDTO getOrderByInspectionId(Long inspectionId) {
         InspectionEntity inspectionEntity = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Inspection not found with ID: " + inspectionId));
@@ -70,5 +70,10 @@ public class OrderService implements AssignOrderUseCase, GetOrderByInspectionId 
         }
 
         return OrderMapper.toDto(orderEntity);
+    }
+
+    @Override
+    public OrderDTO getOrderById(Long orderId) {
+        return OrderMapper.toDto(orderRepository.findById(orderId).orElseThrow(()->new ResourceNotFoundException("Order not found with ID: " + orderId)));
     }
 }

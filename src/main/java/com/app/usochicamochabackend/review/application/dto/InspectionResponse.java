@@ -1,12 +1,11 @@
 package com.app.usochicamochabackend.review.application.dto;
 
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
-import com.app.usochicamochabackend.order.application.dto.AssignOrderResponse;
+import com.app.usochicamochabackend.order.application.dto.OrderDTO;
 import com.app.usochicamochabackend.user.application.dto.UserResponse;
 
 import java.math.BigInteger;
 import java.time.LocalDateTime;
-import java.util.List;
 
 public record InspectionResponse(
         Long id,
@@ -33,5 +32,5 @@ public record InspectionResponse(
         UserResponse user,
         MachineResponse machine,
         ImagesDTO images,
-        AssignOrderResponse order
+        OrderDTO order
 ) {}
