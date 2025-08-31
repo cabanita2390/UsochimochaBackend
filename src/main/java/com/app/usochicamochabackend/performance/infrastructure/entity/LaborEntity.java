@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -19,7 +20,7 @@ public class LaborEntity {
     private Long id;
 
     private LocalDateTime date;
-    private String price;
+    private BigDecimal price;
 
     private Boolean sameMecanic;
 
@@ -27,4 +28,6 @@ public class LaborEntity {
     private UserEntity mecanic;
 
     private String contractor;
+
+    private String observations;
 }

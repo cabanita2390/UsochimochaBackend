@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.performance.infrastructure.entity;
 
+import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
+import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,14 +22,16 @@ public class ResultEntity {
 
     private LocalDateTime date;
 
-    @Column(name = "time_spent")
     private String timeSpent;
 
-    @OneToOne
-    @JoinColumn(name = "labor_force_id")
-    private LaborEntity laborForce;
+    @OneToOne(mappedBy = "result")
+    private OrderEntity order;
 
-    @OneToMany
+    @OneToMany(cascade = CascadeType.ALL)
     @JoinColumn(name = "result_id")
-    private List<SparePartEntity> result;
+    private List<LaborEntity> laborForce;
+
+    @OneToMany(cascade = CascadeType.ALL)
+    @JoinColumn(name = "result_id")
+    private List<SparePartEntity> sparePart;
 }

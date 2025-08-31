@@ -25,6 +25,7 @@ public class MachineEntity {
     private LocalDate soat;
     private String brand;
     private LocalDate runt;
+    private Boolean status;
 
     @Column(name = "num_engine")
     private String numEngine;

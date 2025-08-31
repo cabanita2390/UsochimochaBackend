@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.order.application.service;
 
+import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
@@ -25,6 +26,7 @@ public class OrderService implements AssignOrderUseCase, GetOrderByInspectionId 
     private final OrderRepository orderRepository;
     private final InspectionRepository inspectionRepository;
     private final UserRepositoryJpa userRepository;
+    private final SaveActionUseCase saveActionUseCase;
 
     @Override
     public AssignOrderResponse assignOrder(AssignOrderRequest assignOrderRequest) {
@@ -48,6 +50,9 @@ public class OrderService implements AssignOrderUseCase, GetOrderByInspectionId 
                         .inspection(inspectionEntity)
                         .build()
         );
+
+        saveActionUseCase.save("El usuario " + assignerUser.getUsername() +
+                " ha asignado una orden de trabajo a la inspección al usuario " + inspectionUser.getUsername());
 
         return OrderMapper.toDto(orderEntity);
     }

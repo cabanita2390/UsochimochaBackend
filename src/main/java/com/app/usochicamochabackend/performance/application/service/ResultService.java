@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.performance.application.service;
 
+import com.app.usochicamochabackend.performance.application.dto.ExecuteAnOrderRequest;
+import com.app.usochicamochabackend.performance.application.dto.ExecuteAnOrderResponse;
 import com.app.usochicamochabackend.performance.application.port.*;
 import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEntity;
 import com.app.usochicamochabackend.performance.infrastructure.repository.ResultRepository;
@@ -10,37 +12,15 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class ResultService implements
-        CreateResultUseCase,
-        DeleteResultUseCase,
-        FindAllResultsUseCase,
-        FindResultByIdUseCase,
-        UpdateResultUseCase {
+public class ResultService implements ExecuteAnOrderUseCase {
 
     private final ResultRepository resultRepository;
 
-    @Override
-    public ResultEntity createResult(ResultEntity resultEntity) {
-        return resultRepository.save(resultEntity);
-    }
 
     @Override
-    public void deleteResult(Long id) {
-        resultRepository.deleteById(id);
-    }
+    public ExecuteAnOrderResponse execute(ExecuteAnOrderRequest request) {
 
-    @Override
-    public List<ResultEntity> findAllResults() {
-        return resultRepository.findAll();
-    }
 
-    @Override
-    public ResultEntity findResultById(Long id) {
-        return resultRepository.findById(id).orElse(null);
-    }
-
-    @Override
-    public ResultEntity updateResult(ResultEntity resultEntity) {
-        return resultRepository.save(resultEntity);
+        return null;
     }
 }
