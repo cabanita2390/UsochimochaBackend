@@ -1,8 +1,8 @@
 package com.app.usochicamochabackend.performance.application.port;
 
 import com.app.usochicamochabackend.performance.application.dto.ExecuteAnOrderRequest;
-import com.app.usochicamochabackend.performance.application.dto.ExecuteAnOrderResponse;
+import com.app.usochicamochabackend.performance.application.dto.ExecuteDTO;
 
 public interface ExecuteAnOrderUseCase {
-    ExecuteAnOrderResponse execute(ExecuteAnOrderRequest request);
+    ExecuteDTO execute(ExecuteAnOrderRequest request);
 }

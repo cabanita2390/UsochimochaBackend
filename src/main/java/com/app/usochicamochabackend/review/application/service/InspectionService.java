@@ -2,10 +2,13 @@ package com.app.usochicamochabackend.review.application.service;
 
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import com.app.usochicamochabackend.mapper.ImagesMapper;
 import com.app.usochicamochabackend.mapper.InspectionMapper;
+import com.app.usochicamochabackend.mapper.OrderMapper;
 import com.app.usochicamochabackend.review.application.dto.ImageDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
 import com.app.usochicamochabackend.review.application.dto.InspectionResponse;
+import com.app.usochicamochabackend.review.application.port.*;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
@@ -25,20 +28,19 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-public class InspectionService {
+public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase {
 
     private final InspectionRepository inspectionRepository;
     private final UserRepositoryJpa userRepository;
     private final MachineRepository machineRepository;
     private final InspectionStreamController inspectionStreamController;
 
+    @Override
     public InspectionResponse createInspectionOnlyData(InspectionFormRequest request) {
-        InspectionEntity entity = mapToEntity(request, null);
+        InspectionEntity entity = InspectionMapper.toEntity(request, userRepository, machineRepository);
         InspectionEntity saved = inspectionRepository.save(entity);
         InspectionResponse inspectionResponse = InspectionMapper.toDtoWithoutOrder(saved);
 
-        // Usamos el nuevo getter getUnexpected() y una comprobación segura para evitar NullPointerException,
-        // ya que el campo es de tipo Boolean (wrapper) y podría ser null.
         if (Boolean.TRUE.equals(saved.getUnexpected())) {
             inspectionStreamController.publish(inspectionResponse);
         }
@@ -46,7 +48,8 @@ public class InspectionService {
         return inspectionResponse;
     }
 
-    public ImageEntity saveInspectionImage(Long inspectionId, String uuid, MultipartFile imagen) throws IOException {
+    @Override
+    public ImageDTO saveInspectionImage(Long inspectionId, String uuid, MultipartFile image) throws IOException {
         InspectionEntity inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
 
@@ -65,13 +68,12 @@ public class InspectionService {
         }
 
         int nextIndex = inspection.getImages() != null ? inspection.getImages().size() + 1 : 1;
-
-        String extension = getFileExtension(imagen);
+        String extension = getFileExtension(image);
 
         String filename = uuid + "-" + nextIndex + extension;
         Path filePath = inspectionFolder.resolve(filename);
 
-        Files.write(filePath, imagen.getBytes());
+        Files.write(filePath, image.getBytes());
 
         ImageEntity img = new ImageEntity();
         img.setUrl(filePath.toString());
@@ -85,18 +87,31 @@ public class InspectionService {
 
         inspectionRepository.save(inspection);
 
-        return img;
+        return ImagesMapper.toDto(img);
     }
 
-    public InspectionEntity getInspectionById(Long id) {
-        return inspectionRepository.findById(id)
+    @Override
+    public InspectionResponse getInspectionById(Long inspectionId) {
+        InspectionEntity inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
+
+        return InspectionMapper.toDto(inspection);
     }
 
-    public List<ImageDTO> getInspectionImages(Long id) {
-        InspectionEntity inspection = inspectionRepository.findById(id)
+    @Override
+    public List<ImageDTO> getInspectionImages(Long inspectionId) {
+        InspectionEntity inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
-        return inspection.getImages().stream().map(image -> new ImageDTO(image.getUrl(), image.getUuid(), image.getInspection().getId())).toList();
+        return inspection.getImages().stream()
+                .map(ImagesMapper::toDto)
+                .toList();
+    }
+
+    @Override
+    public List<InspectionResponse> getAllInspectionsWithoutImages() {
+        return inspectionRepository.findAll().stream()
+                .map(InspectionMapper::toDtoWithoutImages)
+                .toList();
     }
 
     private String getFileExtension(MultipartFile file) {
@@ -113,81 +128,4 @@ public class InspectionService {
         }
         return ".bin"; // fallback
     }
-
-    private InspectionEntity mapToEntity(InspectionFormRequest request, List<String> imagePaths) {
-        InspectionEntity entity = new InspectionEntity();
-
-        entity.setUUID(request.UUID());
-        entity.setDateStamp(request.dateStamp());
-        entity.setUnexpected(request.isUnexpected());
-        entity.setHourMeter(request.hourMeter());
-        entity.setBrakeStatus(request.brakeStatus());
-        entity.setLeakStatus(request.leakStatus());
-        entity.setBeltsPulleysStatus(request.beltsPulleysStatus());
-        entity.setTireLanesStatus(request.tireLanesStatus());
-        entity.setCarIgnitionStatus(request.carIgnitionStatus());
-        entity.setElectricalStatus(request.electricalStatus());
-        entity.setMechanicalStatus(request.mechanicalStatus());
-        entity.setTemperatureStatus(request.temperatureStatus());
-        entity.setOilStatus(request.oilStatus());
-        entity.setHydraulicStatus(request.hydraulicStatus());
-        entity.setCoolantStatus(request.coolantStatus());
-        entity.setStructuralStatus(request.structuralStatus());
-        entity.setExpirationDateFireExtinguisher(request.expirationDateFireExtinguisher());
-        entity.setGreasingAction(request.greasingAction());
-        entity.setGreasingObservations(request.greasingObservations());
-        entity.setObservations(request.observations());
-
-        if (request.userId() != null) {
-            entity.setUser(userRepository.findById(request.userId())
-                    .orElseThrow(() -> new IllegalArgumentException("User not found")));
-        }
-
-        if (request.machineId() != null) {
-            entity.setMachine(machineRepository.findById(request.machineId())
-                    .orElseThrow(() -> new IllegalArgumentException("Machine not found")));
-        }
-
-        return entity;
-    }
-
-    public List<InspectionEntity> getAllInspectionsWithoutImages() {
-        List<InspectionEntity> inspections = inspectionRepository.findAll();
-
-        // Crear una copia de cada inspección sin la lista de imágenes
-        List<InspectionEntity> result = new ArrayList<>();
-        for (InspectionEntity insp : inspections) {
-            InspectionEntity copy = new InspectionEntity();
-
-            copy.setId(insp.getId());
-            copy.setUUID(insp.getUUID());
-            copy.setUnexpected(insp.getUnexpected());
-            copy.setDateStamp(insp.getDateStamp());
-            copy.setHourMeter(insp.getHourMeter());
-            copy.setLeakStatus(insp.getLeakStatus());
-            copy.setBrakeStatus(insp.getBrakeStatus());
-            copy.setBeltsPulleysStatus(insp.getBeltsPulleysStatus());
-            copy.setTireLanesStatus(insp.getTireLanesStatus());
-            copy.setCarIgnitionStatus(insp.getCarIgnitionStatus());
-            copy.setElectricalStatus(insp.getElectricalStatus());
-            copy.setMechanicalStatus(insp.getMechanicalStatus());
-            copy.setTemperatureStatus(insp.getTemperatureStatus());
-            copy.setOilStatus(insp.getOilStatus());
-            copy.setHydraulicStatus(insp.getHydraulicStatus());
-            copy.setCoolantStatus(insp.getCoolantStatus());
-            copy.setStructuralStatus(insp.getStructuralStatus());
-            copy.setExpirationDateFireExtinguisher(insp.getExpirationDateFireExtinguisher());
-            copy.setGreasingAction(insp.getGreasingAction());
-            copy.setGreasingObservations(insp.getGreasingObservations());
-            copy.setObservations(insp.getObservations());
-            copy.setUser(insp.getUser());
-            copy.setMachine(insp.getMachine());
-            copy.setImages(null);
-
-            result.add(copy);
-        }
-
-        return result;
-    }
-
 }

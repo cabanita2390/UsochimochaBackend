@@ -3,10 +3,7 @@ package com.app.usochicamochabackend.mapper;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.order.application.dto.OrderDTO;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
-import com.app.usochicamochabackend.performance.application.dto.ExecuteAnOrderRequest;
-import com.app.usochicamochabackend.performance.application.dto.ExecuteAnOrderResponse;
-import com.app.usochicamochabackend.performance.application.dto.LaborResponse;
-import com.app.usochicamochabackend.performance.application.dto.SparePartResponse;
+import com.app.usochicamochabackend.performance.application.dto.*;
 import com.app.usochicamochabackend.performance.infrastructure.entity.LaborEntity;
 import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEntity;
 import com.app.usochicamochabackend.performance.infrastructure.entity.SparePartEntity;
@@ -24,6 +21,7 @@ public class ResultMapper {
         ResultEntity result = new ResultEntity();
         result.setDate(LocalDateTime.now());
         result.setTimeSpent(request.timeSpent());
+        result.setDescription(result.getDescription());
         result.setOrder(order);
 
         UserEntity mechanicFromInspection = order.getInspection() != null ? order.getInspection().getUser() : null;
@@ -43,7 +41,7 @@ public class ResultMapper {
         return result;
     }
 
-    public static ExecuteAnOrderResponse toResponse(ResultEntity entity, OrderDTO orderDTO) {
+    public static ExecuteDTO toResponse(ResultEntity entity, OrderDTO orderDTO) {
         if (entity == null) return null;
 
         List<LaborResponse> labors = entity.getLaborForce().stream()
@@ -54,12 +52,40 @@ public class ResultMapper {
                 .map(SparePartMapper::toResponse)
                 .toList();
 
-        return new ExecuteAnOrderResponse(
+        return new ExecuteDTO(
                 orderDTO,
                 entity.getDate(),
                 entity.getTimeSpent(),
+                entity.getDescription(),
                 labors,
                 spareParts
         );
+    }
+
+    public static ResultDTO toResponseResult(ResultEntity entity) {
+        if (entity == null) return null;
+
+        List<LaborResponse> labors = entity.getLaborForce().stream()
+                .map(LaborMapper::toResponse)
+                .toList();
+
+        List<SparePartResponse> spareParts = entity.getSparePart().stream()
+                .map(SparePartMapper::toResponse)
+                .toList();
+
+        return new ResultDTO(
+                entity.getId(),
+                entity.getDate(),
+                entity.getTimeSpent(),
+                entity.getDescription(),
+                labors,
+                spareParts
+        );
+    }
+
+    public static List<ResultDTO> toResponseList(List<ResultEntity> entityList) {
+        if (entityList == null) return null;
+
+        return entityList.stream().map(ResultMapper::toResponseResult).toList();
     }
 }
