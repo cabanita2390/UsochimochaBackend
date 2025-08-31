@@ -6,6 +6,7 @@ import com.app.usochicamochabackend.user.application.dto.UserResponse;
 
 import java.math.BigInteger;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record InspectionResponse(
         Long id,
@@ -31,6 +32,6 @@ public record InspectionResponse(
         String observations,
         UserResponse user,
         MachineResponse machine,
-        ImagesDTO images,
+        List<ImageDTO> images,
         OrderDTO order
 ) {}

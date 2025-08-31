@@ -1,10 +1,8 @@
 package com.app.usochicamochabackend.performance.web;
 
 import com.app.usochicamochabackend.performance.application.dto.ExecuteAnOrderRequest;
-import com.app.usochicamochabackend.performance.application.dto.ExecuteAnOrderResponse;
+import com.app.usochicamochabackend.performance.application.dto.ExecuteDTO;
 import com.app.usochicamochabackend.performance.application.port.ExecuteAnOrderUseCase;
-import com.app.usochicamochabackend.performance.application.service.ResultService;
-import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEntity;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -14,10 +12,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/results")
@@ -36,17 +30,17 @@ public class ResultController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Order executed successfully",
                     content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = ExecuteAnOrderResponse.class))),
+                            schema = @Schema(implementation = ExecuteDTO.class))),
             @ApiResponse(responseCode = "404", description = "Order not found",
                     content = @Content(mediaType = "application/json")),
             @ApiResponse(responseCode = "400", description = "Invalid input",
                     content = @Content(mediaType = "application/json"))
     })
     @PostMapping("/execute")
-    public ResponseEntity<ExecuteAnOrderResponse> executeOrder(
+    public ResponseEntity<ExecuteDTO> executeOrder(
             @RequestBody ExecuteAnOrderRequest request) {
 
-        ExecuteAnOrderResponse response = executeAnOrderUseCase.execute(request);
+        ExecuteDTO response = executeAnOrderUseCase.execute(request);
         return ResponseEntity.ok(response);
     }
 }

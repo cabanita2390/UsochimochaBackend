@@ -1,11 +1,10 @@
 package com.app.usochicamochabackend.mapper;
 
 import com.app.usochicamochabackend.review.application.dto.ImageDTO;
-import com.app.usochicamochabackend.review.application.dto.ImagesDTO;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 
+import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class ImagesMapper {
 
@@ -13,25 +12,17 @@ public class ImagesMapper {
         throw new UnsupportedOperationException("Utility class");
     }
 
-    public static ImageDTO toDto(ImageEntity entity) {
-        if (entity == null) return null;
-
-        return new ImageDTO(
-                entity.getUrl(),
-                entity.getUuid(),
-                entity.getInspection() != null ? entity.getInspection().getId() : null
-        );
+    public static ImageDTO toDto(ImageEntity image) {
+        if (image == null) {
+            return null;
+        }
+        return new ImageDTO(image.getId(), image.getUrl(), image.getUuid(), image.getInspection().getId());
     }
 
-    public static ImagesDTO toDtoList(List<ImageEntity> entities) {
-        if (entities == null || entities.isEmpty()) {
-            return new ImagesDTO(List.of());
+    public static List<ImageDTO> toDtoList(List<ImageEntity> images) {
+        if (images == null) {
+            return Collections.emptyList();
         }
-
-        List<ImageDTO> imageDTOList = entities.stream()
-                .map(ImagesMapper::toDto)
-                .collect(Collectors.toList());
-
-        return new ImagesDTO(imageDTOList);
+        return images.stream().map(ImagesMapper::toDto).toList();
     }
 }

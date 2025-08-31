@@ -8,6 +8,7 @@ import java.util.List;
 public record ExecuteAnOrderRequest(
         Long orderId,
         String timeSpent,
+        String description,
         List<LaborRequest> labors,
         List<SparePartRequest> spareParts
 ) {}

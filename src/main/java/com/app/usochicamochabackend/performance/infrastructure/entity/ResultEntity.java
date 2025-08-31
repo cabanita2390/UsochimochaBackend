@@ -22,6 +22,8 @@ public class ResultEntity {
 
     private LocalDateTime date;
 
+    private String description;
+
     private String timeSpent;
 
     @OneToOne(mappedBy = "result")
