@@ -1,6 +1,6 @@
 package com.app.usochicamochabackend.mapper;
 
-import com.app.usochicamochabackend.order.application.dto.AssignOrderResponse;
+import com.app.usochicamochabackend.order.application.dto.OrderDTO;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
 
 public class OrderMapper {
@@ -9,12 +9,12 @@ public class OrderMapper {
         throw new UnsupportedOperationException("Utility class");
     }
 
-    public static AssignOrderResponse toDto(OrderEntity entity) {
+    public static OrderDTO toDto(OrderEntity entity) {
         if (entity == null) {
             return null;
         }
 
-        return new AssignOrderResponse(
+        return new OrderDTO(
                 entity.getId(),
                 entity.getStatus(),
                 entity.getDate(),
@@ -25,12 +25,12 @@ public class OrderMapper {
         );
     }
 
-    public static AssignOrderResponse toDtoWithoutInspection(OrderEntity entity) {
+    public static OrderDTO toDtoWithoutInspection(OrderEntity entity) {
         if (entity == null) {
             return null;
         }
 
-        return new AssignOrderResponse(
+        return new OrderDTO(
                 entity.getId(),
                 entity.getStatus(),
                 entity.getDate(),

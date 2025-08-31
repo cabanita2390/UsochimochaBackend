@@ -6,8 +6,8 @@ import java.time.LocalDate;
 import java.util.List;
 
 public record ExecuteAnOrderRequest(
-        LocalDate date,
+        Long orderId,
         String timeSpent,
-        List<LaborRequest> labor,
-        List<SparePartRequest> sparePart
+        List<LaborRequest> labors,
+        List<SparePartRequest> spareParts
 ) {}

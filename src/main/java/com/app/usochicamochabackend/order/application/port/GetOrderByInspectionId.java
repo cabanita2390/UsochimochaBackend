@@ -1,7 +1,7 @@
 package com.app.usochicamochabackend.order.application.port;
 
-import com.app.usochicamochabackend.order.application.dto.AssignOrderResponse;
+import com.app.usochicamochabackend.order.application.dto.OrderDTO;
 
 public interface GetOrderByInspectionId {
-    AssignOrderResponse getOrderByInspectionId(Long inspectionId);
+    OrderDTO getOrderByInspectionId(Long inspectionId);
 }

@@ -71,7 +71,7 @@ public class MachineController {
             @ApiResponse(responseCode = "404", description = "Machine not found")
     })
     public ResponseEntity<MachineResponse> updateMachine(@RequestBody MachineEntity machineEntity) throws URISyntaxException {
-        MachineEntity machineSaved = updateMachineUseCase.updateMachine(machineEntity);
-        return ResponseEntity.created(new URI("/api/v1/machine/" + machineSaved.getId())).body(machineSaved);
+        MachineResponse machineSaved = updateMachineUseCase.updateMachine(machineEntity);
+        return ResponseEntity.created(new URI("/api/v1/machine/" + machineSaved.id())).body(machineSaved);
     }
 }
