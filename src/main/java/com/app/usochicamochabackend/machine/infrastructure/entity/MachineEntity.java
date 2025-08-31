@@ -26,10 +26,6 @@ public class MachineEntity {
     private String brand;
     private LocalDate runt;
     private Boolean status;
-
-    @Column(name = "num_engine")
     private String numEngine;
-
-    @Column(name = "num_inter_identification")
     private String numInterIdentification;
 }

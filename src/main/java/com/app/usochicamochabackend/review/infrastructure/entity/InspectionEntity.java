@@ -31,7 +31,6 @@ public class InspectionEntity {
     @Column(name = "is_unexpected")
     private Boolean unexpected;
     private LocalDateTime dateStamp;
-    @Column(name = "hourmeter")
     private BigInteger hourMeter;
     private String leakStatus;
     private String brakeStatus;

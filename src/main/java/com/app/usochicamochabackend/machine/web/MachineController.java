@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.machine.web;
 
+import com.app.usochicamochabackend.machine.application.dto.MachineRequest;
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
 import com.app.usochicamochabackend.machine.application.port.*;
 import com.app.usochicamochabackend.machine.application.service.MachineService;
@@ -59,8 +60,8 @@ public class MachineController {
     @PostMapping
     @Operation(summary = "Create machine", description = "Creates a new machine and returns its URI.")
     @ApiResponse(responseCode = "201", description = "Machine created")
-    public ResponseEntity<MachineResponse> createMachine(@RequestBody MachineEntity machineEntity) throws URISyntaxException {
-        MachineResponse machineSaved = createMachineUseCase.createMachine(machineEntity);
+    public ResponseEntity<MachineResponse> createMachine(@RequestBody MachineRequest request) throws URISyntaxException {
+        MachineResponse machineSaved = createMachineUseCase.createMachine(request);
         return ResponseEntity.created(new URI("/api/v1/machine/" + machineSaved.id())).body(machineSaved);
     }
 
@@ -70,8 +71,8 @@ public class MachineController {
             @ApiResponse(responseCode = "200", description = "Machine updated"),
             @ApiResponse(responseCode = "404", description = "Machine not found")
     })
-    public ResponseEntity<MachineResponse> updateMachine(@RequestBody MachineEntity machineEntity) throws URISyntaxException {
-        MachineResponse machineSaved = updateMachineUseCase.updateMachine(machineEntity);
+    public ResponseEntity<MachineResponse> updateMachine(@RequestBody MachineRequest request, @PathVariable Long id) throws URISyntaxException {
+        MachineResponse machineSaved = updateMachineUseCase.updateMachine(request, id);
         return ResponseEntity.created(new URI("/api/v1/machine/" + machineSaved.id())).body(machineSaved);
     }
 }

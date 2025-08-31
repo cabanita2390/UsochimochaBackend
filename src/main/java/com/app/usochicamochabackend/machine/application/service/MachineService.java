@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.machine.application.service;
 import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
+import com.app.usochicamochabackend.machine.application.dto.MachineRequest;
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
 import com.app.usochicamochabackend.machine.application.port.*;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
@@ -24,8 +25,8 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
     private final SaveActionUseCase saveActionUseCase;
 
     @Override
-    public MachineResponse createMachine(MachineEntity machineEntity) {
-        MachineEntity savedMachine = machineRepository.save(machineEntity);
+    public MachineResponse createMachine(MachineRequest machineRequest) {
+        MachineEntity savedMachine = machineRepository.save(new MachineEntity(null, machineRequest.name(), machineRequest.model(), machineRequest.soat(), machineRequest.brand(), machineRequest.runt(), true, machineRequest.numEngine(), machineRequest.numInterIdentification()));
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
@@ -57,15 +58,15 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
     }
 
     @Override
-    public MachineResponse updateMachine(MachineEntity machineEntity) {
-        MachineEntity currentMachine = machineRepository.findById(machineEntity.getId())
-                .orElseThrow(() -> new ResourceNotFoundException("Machine not found with ID: " + machineEntity.getId()));
+    public MachineResponse updateMachine(MachineRequest machineRequest, Long id) {
+        MachineEntity currentMachine = machineRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Machine not found with ID: " + id));
 
         if (!currentMachine.getStatus()) {
-            throw new ResourceNotFoundException("Machine not found with ID: " + machineEntity.getId());
+            throw new ResourceNotFoundException("Machine not found with ID: " + id);
         }
 
-        MachineEntity savedMachine = machineRepository.save(machineEntity);
+        MachineEntity savedMachine = machineRepository.save(new MachineEntity(null, machineRequest.name(), machineRequest.model(), machineRequest.soat(), machineRequest.brand(), machineRequest.runt(), true, machineRequest.numEngine(), machineRequest.numInterIdentification()));
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
