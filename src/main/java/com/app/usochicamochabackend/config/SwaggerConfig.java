@@ -19,7 +19,7 @@ import io.swagger.v3.oas.annotations.servers.Server;
             ),
             @Server(
                     description = "PROD SERVER",
-                    url = "https://usochicamocha.com"
+                    url = "https://usochimochabackend.onrender.com"
             )    
         },
         security = {
