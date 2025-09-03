@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.app</groupId>
-    <artifactId>UsochicamochaBackend</artifactId>
+    <artifactId>UsochicamochaBacken</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>UsochicamochaBackend</name>
     <description>UsochicamochaBackend</description>

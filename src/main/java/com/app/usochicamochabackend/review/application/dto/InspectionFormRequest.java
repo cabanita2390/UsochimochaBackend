@@ -7,7 +7,7 @@ public record InspectionFormRequest(
         String UUID,
         Boolean isUnexpected,
         LocalDateTime dateStamp,
-        BigInteger hourMeter,
+        Integer hourMeter,
         String leakStatus,
         String brakeStatus,
         String beltsPulleysStatus,

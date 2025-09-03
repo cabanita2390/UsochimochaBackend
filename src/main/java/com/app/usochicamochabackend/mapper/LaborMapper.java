@@ -16,8 +16,8 @@ public class LaborMapper {
         if (request == null) return null;
 
         LaborEntity entity = new LaborEntity();
-        entity.setDate(LocalDateTime.now()); // set creation time
-        entity.setPrice(new BigDecimal(request.price()));
+        entity.setDate(LocalDateTime.now());
+        entity.setPrice(request.price());
         entity.setSameMecanic(request.sameMecanic());
         entity.setMecanic(request.sameMecanic() ? mechanic : null);
         entity.setContractor(request.contractor());
