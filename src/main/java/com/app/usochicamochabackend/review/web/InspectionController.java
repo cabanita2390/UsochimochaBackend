@@ -76,7 +76,7 @@ public class InspectionController {
             @RequestPart("imagen") MultipartFile imagen
     ) throws IOException, URISyntaxException {
 
-        ImageDTO savedImage = saveInspectionImageUseCase.saveInspectionImage(inspectionId, uuid, imagen);
+        ImageDTO savedImage = saveInspectionImageUseCase.saveInspectionImage(inspectionId, imagen);
 
         return ResponseEntity
                 .created(new URI("/api/v1/inspection/" + inspectionId + "/image/" + savedImage.id()))
