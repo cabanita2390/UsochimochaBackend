@@ -45,9 +45,9 @@ public class UserService implements
 
         UserEntity userSaved = userRepository.save(user);
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+       // UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-        saveActionUseCase.save("El usuario " + userSaved.getUsername() + " ha sido creado por " + userPrincipal.username());
+       // saveActionUseCase.save("El usuario " + userSaved.getUsername() + " ha sido creado por " + userPrincipal.username());
 
         return new CreateUserResponse(user.getId(), userSaved.getUsername(), userSaved.getEmail(),userSaved.getStatus(), userSaved.getRole(), userSaved.getFullName(), "User created successfully");
     }
