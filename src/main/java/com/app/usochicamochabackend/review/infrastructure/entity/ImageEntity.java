@@ -17,8 +17,6 @@ public class ImageEntity {
 
     private String url;
 
-    private String uuid;
-
     @ManyToOne
     @JoinColumn(name = "inspection_id")
     private InspectionEntity inspection;

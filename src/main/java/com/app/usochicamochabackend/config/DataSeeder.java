@@ -9,13 +9,11 @@ import com.app.usochicamochabackend.order.infrastructure.repository.OrderReposit
 import com.app.usochicamochabackend.performance.infrastructure.repository.ResultRepository;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
-import com.app.usochicamochabackend.update.infrastructure.repository.ConsolidateRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
-import java.math.BigInteger;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,7 +28,6 @@ public class DataSeeder {
             InspectionRepository inspectionRepository,
             OrderRepository orderRepository,
             ResultRepository resultRepository,
-            ConsolidateRepository consolidateRepository,
             ActionRepository actionRepository
     ) {
         return args -> {
@@ -83,8 +80,8 @@ public class DataSeeder {
             InspectionEntity inspection = InspectionEntity.builder()
                     .UUID("UUID-12345-SEEDER")
                     .dateStamp(LocalDateTime.now())
-                    .hourMeter(new BigInteger("1234"))
-                    .leakStatus("Óptimo")
+                    .hourMeter(1234)
+                    .leakStatus("Óptimzo")
                     .brakeStatus("Óptimo")
                     .beltsPulleysStatus("Óptimo")
                     .carIgnitionStatus("Óptimo")

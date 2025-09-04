@@ -9,14 +9,19 @@ import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.mapper.ResultMapper;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
+import com.app.usochicamochabackend.performance.application.dto.LaborResponse;
 import com.app.usochicamochabackend.performance.application.dto.ResultDTO;
+import com.app.usochicamochabackend.performance.application.dto.SparePartResponse;
 import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -30,10 +35,22 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
     public MachineCurriculumDTO getMachineCurriculum(Long machineId) {
         MachineResponse machine = findMachineByIdUseCase.findMachineById(machineId);
         List<InspectionEntity> inspectionEntities = inspectionRepository.findByMachineId(machineId);
+
+        if (inspectionEntities.isEmpty()) {
+            throw new ResourceNotFoundException("No inspections found");
+        }
+
         List<OrderEntity> orderEntities = inspectionEntities.stream().map(InspectionEntity::getOrder).toList();
         List<ResultEntity> resultEntities = orderEntities.stream().map(OrderEntity::getResult).toList();
         List<ResultDTO> resultDTOS = ResultMapper.toResponseList(resultEntities);
 
-        return new MachineCurriculumDTO(machine, resultDTOS);
+        BigDecimal totalPrice = resultDTOS.stream()
+                .flatMap(result -> Stream.concat(
+                        result.labors().stream().map(LaborResponse::price),
+                        result.spareParts().stream().map(SparePartResponse::price)
+                ))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new MachineCurriculumDTO(machine, resultDTOS, totalPrice);
     }
 }

@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -54,7 +55,7 @@ public class AuthController {
     @ApiResponse(responseCode = "400", description = "Invalid request")
     @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token")
     @PostMapping("/token/refresh")
-    public RefreshTokenResponse refreshToken(@RequestBody @Valid RefreshTokenRequest request) {
-        return refreshTokenUseCase.refreshToken(request);
+    public ResponseEntity<RefreshTokenResponse> refreshToken(@RequestBody @Valid RefreshTokenRequest request) {
+        return ResponseEntity.ok(refreshTokenUseCase.refreshToken(request));
     }
 }

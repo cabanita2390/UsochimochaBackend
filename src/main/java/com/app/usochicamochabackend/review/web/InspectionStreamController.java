@@ -4,6 +4,7 @@ import com.app.usochicamochabackend.review.application.dto.InspectionResponse;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -13,6 +14,7 @@ import reactor.core.publisher.Sinks;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/inspections")
+@CrossOrigin(origins = "")
 public class InspectionStreamController {
 
         private final Sinks.Many<InspectionResponse> inspectionsSink = Sinks.many().multicast().onBackpressureBuffer();

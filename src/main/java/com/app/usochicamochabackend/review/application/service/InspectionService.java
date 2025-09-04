@@ -17,6 +17,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -49,13 +51,11 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     }
 
     @Override
-    public ImageDTO saveInspectionImage(Long inspectionId, String uuid, MultipartFile image) throws IOException {
+    public ImageDTO saveInspectionImage(Long inspectionId, MultipartFile image) throws IOException {
         InspectionEntity inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
 
-        if (!inspection.getUUID().equals(uuid)) {
-            throw new IllegalArgumentException("UUID does not match with inspection");
-        }
+        String uuid = inspection.getUUID();
 
         Path uploadsPath = Paths.get("uploads");
         if (!Files.exists(uploadsPath)) {
@@ -65,6 +65,17 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         Path inspectionFolder = uploadsPath.resolve(uuid);
         if (!Files.exists(inspectionFolder)) {
             Files.createDirectories(inspectionFolder);
+        }
+
+        if (inspection.getImages() != null && !inspection.getImages().isEmpty()) {
+            ImageEntity lastImage = inspection.getImages().get(inspection.getImages().size() - 1);
+            Path lastImagePath = Paths.get(lastImage.getUrl());
+
+            if (Files.exists(lastImagePath)) {
+                if (isDuplicateHalfImage(image, lastImagePath)) {
+                    throw new IllegalArgumentException("Duplicate image detected");
+                }
+            }
         }
 
         int nextIndex = inspection.getImages() != null ? inspection.getImages().size() + 1 : 1;
@@ -77,7 +88,6 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
 
         ImageEntity img = new ImageEntity();
         img.setUrl(filePath.toString());
-        img.setUuid(uuid);
         img.setInspection(inspection);
 
         if (inspection.getImages() == null) {
@@ -89,6 +99,30 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
 
         return ImagesMapper.toDto(img);
     }
+
+    private boolean isDuplicateHalfImage(MultipartFile newImage, Path lastImagePath) throws IOException {
+        BufferedImage newImg = ImageIO.read(newImage.getInputStream());
+        BufferedImage lastImg = ImageIO.read(lastImagePath.toFile());
+
+        if (newImg == null || lastImg == null) return false;
+
+        int width = Math.min(newImg.getWidth(), lastImg.getWidth());
+        int height = Math.min(newImg.getHeight(), lastImg.getHeight());
+
+        BufferedImage newHalf = newImg.getSubimage(0, 0, width, height / 2);
+        BufferedImage lastHalf = lastImg.getSubimage(0, 0, width, height / 2);
+
+        for (int y = 0; y < newHalf.getHeight(); y++) {
+            for (int x = 0; x < newHalf.getWidth(); x++) {
+                if (newHalf.getRGB(x, y) != lastHalf.getRGB(x, y)) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
 
     @Override
     public InspectionResponse getInspectionById(Long inspectionId) {

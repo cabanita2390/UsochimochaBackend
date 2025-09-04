@@ -22,6 +22,7 @@ public class MachineEntity {
 
     private String name;
     private String model;
+    private String belongsTo;
     private LocalDate soat;
     private String brand;
     private LocalDate runt;

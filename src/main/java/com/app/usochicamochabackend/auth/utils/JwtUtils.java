@@ -8,6 +8,7 @@ import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
@@ -31,7 +32,12 @@ public class JwtUtils {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         String username = userPrincipal.username();
         Long id = userPrincipal.id();
-        String role = authentication.getAuthorities().toString();
+        String role = authentication.getAuthorities()
+                .stream()
+                .findFirst()
+                .map(GrantedAuthority::getAuthority)
+                .orElse("ROLE_USER");
+
 
         return JWT.create()
                 .withClaim("userId", id)
@@ -40,7 +46,6 @@ public class JwtUtils {
                 .withClaim("role", role)
                 .withIssuer(userGenerator)
                 .withIssuedAt(new Date())
-                .withNotBefore(new Date(System.currentTimeMillis()))
                 .withExpiresAt(new Date(System.currentTimeMillis() + (1000*60*15)))
                 .sign(getAlgorithm());
     }
@@ -49,7 +54,11 @@ public class JwtUtils {
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         String username = userPrincipal.username();
         Long id = userPrincipal.id();
-        String role = authentication.getAuthorities().toString();
+        String role = authentication.getAuthorities()
+                .stream()
+                .findFirst()
+                .map(GrantedAuthority::getAuthority)
+                .orElse("ROLE_USER");
 
         return JWT.create()
                 .withClaim("userId", id)
@@ -58,7 +67,6 @@ public class JwtUtils {
                 .withClaim("role", role)
                 .withIssuer(userGenerator)
                 .withIssuedAt(new Date())
-                .withNotBefore(new Date(System.currentTimeMillis()))
                 .withExpiresAt(new Date(System.currentTimeMillis() + (1000*60*60*24*7)))
                 .sign(getAlgorithm());
     }
