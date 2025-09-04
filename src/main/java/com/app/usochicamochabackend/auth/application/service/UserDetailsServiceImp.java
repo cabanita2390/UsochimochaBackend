@@ -89,8 +89,10 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
                     .orElseThrow(() -> new UsernameNotFoundException("user not found"));
 
             GrantedAuthority role = new SimpleGrantedAuthority("ROLE_".concat(userEntity.getRole()));
+
+            UserPrincipal userPrincipal = new UserPrincipal(userEntity.getId(), username);
             Authentication authentication = new UsernamePasswordAuthenticationToken(
-                    username, null, Set.of(role)
+                    userPrincipal, null, Set.of(role)
             );
 
             String newAccessToken = jwtUtils.createToken(authentication);

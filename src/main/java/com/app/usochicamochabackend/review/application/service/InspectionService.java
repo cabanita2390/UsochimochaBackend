@@ -55,7 +55,7 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         InspectionEntity inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
 
-        String uuid = inspection.getUUID(); // ahora el UUID viene de la inspección
+        String uuid = inspection.getUUID();
 
         Path uploadsPath = Paths.get("uploads");
         if (!Files.exists(uploadsPath)) {
@@ -67,7 +67,6 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
             Files.createDirectories(inspectionFolder);
         }
 
-        // Verificar duplicados (comparar con la última imagen)
         if (inspection.getImages() != null && !inspection.getImages().isEmpty()) {
             ImageEntity lastImage = inspection.getImages().get(inspection.getImages().size() - 1);
             Path lastImagePath = Paths.get(lastImage.getUrl());
@@ -110,11 +109,9 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         int width = Math.min(newImg.getWidth(), lastImg.getWidth());
         int height = Math.min(newImg.getHeight(), lastImg.getHeight());
 
-        // Cortamos las imágenes a la mitad (ej: mitad superior)
         BufferedImage newHalf = newImg.getSubimage(0, 0, width, height / 2);
         BufferedImage lastHalf = lastImg.getSubimage(0, 0, width, height / 2);
 
-        // Comparar píxel por píxel
         for (int y = 0; y < newHalf.getHeight(); y++) {
             for (int x = 0; x < newHalf.getWidth(); x++) {
                 if (newHalf.getRGB(x, y) != lastHalf.getRGB(x, y)) {
@@ -123,7 +120,7 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
             }
         }
 
-        return true; // son idénticas en la mitad superior
+        return true;
     }
 
 
