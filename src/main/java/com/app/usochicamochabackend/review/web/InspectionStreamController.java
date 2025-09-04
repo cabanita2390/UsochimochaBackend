@@ -14,7 +14,6 @@ import reactor.core.publisher.Sinks;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/inspections")
-@CrossOrigin(origins = "")
 public class InspectionStreamController {
 
         private final Sinks.Many<InspectionResponse> inspectionsSink = Sinks.many().multicast().onBackpressureBuffer();
