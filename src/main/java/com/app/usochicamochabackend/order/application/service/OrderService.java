@@ -39,20 +39,22 @@ public class OrderService implements AssignOrderUseCase, GetOrderByInspectionId,
         UserEntity assignerUser = userRepository.findById(assignerUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assigner user not found with ID: " + assignerUserId));
 
-        UserEntity inspectionUser = inspectionEntity.getUser();
-
+        /*
+        UserEntity assignedUser =  userRepository.findById(assignOrderRequest.assignedUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Assigner user not found with ID: " + assignOrderRequest.assignedUserId()));
+         */
         OrderEntity orderEntity = orderRepository.save(
                 OrderEntity.builder()
                         .status("Pending")
                         .description(assignOrderRequest.description())
                         .assignerUser(assignerUser)
-                        .assignedUser(inspectionUser)
+                        //   .assignedUser(assignedUser)
                         .inspection(inspectionEntity)
                         .build()
         );
 
         saveActionUseCase.save("El usuario " + assignerUser.getUsername() +
-                " ha asignado una orden de trabajo a la inspección al usuario " + inspectionUser.getUsername());
+                " ha asignado una orden de trabajo a la inspección al usuario *******");
 
         return OrderMapper.toDto(orderEntity);
     }

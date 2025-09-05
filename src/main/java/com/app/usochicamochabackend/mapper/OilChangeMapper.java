@@ -17,6 +17,7 @@ public final class OilChangeMapper {
         OilChangeEntity entity = new OilChangeEntity();
 
         entity.setMotorOil(true);
+        entity.setDateStamp(request.dateTime());
         entity.setBrand(request.brand());
         entity.setQuantity(request.quantity());
         entity.setHourMeter(request.currentHourMeter());
@@ -30,6 +31,7 @@ public final class OilChangeMapper {
         return  new PerformChangeMotorOilResponse(
                 entity.getId(),
                 MachineMapper.toResponse(entity.getMachine()),
+                entity.getDateStamp(),
                 entity.getBrand(),
                 entity.getQuantity(),
                 entity.getHourMeter(),

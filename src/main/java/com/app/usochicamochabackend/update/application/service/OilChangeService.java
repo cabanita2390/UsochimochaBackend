@@ -14,6 +14,8 @@ import com.app.usochicamochabackend.update.infrastructure.repository.OilChangeRe
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -119,19 +121,18 @@ public class OilChangeService implements
             throw new ResourceNotFoundException("No hydraulic oil changes found for machine " + machineId);
         }
 
-        OilChangeEntity last = oilChanges.get(0); // el más reciente
+        OilChangeEntity last = oilChanges.get(0);
 
         int averageChangeHours = last.getAverageHoursChange();
         int hourMeterLastUpdate = last.getHourMeter();
         int hourMeterNextUpdate = hourMeterLastUpdate + averageChangeHours;
 
-        // diferencia de días entre hoy y la fecha del último cambio
         long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(
                 last.getDateStamp().toLocalDate(),
                 java.time.LocalDate.now()
         );
 
-        int timeLastUpdateMouths = (int) (daysBetween / 30); // aproximación en meses
+        int timeLastUpdateMouths = (int) (daysBetween / 30);
         int remainingHoursNextUpdateMouths = hourMeterNextUpdate - hourMeterLastUpdate;
 
         return new ConsolidateHydraulicOilDTO(
@@ -161,11 +162,13 @@ public class OilChangeService implements
                 .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + machineId));
 
         InspectionEntity lastInspection = inspectionRepository.getLastInspection(machineId);
+        System.out.println("lastInspection = " + lastInspection);
+
         CurrentData currentData = new CurrentData(
                 machine.getBelongsTo(),
                 machine.getName(),
-                lastInspection.getHourMeter(),
-                lastInspection.getDateStamp()
+                lastInspection != null ? lastInspection.getHourMeter() : null,
+                lastInspection != null ? lastInspection.getDateStamp() : null
         );
 
         List<OilChangeEntity> oilChanges = oilChangeRepository.getTwoLastMotorOilChangesByMachineId(machineId);
@@ -175,18 +178,21 @@ public class OilChangeService implements
 
         OilChangeEntity last = oilChanges.get(0); // más reciente
 
+        // Validar que tenga fecha
+        if (last.getDateStamp() == null) {
+            throw new IllegalStateException("OilChangeEntity with id " + last.getId() + " has no dateStamp");
+        }
+
         int averageChangeHours = last.getAverageHoursChange();
         int hourMeterLastUpdate = last.getHourMeter();
         int hourMeterNextUpdate = hourMeterLastUpdate + averageChangeHours;
 
-        // diferencia de días entre hoy y la fecha del último cambio
-        long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(
-                last.getDateStamp().toLocalDate(),
-                java.time.LocalDate.now()
-        );
+        // Usamos LocalDate para el cálculo de días
+        LocalDate lastDate = last.getDateStamp().toLocalDate();
+        long daysBetween = ChronoUnit.DAYS.between(lastDate, LocalDate.now());
 
-        int timeLastUpdateMouths = (int) (daysBetween / 30); // aproximación a meses
-        int remainingHoursNextUpdateMouths = hourMeterNextUpdate - hourMeterLastUpdate;
+        int timeLastUpdateMonths = (int) (daysBetween / 30);
+        int remainingHoursNextUpdate = hourMeterNextUpdate - hourMeterLastUpdate;
 
         return new ConsolidateMotorOilDTO(
                 currentData,
@@ -195,13 +201,14 @@ public class OilChangeService implements
                 last.getBrand(),
                 last.getQuantity(),
                 averageChangeHours,
-                last.getDateStamp().toLocalDate(),
+                lastDate,
                 hourMeterLastUpdate,
                 hourMeterNextUpdate,
-                timeLastUpdateMouths,
-                remainingHoursNextUpdateMouths
+                timeLastUpdateMonths,
+                remainingHoursNextUpdate
         );
     }
+
 
 
     @Override

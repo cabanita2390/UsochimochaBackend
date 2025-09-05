@@ -13,7 +13,7 @@ public interface InspectionRepository extends JpaRepository<InspectionEntity, Lo
     List<InspectionEntity> findByMachineId(Long machineId);
 
     @Query(
-            value = "SELECT * FROM users WHERE machine_id = :machineId ORDER BY time_stamp DESC LIMIT 1",
+            value = "SELECT * FROM inspections WHERE machine_id = :machineId ORDER BY date_stamp DESC LIMIT 1",
             nativeQuery = true
     )
     InspectionEntity getLastInspection(@Param("machineId") Long machineId);
