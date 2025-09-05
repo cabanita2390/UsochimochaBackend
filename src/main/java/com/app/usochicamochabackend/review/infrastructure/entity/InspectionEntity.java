@@ -30,6 +30,7 @@ public class InspectionEntity {
     @JsonProperty("isUnexpected")
     @Column(name = "is_unexpected")
     private Boolean unexpected;
+    @Column(nullable = false)
     private LocalDateTime dateStamp;
     private Integer hourMeter;
     private String leakStatus;

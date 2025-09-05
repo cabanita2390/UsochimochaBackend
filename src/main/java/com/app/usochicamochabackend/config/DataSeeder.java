@@ -63,6 +63,7 @@ public class DataSeeder {
             MachineEntity machine1 = MachineEntity.builder()
                     .name("Excavator")
                     .model("CAT320")
+                    .belongsTo("Distrito")
                     .status(true)
                     .soat(LocalDate.now().plusYears(1))
                     .brand("Caterpillar")
