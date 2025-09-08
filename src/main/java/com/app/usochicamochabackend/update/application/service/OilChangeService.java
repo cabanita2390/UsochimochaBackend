@@ -56,13 +56,11 @@ public class OilChangeService implements
                 lastInspection.getDateStamp()
         );
 
-        // Reutilizamos los métodos que ya implementaste
         ConsolidateMotorOilDTO motorOil = getConsolidateMotorOilByIdMachine(machineId);
         ConsolidateHydraulicOilDTO hydraulicOil = getConsolidateHydraulicOilByIdMachine(machineId);
 
-        // Creamos "versiones limpias" de motor y hidráulico (sin currentData)
         ConsolidateMotorOilDTO cleanMotorOil = new ConsolidateMotorOilDTO(
-                null, // currentData vacío
+                null,
                 motorOil.id(),
                 motorOil.type(),
                 motorOil.brand(),
@@ -76,7 +74,7 @@ public class OilChangeService implements
         );
 
         ConsolidateHydraulicOilDTO cleanHydraulicOil = new ConsolidateHydraulicOilDTO(
-                null, // currentData vacío
+                null,
                 hydraulicOil.type(),
                 hydraulicOil.brand(),
                 hydraulicOil.quantity(),
@@ -116,19 +114,14 @@ public class OilChangeService implements
                 lastInspection.getDateStamp()
         );
 
-        List<OilChangeEntity> oilChanges = oilChangeRepository.getTwoLastHydraulicOilChangesByMachineId(machineId);
-        if (oilChanges.isEmpty()) {
-            throw new ResourceNotFoundException("No hydraulic oil changes found for machine " + machineId);
-        }
+        OilChangeEntity oilLastChange = oilChangeRepository.getLastHydraulicOilChangeByMachineId(machineId);
 
-        OilChangeEntity last = oilChanges.get(0);
-
-        int averageChangeHours = last.getAverageHoursChange();
-        int hourMeterLastUpdate = last.getHourMeter();
+        int averageChangeHours = oilLastChange.getAverageHoursChange();
+        int hourMeterLastUpdate = oilLastChange.getHourMeter();
         int hourMeterNextUpdate = hourMeterLastUpdate + averageChangeHours;
 
         long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(
-                last.getDateStamp().toLocalDate(),
+                oilLastChange.getDateStamp().toLocalDate(),
                 java.time.LocalDate.now()
         );
 
@@ -138,10 +131,10 @@ public class OilChangeService implements
         return new ConsolidateHydraulicOilDTO(
                 currentData,
                 "HYDRAULIC",
-                last.getBrand(),
-                last.getQuantity(),
+                oilLastChange.getBrand(),
+                oilLastChange.getQuantity(),
                 averageChangeHours,
-                last.getDateStamp().toLocalDate(),
+                oilLastChange.getDateStamp().toLocalDate(),
                 hourMeterLastUpdate,
                 hourMeterNextUpdate,
                 timeLastUpdateMouths,
@@ -162,7 +155,6 @@ public class OilChangeService implements
                 .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + machineId));
 
         InspectionEntity lastInspection = inspectionRepository.getLastInspection(machineId);
-        System.out.println("lastInspection = " + lastInspection);
 
         CurrentData currentData = new CurrentData(
                 machine.getBelongsTo(),
@@ -171,24 +163,17 @@ public class OilChangeService implements
                 lastInspection != null ? lastInspection.getDateStamp() : null
         );
 
-        List<OilChangeEntity> oilChanges = oilChangeRepository.getTwoLastMotorOilChangesByMachineId(machineId);
-        if (oilChanges.isEmpty()) {
-            throw new ResourceNotFoundException("No motor oil changes found for machine " + machineId);
+        OilChangeEntity oilLastChange = oilChangeRepository.getLastMotorOilChangeByMachineId(machineId);
+
+        if (oilLastChange.getDateStamp() == null) {
+            throw new IllegalStateException("OilChangeEntity with id " + oilLastChange.getId() + " has no dateStamp");
         }
 
-        OilChangeEntity last = oilChanges.get(0); // más reciente
-
-        // Validar que tenga fecha
-        if (last.getDateStamp() == null) {
-            throw new IllegalStateException("OilChangeEntity with id " + last.getId() + " has no dateStamp");
-        }
-
-        int averageChangeHours = last.getAverageHoursChange();
-        int hourMeterLastUpdate = last.getHourMeter();
+        int averageChangeHours = oilLastChange.getAverageHoursChange();
+        int hourMeterLastUpdate = oilLastChange.getHourMeter();
         int hourMeterNextUpdate = hourMeterLastUpdate + averageChangeHours;
 
-        // Usamos LocalDate para el cálculo de días
-        LocalDate lastDate = last.getDateStamp().toLocalDate();
+        LocalDate lastDate = oilLastChange.getDateStamp().toLocalDate();
         long daysBetween = ChronoUnit.DAYS.between(lastDate, LocalDate.now());
 
         int timeLastUpdateMonths = (int) (daysBetween / 30);
@@ -196,10 +181,10 @@ public class OilChangeService implements
 
         return new ConsolidateMotorOilDTO(
                 currentData,
-                last.getId(),
+                oilLastChange.getId(),
                 "MOTOR",
-                last.getBrand(),
-                last.getQuantity(),
+                oilLastChange.getBrand(),
+                oilLastChange.getQuantity(),
                 averageChangeHours,
                 lastDate,
                 hourMeterLastUpdate,

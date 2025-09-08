@@ -58,8 +58,8 @@ public class InspectionEntity {
     @JoinColumn(name = "user_id")
     private UserEntity user;
 
-    @OneToOne(mappedBy = "inspection")
-    private OrderEntity order;
+    @OneToMany
+    private List<OrderEntity> orders;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "inspection_id")

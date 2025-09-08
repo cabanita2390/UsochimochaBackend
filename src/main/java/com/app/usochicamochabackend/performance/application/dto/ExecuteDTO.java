@@ -1,12 +1,12 @@
 package com.app.usochicamochabackend.performance.application.dto;
 
-import com.app.usochicamochabackend.order.application.dto.OrderDTO;
+import com.app.usochicamochabackend.order.application.dto.OrderResponse;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 public record ExecuteDTO(
-        OrderDTO order,
+        OrderResponse order,
         LocalDateTime date,
         String description,
         String timeSpent,

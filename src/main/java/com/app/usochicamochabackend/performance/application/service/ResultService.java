@@ -2,7 +2,7 @@ package com.app.usochicamochabackend.performance.application.service;
 
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.mapper.ResultMapper;
-import com.app.usochicamochabackend.order.application.dto.OrderDTO;
+import com.app.usochicamochabackend.order.application.dto.OrderResponse;
 import com.app.usochicamochabackend.order.application.port.GetOrderByIdUseCase;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
 import com.app.usochicamochabackend.order.infrastructure.repository.OrderRepository;
@@ -26,7 +26,7 @@ public class ResultService implements ExecuteAnOrderUseCase {
     @Override
     @Transactional
     public ExecuteDTO execute(ExecuteAnOrderRequest request) {
-        OrderDTO orderDTO = getOrderByIdUseCase.getOrderById(request.orderId());
+        OrderResponse orderResponse = getOrderByIdUseCase.getOrderById(request.orderId());
         OrderEntity orderEntity = orderRepository.findById(request.orderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
@@ -41,7 +41,7 @@ public class ResultService implements ExecuteAnOrderUseCase {
         orderEntity.setResult(savedResult);
         orderRepository.save(orderEntity);
 
-        return ResultMapper.toResponse(savedResult, orderDTO);
+        return ResultMapper.toResponse(savedResult, orderResponse);
     }
 
 }

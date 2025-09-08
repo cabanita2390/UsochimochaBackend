@@ -16,7 +16,7 @@ public class ImagesMapper {
         if (image == null) {
             return null;
         }
-        return new ImageDTO(image.getId(), image.getUrl(), image.getInspection().getId());
+        return new ImageDTO(image.getId(), image.getUrl());
     }
 
     public static List<ImageDTO> toDtoList(List<ImageEntity> images) {

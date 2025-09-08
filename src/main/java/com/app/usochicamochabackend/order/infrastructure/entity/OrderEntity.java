@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Entity
@@ -28,7 +29,7 @@ public class OrderEntity {
 
     private String description;
 
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "inspection_id")
     private InspectionEntity inspection;
 
@@ -39,10 +40,6 @@ public class OrderEntity {
     @ManyToOne
     @JoinColumn(name = "assigner_user_id")
     private UserEntity assignerUser;
-
-    @ManyToOne
-    @JoinColumn(name = "assigned_user_id")
-    private UserEntity assignedUser;
 
     @PrePersist
     protected void onCreate() {
