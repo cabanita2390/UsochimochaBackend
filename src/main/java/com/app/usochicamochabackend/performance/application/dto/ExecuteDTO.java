@@ -10,6 +10,6 @@ public record ExecuteDTO(
         LocalDateTime date,
         String description,
         String timeSpent,
-        List<LaborResponse> labors,
+        LaborResponse labor,
         List<SparePartResponse> spareParts
 ) {}
