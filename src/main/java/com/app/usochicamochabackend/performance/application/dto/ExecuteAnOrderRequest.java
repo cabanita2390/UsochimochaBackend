@@ -9,6 +9,6 @@ public record ExecuteAnOrderRequest(
         Long orderId,
         String timeSpent,
         String description,
-        List<LaborRequest> labors,
+        LaborRequest labor,
         List<SparePartRequest> spareParts
 ) {}

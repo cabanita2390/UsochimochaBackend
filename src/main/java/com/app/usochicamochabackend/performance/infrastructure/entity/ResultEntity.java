@@ -29,9 +29,8 @@ public class ResultEntity {
     @OneToOne(mappedBy = "result")
     private OrderEntity order;
 
-    @OneToMany(cascade = CascadeType.ALL)
-    @JoinColumn(name = "result_id")
-    private List<LaborEntity> laborForce;
+    @OneToOne(cascade = CascadeType.ALL)
+    private LaborEntity laborForce;
 
     @OneToMany(cascade = CascadeType.ALL)
     @JoinColumn(name = "result_id")

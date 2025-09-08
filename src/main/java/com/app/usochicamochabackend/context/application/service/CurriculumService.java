@@ -33,6 +33,12 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
 
     @Override
     public MachineCurriculumDTO getMachineCurriculum(Long machineId) {
+        return null;
+    }
+
+    /*
+    @Override
+    public MachineCurriculumDTO getMachineCurriculum(Long machineId) {
         MachineResponse machine = findMachineByIdUseCase.findMachineById(machineId);
         List<InspectionEntity> inspectionEntities = inspectionRepository.findByMachineId(machineId);
 
@@ -43,6 +49,7 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
         List<ResultEntity> resultEntities = inspectionEntities.stream().flatMap(i -> i.getOrders().stream()).map(OrderEntity::getResult).toList();
         List<ResultDTO> resultDTOS = ResultMapper.toResponseList(resultEntities);
 
+
         BigDecimal totalPrice = resultDTOS.stream()
                 .flatMap(result -> Stream.concat(
                         result.labors().stream().map(LaborResponse::price),
@@ -52,4 +59,5 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
 
         return new MachineCurriculumDTO(machine, resultDTOS, totalPrice);
     }
+     */
 }

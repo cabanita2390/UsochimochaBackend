@@ -26,13 +26,6 @@ public class ResultMapper {
 
         UserEntity mechanicFromInspection = order.getInspection() != null ? order.getInspection().getUser() : null;
 
-        // map labors
-        List<LaborEntity> labors = request.labors().stream()
-                .map(laborRequest -> LaborMapper.toEntity(laborRequest, mechanicFromInspection))
-                .toList();
-        result.setLaborForce(labors);
-
-        // map spare parts
         List<SparePartEntity> spareParts = request.spareParts().stream()
                 .map(SparePartMapper::toEntity)
                 .toList();
@@ -44,9 +37,6 @@ public class ResultMapper {
     public static ExecuteDTO toResponse(ResultEntity entity, OrderResponse orderResponse) {
         if (entity == null) return null;
 
-        List<LaborResponse> labors = entity.getLaborForce().stream()
-                .map(LaborMapper::toResponse)
-                .toList();
 
         List<SparePartResponse> spareParts = entity.getSparePart().stream()
                 .map(SparePartMapper::toResponse)
@@ -57,7 +47,7 @@ public class ResultMapper {
                 entity.getDate(),
                 entity.getTimeSpent(),
                 entity.getDescription(),
-                labors,
+                null,
                 spareParts
         );
     }
@@ -65,9 +55,6 @@ public class ResultMapper {
     public static ResultDTO toResponseResult(ResultEntity entity) {
         if (entity == null) return null;
 
-        List<LaborResponse> labors = entity.getLaborForce().stream()
-                .map(LaborMapper::toResponse)
-                .toList();
 
         List<SparePartResponse> spareParts = entity.getSparePart().stream()
                 .map(SparePartMapper::toResponse)
@@ -78,7 +65,7 @@ public class ResultMapper {
                 entity.getDate(),
                 entity.getTimeSpent(),
                 entity.getDescription(),
-                labors,
+                null,
                 spareParts
         );
     }
