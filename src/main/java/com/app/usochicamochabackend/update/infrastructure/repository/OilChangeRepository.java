@@ -11,14 +11,14 @@ import java.util.List;
 @Repository
 public interface OilChangeRepository extends JpaRepository<OilChangeEntity, Long> {
     @Query(
-            value = "SELECT * FROM oil_changes WHERE machine_id = :machineId AND motor_oil = true ORDER BY date_stamp DESC LIMIT 2",
+            value = "SELECT * FROM oil_changes WHERE machine_id = :machineId AND motor_oil = true ORDER BY date_stamp DESC LIMIT 1",
             nativeQuery = true
     )
-    List<OilChangeEntity> getTwoLastMotorOilChangesByMachineId(@Param("machineId") Long machineId);
+    OilChangeEntity getLastMotorOilChangeByMachineId(@Param("machineId") Long machineId);
 
     @Query(
-            value = "SELECT * FROM oil_changes WHERE machine_id = :machineId AND hydraulic_oil = true ORDER BY date_stamp DESC LIMIT 2",
+            value = "SELECT * FROM oil_changes WHERE machine_id = :machineId AND hydraulic_oil = true ORDER BY date_stamp DESC LIMIT 1",
             nativeQuery = true
     )
-    List<OilChangeEntity> getTwoLastHydraulicOilChangesByMachineId(@Param("machineId") Long machineId);
+    OilChangeEntity getLastHydraulicOilChangeByMachineId(@Param("machineId") Long machineId);
 }

@@ -2,9 +2,10 @@ package com.app.usochicamochabackend.order.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.order.application.dto.AssignOrderRequest;
-import com.app.usochicamochabackend.order.application.dto.OrderDTO;
+import com.app.usochicamochabackend.order.application.dto.GetAllOrdersByInspectionIdResponse;
+import com.app.usochicamochabackend.order.application.dto.OrderResponse;
 import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
-import com.app.usochicamochabackend.order.application.port.GetOrderByInspectionId;
+import com.app.usochicamochabackend.order.application.port.GetAllOrdersByInspectionIdUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -16,6 +17,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/order")
 @RequiredArgsConstructor
@@ -23,7 +26,7 @@ import org.springframework.web.bind.annotation.*;
 public class OrderController {
 
     private final AssignOrderUseCase assignOrderUseCase;
-    private final GetOrderByInspectionId getOrderByInspectionId;
+    private final GetAllOrdersByInspectionIdUseCase  getAllOrdersByInspectionIdUseCase;
 
     @Operation(
             summary = "Assign a new order",
@@ -32,14 +35,14 @@ public class OrderController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Order successfully created",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = OrderDTO.class))),
+                            schema = @Schema(implementation = OrderResponse.class))),
             @ApiResponse(responseCode = "404", description = "Inspection, assigner user, or assigned user not found",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE)),
             @ApiResponse(responseCode = "400", description = "Invalid request data",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
     })
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public OrderDTO assignOrder(
+    public OrderResponse assignOrder(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Order assignment data including inspectionId, assignerUserId, assignedUserId and description",
                     required = true,
@@ -54,12 +57,9 @@ public class OrderController {
         return assignOrderUseCase.assignOrder(assignOrderRequest);
     }
 
-    @Operation(
-            summary = "Get order by inspection ID",
-            description = "Fetches the order associated with a given inspection ID."
-    )
-    @GetMapping(value = "/inspection/{inspectionId}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public OrderDTO getOrderByInspectionId(@PathVariable Long inspectionId) {
-        return getOrderByInspectionId.getOrderByInspectionId(inspectionId);
+    @GetMapping("/orders/{inspectionId}")
+    public GetAllOrdersByInspectionIdResponse getAllOrdersByInspectionId(@PathVariable Long inspectionId) {
+        return getAllOrdersByInspectionIdUseCase.getAllOrdersByInspectionId(inspectionId);
     }
+
 }

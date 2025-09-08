@@ -1,7 +1,10 @@
 package com.app.usochicamochabackend.mapper;
 
-import com.app.usochicamochabackend.order.application.dto.OrderDTO;
+import com.app.usochicamochabackend.order.application.dto.OrderResponse;
+import com.app.usochicamochabackend.order.application.dto.OrderWithoutInspectionResponse;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
+
+import java.util.List;
 
 public class OrderMapper {
 
@@ -9,35 +12,38 @@ public class OrderMapper {
         throw new UnsupportedOperationException("Utility class");
     }
 
-    public static OrderDTO toDto(OrderEntity entity) {
+    public static OrderResponse toDto(OrderEntity entity) {
         if (entity == null) {
             return null;
         }
 
-        return new OrderDTO(
+        return new OrderResponse(
                 entity.getId(),
                 entity.getStatus(),
                 entity.getDate(),
                 entity.getDescription(),
-                InspectionMapper.toDtoWithoutOrder(entity.getInspection()), // ← rompe ciclo
-                UserMapper.toResponse(entity.getAssignerUser()),
-                UserMapper.toResponse(entity.getAssignedUser())
+                InspectionMapper.toDto(entity.getInspection()),
+                UserMapper.toResponse(entity.getAssignerUser())
         );
     }
 
-    public static OrderDTO toDtoWithoutInspection(OrderEntity entity) {
+    public static OrderWithoutInspectionResponse toDtoWithoutInspection(OrderEntity entity) {
         if (entity == null) {
             return null;
         }
 
-        return new OrderDTO(
+        return new OrderWithoutInspectionResponse(
                 entity.getId(),
                 entity.getStatus(),
                 entity.getDate(),
                 entity.getDescription(),
-                null,
-                UserMapper.toResponse(entity.getAssignerUser()),
-                UserMapper.toResponse(entity.getAssignedUser())
+                UserMapper.toResponse(entity.getAssignerUser())
         );
+    }
+
+    public static List<OrderWithoutInspectionResponse> toDtoListWithoutInspection(List<OrderEntity> entity) {
+        if (entity == null) return null;
+
+        return entity.stream().map(OrderMapper::toDtoWithoutInspection).toList();
     }
 }

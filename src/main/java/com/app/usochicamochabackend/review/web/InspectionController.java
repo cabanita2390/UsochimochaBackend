@@ -1,14 +1,10 @@
 package com.app.usochicamochabackend.review.web;
 
-import com.app.usochicamochabackend.mapper.ImagesMapper;
-import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.review.application.dto.ImageDTO;
+import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
-import com.app.usochicamochabackend.review.application.dto.InspectionResponse;
+import com.app.usochicamochabackend.review.application.dto.InspectionFormResponse;
 import com.app.usochicamochabackend.review.application.port.*;
-import com.app.usochicamochabackend.review.application.service.InspectionService;
-import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
-import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -47,8 +43,8 @@ public class InspectionController {
             @ApiResponse(responseCode = "400", description = "Invalid request"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<InspectionResponse> createInspection(@RequestBody InspectionFormRequest request) throws URISyntaxException {
-        InspectionResponse saved = createInspectionOnlyDataUseCase.createInspectionOnlyData(request);
+    public ResponseEntity<InspectionFormResponse> createInspection(@RequestBody InspectionFormRequest request) throws URISyntaxException {
+        InspectionFormResponse saved = createInspectionOnlyDataUseCase.createInspectionOnlyData(request);
 
         return ResponseEntity
                 .created(new URI("/api/v1/inspection/" + saved.id()))
@@ -70,8 +66,6 @@ public class InspectionController {
     public ResponseEntity<ImageDTO> uploadInspectionImage(
             @Parameter(description = "Inspection ID", required = true)
             @PathVariable("id") Long inspectionId,
-            @Parameter(description = "Inspection UUID", required = true)
-            @RequestParam("uuid") String uuid,
             @Parameter(description = "Image to upload", required = true)
             @RequestPart("imagen") MultipartFile imagen
     ) throws IOException, URISyntaxException {
@@ -88,18 +82,18 @@ public class InspectionController {
             summary = "Get an inspection by ID",
             description = "Returns all the information of an inspection, including the associated user and machine."
     )
-    public ResponseEntity<InspectionResponse> getInspectionById(@PathVariable Long id) {
-        InspectionResponse inspection = getInspectionByIdUseCase.getInspectionById(id);
+    public ResponseEntity<InspectionDTO> getInspectionById(@PathVariable Long id) {
+        InspectionDTO inspection = getInspectionByIdUseCase.getInspectionById(id);
         return ResponseEntity.ok(inspection);
     }
 
-    @GetMapping("/{id}/images")
+    @GetMapping("/{inspectionId}/images")
     @Operation(
             summary = "Get inspection images",
             description = "Returns all images associated with an inspection."
     )
-    public ResponseEntity<List<ImageDTO>> getInspectionImages(@PathVariable Long id) {
-        return ResponseEntity.ok(getInspectionImagesUseCase.getInspectionImages(id));
+    public ResponseEntity<List<ImageDTO>> getInspectionImages(@PathVariable Long inspectionId) {
+        return ResponseEntity.ok(getInspectionImagesUseCase.getAllImagesByInspectionId(inspectionId));
     }
 
     @GetMapping
@@ -107,8 +101,8 @@ public class InspectionController {
             summary = "Get all inspections",
             description = "Returns all inspections without including images."
     )
-    public ResponseEntity<List<InspectionResponse>> getAllInspections() {
-        List<InspectionResponse> inspections = getAllInspectionsWithoutImagesUseCase.getAllInspectionsWithoutImages();
+    public ResponseEntity<List<InspectionFormResponse>> getAllInspections() {
+        List<InspectionFormResponse> inspections = getAllInspectionsWithoutImagesUseCase.getAllInspectionsWithoutImages();
         return ResponseEntity.ok(inspections);
     }
 

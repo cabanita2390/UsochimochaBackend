@@ -1,14 +1,11 @@
 package com.app.usochicamochabackend.review.application.dto;
 
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
-import com.app.usochicamochabackend.order.application.dto.OrderDTO;
 import com.app.usochicamochabackend.user.application.dto.UserResponse;
 
-import java.math.BigInteger;
 import java.time.LocalDateTime;
-import java.util.List;
 
-public record InspectionResponse(
+public record InspectionFormResponse(
         Long id,
         String UUID,
         Boolean isUnexpected,
@@ -31,7 +28,5 @@ public record InspectionResponse(
         String greasingObservations,
         String observations,
         UserResponse user,
-        MachineResponse machine,
-        List<ImageDTO> images,
-        OrderDTO order
+        MachineResponse machine
 ) {}

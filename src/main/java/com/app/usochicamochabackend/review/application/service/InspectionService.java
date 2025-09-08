@@ -1,16 +1,20 @@
 package com.app.usochicamochabackend.review.application.service;
 
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
+import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.mapper.ImagesMapper;
 import com.app.usochicamochabackend.mapper.InspectionMapper;
-import com.app.usochicamochabackend.mapper.OrderMapper;
+import com.app.usochicamochabackend.mapper.MachineMapper;
+import com.app.usochicamochabackend.order.application.dto.GetAllOrdersByInspectionIdResponse;
 import com.app.usochicamochabackend.review.application.dto.ImageDTO;
+import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
-import com.app.usochicamochabackend.review.application.dto.InspectionResponse;
+import com.app.usochicamochabackend.review.application.dto.InspectionFormResponse;
 import com.app.usochicamochabackend.review.application.port.*;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
+import com.app.usochicamochabackend.review.infrastructure.repository.ImageRepository;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.review.web.InspectionStreamController;
 import lombok.RequiredArgsConstructor;
@@ -23,25 +27,26 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase {
 
+    private final InspectionStreamController inspectionStreamController;
     private final InspectionRepository inspectionRepository;
     private final UserRepositoryJpa userRepository;
     private final MachineRepository machineRepository;
-    private final InspectionStreamController inspectionStreamController;
+    private final ImageRepository imageRepository;
 
     @Override
-    public InspectionResponse createInspectionOnlyData(InspectionFormRequest request) {
-        InspectionEntity entity = InspectionMapper.toEntity(request, userRepository, machineRepository);
+    public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
+        InspectionEntity entity = InspectionMapper.toEntityWithoutOrdersAndImages(request, userRepository, machineRepository);
         InspectionEntity saved = inspectionRepository.save(entity);
-        InspectionResponse inspectionResponse = InspectionMapper.toDtoWithoutOrder(saved);
+        InspectionFormResponse inspectionResponse = InspectionMapper.toDto(saved);
+
+        //Pending to implement notifications for soat and runt
 
         if (Boolean.TRUE.equals(saved.getUnexpected())) {
             inspectionStreamController.publish(inspectionResponse);
@@ -95,7 +100,10 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         }
         inspection.getImages().add(img);
 
-        inspectionRepository.save(inspection);
+        InspectionEntity inspectionEntity = inspectionRepository.save(inspection);
+        List<ImageEntity> images = inspectionEntity.getImages();
+        ImageEntity lastImage = images.get(images.size() - 1);
+        img.setId(lastImage.getId());
 
         return ImagesMapper.toDto(img);
     }
@@ -123,29 +131,12 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         return true;
     }
 
-
     @Override
-    public InspectionResponse getInspectionById(Long inspectionId) {
+    public InspectionDTO getInspectionById(Long inspectionId) {
         InspectionEntity inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
 
-        return InspectionMapper.toDto(inspection);
-    }
-
-    @Override
-    public List<ImageDTO> getInspectionImages(Long inspectionId) {
-        InspectionEntity inspection = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
-        return inspection.getImages().stream()
-                .map(ImagesMapper::toDto)
-                .toList();
-    }
-
-    @Override
-    public List<InspectionResponse> getAllInspectionsWithoutImages() {
-        return inspectionRepository.findAll().stream()
-                .map(InspectionMapper::toDtoWithoutImages)
-                .toList();
+        return InspectionMapper.toDtoWithImagesAndOrders(inspection);
     }
 
     private String getFileExtension(MultipartFile file) {
@@ -161,5 +152,17 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
             return ".jpg";
         }
         return ".bin"; // fallback
+    }
+
+    @Override
+    public List<InspectionFormResponse> getAllInspectionsWithoutImages() {
+        List<InspectionEntity> inspectionEntityList = inspectionRepository.findAll();
+        return InspectionMapper.toDtoListWithoutImagesAndOrders(inspectionEntityList);
+    }
+
+    @Override
+    public List<ImageDTO> getAllImagesByInspectionId(Long inspectionId) {
+        List<ImageEntity> imageEntitiesList = imageRepository.findByInspectionId(inspectionId);
+        return ImagesMapper.toDtoList(imageEntitiesList);
     }
 }

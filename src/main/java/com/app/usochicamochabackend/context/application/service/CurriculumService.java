@@ -40,8 +40,7 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
             throw new ResourceNotFoundException("No inspections found");
         }
 
-        List<OrderEntity> orderEntities = inspectionEntities.stream().map(InspectionEntity::getOrder).toList();
-        List<ResultEntity> resultEntities = orderEntities.stream().map(OrderEntity::getResult).toList();
+        List<ResultEntity> resultEntities = inspectionEntities.stream().flatMap(i -> i.getOrders().stream()).map(OrderEntity::getResult).toList();
         List<ResultDTO> resultDTOS = ResultMapper.toResponseList(resultEntities);
 
         BigDecimal totalPrice = resultDTOS.stream()

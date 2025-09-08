@@ -1,7 +1,7 @@
 package com.app.usochicamochabackend.mapper;
 
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
-import com.app.usochicamochabackend.order.application.dto.OrderDTO;
+import com.app.usochicamochabackend.order.application.dto.OrderResponse;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
 import com.app.usochicamochabackend.performance.application.dto.*;
 import com.app.usochicamochabackend.performance.infrastructure.entity.LaborEntity;
@@ -41,7 +41,7 @@ public class ResultMapper {
         return result;
     }
 
-    public static ExecuteDTO toResponse(ResultEntity entity, OrderDTO orderDTO) {
+    public static ExecuteDTO toResponse(ResultEntity entity, OrderResponse orderResponse) {
         if (entity == null) return null;
 
         List<LaborResponse> labors = entity.getLaborForce().stream()
@@ -53,7 +53,7 @@ public class ResultMapper {
                 .toList();
 
         return new ExecuteDTO(
-                orderDTO,
+                orderResponse,
                 entity.getDate(),
                 entity.getTimeSpent(),
                 entity.getDescription(),

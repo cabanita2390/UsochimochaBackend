@@ -2,9 +2,12 @@ package com.app.usochicamochabackend.mapper;
 
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
-import com.app.usochicamochabackend.review.application.dto.InspectionResponse;
+import com.app.usochicamochabackend.review.application.dto.InspectionFormResponse;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
+
+import java.util.List;
 
 public class InspectionMapper {
 
@@ -12,9 +15,12 @@ public class InspectionMapper {
         throw new UnsupportedOperationException("Utility class");
     }
 
-    public static InspectionEntity toEntity(InspectionFormRequest request,
-                                            UserRepositoryJpa userRepository,
-                                            MachineRepository machineRepository) {
+    public static InspectionEntity toEntityWithoutOrdersAndImages(
+            InspectionFormRequest request,
+            UserRepositoryJpa userRepository,
+            MachineRepository machineRepository
+    )
+    {
         InspectionEntity entity = new InspectionEntity();
 
         entity.setUUID(request.UUID());
@@ -51,12 +57,44 @@ public class InspectionMapper {
         return entity;
     }
 
-    public static InspectionResponse toDto(InspectionEntity entity) {
-        if (entity == null) {
-            return null;
-        }
+    public static InspectionFormResponse toDto(InspectionEntity entity) {
+        if (entity == null) return null;
 
-        return new InspectionResponse(
+        return new InspectionFormResponse(
+                entity.getId(),
+                entity.getUUID(),
+                entity.getUnexpected(),
+                entity.getDateStamp(),
+                entity.getHourMeter(),
+                entity.getLeakStatus(),
+                entity.getBrakeStatus(),
+                entity.getBeltsPulleysStatus(),
+                entity.getTireLanesStatus(),
+                entity.getCarIgnitionStatus(),
+                entity.getElectricalStatus(),
+                entity.getMechanicalStatus(),
+                entity.getTemperatureStatus(),
+                entity.getOilStatus(),
+                entity.getHydraulicStatus(),
+                entity.getCoolantStatus(),
+                entity.getStructuralStatus(),
+                entity.getExpirationDateFireExtinguisher(),
+                entity.getGreasingAction(),
+                entity.getGreasingObservations(),
+                entity.getObservations(),
+                UserMapper.toResponse(entity.getUser()),
+                MachineMapper.toResponse(entity.getMachine())
+        );
+    }
+
+    public static List<InspectionFormResponse> toDtoListWithoutImagesAndOrders(List<InspectionEntity> inspectionEntities) {
+        return inspectionEntities.stream().map(InspectionMapper::toDto).toList();
+    }
+
+    public static InspectionDTO toDtoWithImagesAndOrders(InspectionEntity entity) {
+        if (entity == null) return null;
+
+        return new InspectionDTO(
                 entity.getId(),
                 entity.getUUID(),
                 entity.getUnexpected(),
@@ -81,75 +119,7 @@ public class InspectionMapper {
                 UserMapper.toResponse(entity.getUser()),
                 MachineMapper.toResponse(entity.getMachine()),
                 ImagesMapper.toDtoList(entity.getImages()),
-                OrderMapper.toDtoWithoutInspection(entity.getOrder())
-        );
-    }
-
-    public static InspectionResponse toDtoWithoutOrder(InspectionEntity entity) {
-        if (entity == null) {
-            return null;
-        }
-
-        return new InspectionResponse(
-                entity.getId(),
-                entity.getUUID(),
-                entity.getUnexpected(),
-                entity.getDateStamp(),
-                entity.getHourMeter(),
-                entity.getLeakStatus(),
-                entity.getBrakeStatus(),
-                entity.getBeltsPulleysStatus(),
-                entity.getTireLanesStatus(),
-                entity.getCarIgnitionStatus(),
-                entity.getElectricalStatus(),
-                entity.getMechanicalStatus(),
-                entity.getTemperatureStatus(),
-                entity.getOilStatus(),
-                entity.getHydraulicStatus(),
-                entity.getCoolantStatus(),
-                entity.getStructuralStatus(),
-                entity.getExpirationDateFireExtinguisher(),
-                entity.getGreasingAction(),
-                entity.getGreasingObservations(),
-                entity.getObservations(),
-                UserMapper.toResponse(entity.getUser()),
-                MachineMapper.toResponse(entity.getMachine()),
-                ImagesMapper.toDtoList(entity.getImages()),
-                null
-        );
-    }
-
-    public static InspectionResponse toDtoWithoutImages(InspectionEntity entity) {
-        if (entity == null) {
-            return null;
-        }
-
-        return new InspectionResponse(
-                entity.getId(),
-                entity.getUUID(),
-                entity.getUnexpected(),
-                entity.getDateStamp(),
-                entity.getHourMeter(),
-                entity.getLeakStatus(),
-                entity.getBrakeStatus(),
-                entity.getBeltsPulleysStatus(),
-                entity.getTireLanesStatus(),
-                entity.getCarIgnitionStatus(),
-                entity.getElectricalStatus(),
-                entity.getMechanicalStatus(),
-                entity.getTemperatureStatus(),
-                entity.getOilStatus(),
-                entity.getHydraulicStatus(),
-                entity.getCoolantStatus(),
-                entity.getStructuralStatus(),
-                entity.getExpirationDateFireExtinguisher(),
-                entity.getGreasingAction(),
-                entity.getGreasingObservations(),
-                entity.getObservations(),
-                UserMapper.toResponse(entity.getUser()),
-                MachineMapper.toResponse(entity.getMachine()),
-                null, // sin imágenes
-                OrderMapper.toDtoWithoutInspection(entity.getOrder())
+                OrderMapper.toDtoListWithoutInspection(entity.getOrders())
         );
     }
 }

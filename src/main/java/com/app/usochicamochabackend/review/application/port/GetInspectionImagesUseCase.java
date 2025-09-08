@@ -5,5 +5,5 @@ import com.app.usochicamochabackend.review.application.dto.ImageDTO;
 import java.util.List;
 
 public interface GetInspectionImagesUseCase {
-    List<ImageDTO> getInspectionImages(Long inspectionId);
+    List<ImageDTO> getAllImagesByInspectionId(Long inspectionId);
 }

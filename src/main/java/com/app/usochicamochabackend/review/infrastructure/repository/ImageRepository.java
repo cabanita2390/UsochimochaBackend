@@ -1,0 +1,12 @@
+package com.app.usochicamochabackend.review.infrastructure.repository;
+
+import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface ImageRepository extends JpaRepository<ImageEntity, Long> {
+    List<ImageEntity> findByInspectionId(Long inspectionId);
+}
