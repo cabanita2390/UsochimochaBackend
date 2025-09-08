@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.performance.application.service;
 
+import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.mapper.ResultMapper;
 import com.app.usochicamochabackend.order.application.dto.OrderResponse;
@@ -22,6 +23,7 @@ public class ResultService implements ExecuteAnOrderUseCase {
     private final ResultRepository resultRepository;
     private final GetOrderByIdUseCase getOrderByIdUseCase;
     private final OrderRepository orderRepository;
+    private final UserRepositoryJpa  userRepository;
 
     @Override
     @Transactional
@@ -34,8 +36,7 @@ public class ResultService implements ExecuteAnOrderUseCase {
             throw new RuntimeException("Order has already been executed");
         }
 
-        ResultEntity result = ResultMapper.toEntity(request, orderEntity);
-
+        ResultEntity result = ResultMapper.toEntity(request, orderEntity, userRepository);
         ResultEntity savedResult = resultRepository.save(result);
 
         orderEntity.setResult(savedResult);

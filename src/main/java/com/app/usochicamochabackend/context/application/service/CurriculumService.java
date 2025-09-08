@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -33,12 +34,6 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
 
     @Override
     public MachineCurriculumDTO getMachineCurriculum(Long machineId) {
-        return null;
-    }
-
-    /*
-    @Override
-    public MachineCurriculumDTO getMachineCurriculum(Long machineId) {
         MachineResponse machine = findMachineByIdUseCase.findMachineById(machineId);
         List<InspectionEntity> inspectionEntities = inspectionRepository.findByMachineId(machineId);
 
@@ -46,18 +41,21 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
             throw new ResourceNotFoundException("No inspections found");
         }
 
-        List<ResultEntity> resultEntities = inspectionEntities.stream().flatMap(i -> i.getOrders().stream()).map(OrderEntity::getResult).toList();
-        List<ResultDTO> resultDTOS = ResultMapper.toResponseList(resultEntities);
+        List<ResultEntity> resultEntities = inspectionEntities.stream()
+                .flatMap(i -> i.getOrders().stream())
+                .map(OrderEntity::getResult)
+                .filter(Objects::nonNull)
+                .toList();
 
+        List<ResultDTO> resultDTOS = ResultMapper.toResponseList(resultEntities);
 
         BigDecimal totalPrice = resultDTOS.stream()
                 .flatMap(result -> Stream.concat(
-                        result.labors().stream().map(LaborResponse::price),
+                        Stream.ofNullable(result.labor()).map(LaborResponse::price),
                         result.spareParts().stream().map(SparePartResponse::price)
                 ))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return new MachineCurriculumDTO(machine, resultDTOS, totalPrice);
     }
-     */
 }
