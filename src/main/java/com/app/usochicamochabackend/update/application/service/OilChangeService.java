@@ -206,8 +206,8 @@ public class OilChangeService implements
     }
 
     @Override
-    public PerformChangeHydraulicOilResponse performChangeHydraulicOil(PerformChangeMotorOilRequest request) {
-        OilChangeEntity oilChange = OilChangeMapper.motorOilRequestToEntity(request, machineRepository);
+    public PerformChangeHydraulicOilResponse performChangeHydraulicOil(PerformChangeHydraulicOilRequest request) {
+        OilChangeEntity oilChange = OilChangeMapper.hydraulicOilRequestToEntity(request, machineRepository);
 
         oilChangeRepository.save(oilChange);
 

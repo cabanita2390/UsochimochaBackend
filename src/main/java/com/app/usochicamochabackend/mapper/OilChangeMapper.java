@@ -44,6 +44,7 @@ public final class OilChangeMapper {
         OilChangeEntity entity = new OilChangeEntity();
 
         entity.setHydraulicOil(true);
+        entity.setDateStamp(request.dateTime());
         entity.setBrand(request.brand());
         entity.setQuantity(request.quantity());
         entity.setHourMeter(request.currentHourMeter());

@@ -1,10 +1,11 @@
 package com.app.usochicamochabackend.update.application.dto;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public record PerformChangeHydraulicOilRequest(
         Long machineId,
-        LocalDate dateTime,
+        LocalDateTime dateTime,
         String brand,
         Integer quantity,
         Integer currentHourMeter,

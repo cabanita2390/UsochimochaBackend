@@ -58,7 +58,7 @@ public class InspectionEntity {
     @JoinColumn(name = "user_id")
     private UserEntity user;
 
-    @OneToMany
+    @OneToMany(mappedBy = "inspection", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderEntity> orders;
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
