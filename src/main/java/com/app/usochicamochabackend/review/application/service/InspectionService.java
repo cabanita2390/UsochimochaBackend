@@ -7,16 +7,14 @@ import com.app.usochicamochabackend.mapper.ImagesMapper;
 import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.order.application.dto.GetAllOrdersByInspectionIdResponse;
-import com.app.usochicamochabackend.review.application.dto.ImageDTO;
-import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
-import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
-import com.app.usochicamochabackend.review.application.dto.InspectionFormResponse;
+import com.app.usochicamochabackend.review.application.dto.*;
 import com.app.usochicamochabackend.review.application.port.*;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.ImageRepository;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.review.web.InspectionStreamController;
+import com.app.usochicamochabackend.review.web.NotificationStreamController;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,6 +25,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,6 +34,7 @@ import java.util.List;
 public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase {
 
     private final InspectionStreamController inspectionStreamController;
+    private final NotificationStreamController notificationStreamController;
     private final InspectionRepository inspectionRepository;
     private final UserRepositoryJpa userRepository;
     private final MachineRepository machineRepository;
@@ -42,17 +42,44 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
 
     @Override
     public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
-        InspectionEntity entity = InspectionMapper.toEntityWithoutOrdersAndImages(request, userRepository, machineRepository);
+        InspectionEntity entity = InspectionMapper.toEntityWithoutOrdersAndImages(
+                request, userRepository, machineRepository);
+
         InspectionEntity saved = inspectionRepository.save(entity);
         InspectionFormResponse inspectionResponse = InspectionMapper.toDto(saved);
-
-        //Pending to implement notifications for soat and runt
 
         if (Boolean.TRUE.equals(saved.getUnexpected())) {
             inspectionStreamController.publish(inspectionResponse);
         }
 
+        MachineEntity machine = saved.getMachine();
+
+        if (isExpiringSoon(machine.getSoat())) {
+            notificationStreamController.publish(
+                    new ExpirationNotificationDTO(
+                            "SOAT",
+                            "⚠️ El SOAT de la máquina '" + machine.getName() + "' vence pronto",
+                            MachineMapper.toResponse(machine)
+                    )
+            );
+        }
+
+        if (isExpiringSoon(machine.getRunt())) {
+            notificationStreamController.publish(
+                    new ExpirationNotificationDTO(
+                            "RUNT",
+                            "⚠️ El RUNT de la máquina '" + machine.getName() + "' vence pronto",
+                            MachineMapper.toResponse(machine)
+                    )
+            );
+        }
+
         return inspectionResponse;
+    }
+
+    private boolean isExpiringSoon(LocalDate date) {
+        return date != null && !date.isBefore(LocalDate.now()) &&
+                !date.isAfter(LocalDate.now().plusDays(15));
     }
 
     @Override

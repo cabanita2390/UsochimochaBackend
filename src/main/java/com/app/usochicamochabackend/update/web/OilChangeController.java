@@ -72,7 +72,7 @@ public class OilChangeController {
 
     @PostMapping("/hydraulic")
     @Operation(summary = "Register a hydraulic oil change")
-    public PerformChangeHydraulicOilResponse performHydraulicOilChange(@RequestBody PerformChangeMotorOilRequest request) {
+    public PerformChangeHydraulicOilResponse performHydraulicOilChange(@RequestBody PerformChangeHydraulicOilRequest request) {
         return performHydraulicChange.performChangeHydraulicOil(request);
     }
 }
