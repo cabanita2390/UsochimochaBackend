@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +44,7 @@ public class OilChangeService implements
     public List<ConsolidateHydraulicAndMotorOilDTO> getConsolidateHydraulicAndMotorOilAllMachines() {
         return machineRepository.findAll().stream()
                 .map(machine -> getConsolidateHydraulicAndMotorOilById(machine.getId()))
+                .filter(Objects::nonNull)
                 .toList();
     }
 
@@ -53,6 +55,9 @@ public class OilChangeService implements
                 .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + machineId));
 
         InspectionEntity lastInspection = inspectionRepository.getLastInspection(machineId);
+
+        if (lastInspection == null) return null;
+
         CurrentData currentData = new CurrentData(
                 machine.getBelongsTo(),
                 machine.getName(),
@@ -61,37 +66,43 @@ public class OilChangeService implements
         );
 
         ConsolidateMotorOilDTO motorOil = getConsolidateMotorOilByIdMachine(machineId);
+        ConsolidateMotorOilDTO cleanMotorOil = null;
+        if (motorOil != null) {
+            cleanMotorOil = new ConsolidateMotorOilDTO(
+                    null,
+                    motorOil.id(),
+                    motorOil.type(),
+                    motorOil.brand(),
+                    motorOil.quantity(),
+                    motorOil.averageChangeHours(),
+                    motorOil.dateLastUpdate(),
+                    motorOil.hourMeterLastUpdate(),
+                    motorOil.hourMeterNextUpdate(),
+                    motorOil.timeLastUpdateMouths(),
+                    motorOil.remainingHoursNextUpdateMouths(),
+                    motorOil.status()
+            );
+        }
+
+        // Hydraulic Oil
         ConsolidateHydraulicOilDTO hydraulicOil = getConsolidateHydraulicOilByIdMachine(machineId);
-
-        ConsolidateMotorOilDTO cleanMotorOil = new ConsolidateMotorOilDTO(
-                null,
-                motorOil.id(),
-                motorOil.type(),
-                motorOil.brand(),
-                motorOil.quantity(),
-                motorOil.averageChangeHours(),
-                motorOil.dateLastUpdate(),
-                motorOil.hourMeterLastUpdate(),
-                motorOil.hourMeterNextUpdate(),
-                motorOil.timeLastUpdateMouths(),
-                motorOil.remainingHoursNextUpdateMouths(),
-                motorOil.status()
-        );
-
-        ConsolidateHydraulicOilDTO cleanHydraulicOil = new ConsolidateHydraulicOilDTO(
-                null,
-                hydraulicOil.id(),
-                hydraulicOil.type(),
-                hydraulicOil.brand(),
-                hydraulicOil.quantity(),
-                hydraulicOil.averageChangeHours(),
-                hydraulicOil.dateLastUpdate(),
-                hydraulicOil.hourMeterLastUpdate(),
-                hydraulicOil.hourMeterNextUpdate(),
-                hydraulicOil.timeLastUpdateMouths(),
-                hydraulicOil.remainingHoursNextUpdateMouths(),
-                hydraulicOil.status()
-        );
+        ConsolidateHydraulicOilDTO cleanHydraulicOil = null;
+        if (hydraulicOil != null) {
+            cleanHydraulicOil = new ConsolidateHydraulicOilDTO(
+                    null,
+                    hydraulicOil.id(),
+                    hydraulicOil.type(),
+                    hydraulicOil.brand(),
+                    hydraulicOil.quantity(),
+                    hydraulicOil.averageChangeHours(),
+                    hydraulicOil.dateLastUpdate(),
+                    hydraulicOil.hourMeterLastUpdate(),
+                    hydraulicOil.hourMeterNextUpdate(),
+                    hydraulicOil.timeLastUpdateMouths(),
+                    hydraulicOil.remainingHoursNextUpdateMouths(),
+                    hydraulicOil.status()
+            );
+        }
 
         return new ConsolidateHydraulicAndMotorOilDTO(
                 MachineMapper.toResponse(machine),
@@ -114,6 +125,9 @@ public class OilChangeService implements
                 .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + machineId));
 
         InspectionEntity lastInspection = inspectionRepository.getLastInspection(machineId);
+
+        if (lastInspection == null) return null;
+
         CurrentData currentData = new CurrentData(
                 machine.getBelongsTo(),
                 machine.getName(),
@@ -122,6 +136,8 @@ public class OilChangeService implements
         );
 
         OilChangeEntity oilLastChange = oilChangeRepository.getLastHydraulicOilChangeByMachineId(machineId);
+
+        if (oilLastChange == null) return null;
 
         int averageChangeHours = oilLastChange.getAverageHoursChange();
         double hourMeterLastUpdate = oilLastChange.getHourMeter();
@@ -184,6 +200,8 @@ public class OilChangeService implements
 
         OilChangeEntity oilLastChange = oilChangeRepository.getLastMotorOilChangeByMachineId(machineId);
 
+        if (oilLastChange == null) return null;
+
         int averageChangeHours = oilLastChange.getAverageHoursChange();
         
         double hourMeterLastUpdate = oilLastChange.getHourMeter();
@@ -231,8 +249,7 @@ public class OilChangeService implements
     public PerformChangeMotorOilResponse performMotorOilChange(PerformChangeMotorOilRequest request) {
         OilChangeEntity oilChange = OilChangeMapper.motorOilRequestToEntity(request, machineRepository);
 
-        MachineEntity machine = machineRepository.findById(request.machineId())
-                .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
+        machineRepository.findById(request.machineId()).orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
 
         InspectionEntity lastInspection = inspectionRepository.getLastInspection(request.machineId());
 
@@ -249,8 +266,7 @@ public class OilChangeService implements
     public PerformChangeHydraulicOilResponse performChangeHydraulicOil(PerformChangeHydraulicOilRequest request) {
         OilChangeEntity oilChange = OilChangeMapper.hydraulicOilRequestToEntity(request, machineRepository);
 
-        MachineEntity machine = machineRepository.findById(request.machineId())
-                .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
+        machineRepository.findById(request.machineId()).orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
 
         InspectionEntity lastInspection = inspectionRepository.getLastInspection(request.machineId());
 
