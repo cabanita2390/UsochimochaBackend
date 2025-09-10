@@ -7,12 +7,14 @@ import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositor
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
+import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.mapper.OrderMapper;
 import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
 import com.app.usochicamochabackend.order.application.port.GetAllOrdersByInspectionIdUseCase;
+import com.app.usochicamochabackend.order.application.port.GetAllOrdersByMachineIdUseCase;
 import com.app.usochicamochabackend.order.application.port.GetAllOrdersUseCase;
 import com.app.usochicamochabackend.order.application.port.GetOrderByIdUseCase;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
@@ -27,9 +29,10 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectionIdUseCase, GetOrderByIdUseCase, GetAllOrdersUseCase {
+public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectionIdUseCase, GetOrderByIdUseCase, GetAllOrdersUseCase, GetAllOrdersByMachineIdUseCase {
 
     private final OrderRepository orderRepository;
+    private final MachineRepository machineRepository;
     private final InspectionRepository inspectionRepository;
     private final UserRepositoryJpa userRepository;
     private final SaveActionUseCase saveActionUseCase;
@@ -97,4 +100,20 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
                 .toList();
     }
 
+    @Override
+    public GetAllOrdersByMachineId getAllOrdersByMachineId(Long machineId) {
+        MachineEntity machineEntity = machineRepository.findById(machineId).orElseThrow(()->new ResourceNotFoundException("Machine not found with ID: " + machineId));
+
+        List<InspectionEntity> inspections = inspectionRepository.findByMachineId(machineId);
+
+        if (inspections.isEmpty()) {
+            throw new ResourceNotFoundException("No inspections found");
+        }
+
+        List<OrderEntity> orders = inspections.stream()
+                .flatMap(inspection -> inspection.getOrders().stream())
+                .toList();
+
+        return new GetAllOrdersByMachineId(MachineMapper.toResponse(machineEntity), OrderMapper.toDtoListWithoutInspection(orders));
+    }
 }

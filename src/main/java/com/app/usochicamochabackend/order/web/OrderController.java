@@ -1,14 +1,14 @@
 package com.app.usochicamochabackend.order.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
-import com.app.usochicamochabackend.order.application.dto.AssignOrderRequest;
-import com.app.usochicamochabackend.order.application.dto.GetAllOrdersByInspectionIdResponse;
-import com.app.usochicamochabackend.order.application.dto.OrderResponse;
-import com.app.usochicamochabackend.order.application.dto.OrderWithMachineDTO;
+import com.app.usochicamochabackend.exception.ResourceNotFoundException;
+import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
 import com.app.usochicamochabackend.order.application.port.GetAllOrdersByInspectionIdUseCase;
+import com.app.usochicamochabackend.order.application.port.GetAllOrdersByMachineIdUseCase;
 import com.app.usochicamochabackend.order.application.port.GetAllOrdersUseCase;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -31,6 +31,7 @@ public class OrderController {
     private final AssignOrderUseCase assignOrderUseCase;
     private final GetAllOrdersByInspectionIdUseCase  getAllOrdersByInspectionIdUseCase;
     private final GetAllOrdersUseCase getAllOrdersUseCase;
+    private final GetAllOrdersByMachineIdUseCase getAllOrdersByMachineIdUseCase;
 
     @Operation(
             summary = "Assign a new order",
@@ -71,4 +72,25 @@ public class OrderController {
         return ResponseEntity.ok(getAllOrdersUseCase.getAllOrders());
     }
 
+    @Operation(
+            summary = "Get all orders by machine ID",
+            description = "Retrieves all orders related to the inspections of a given machine."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Orders retrieved successfully",
+                    content = @Content(mediaType = "application/json",
+                            schema = @Schema(implementation = GetAllOrdersByMachineId.class))),
+            @ApiResponse(responseCode = "404", description = "Machine or inspections not found",
+                    content = @Content(mediaType = "application/json")),
+            @ApiResponse(responseCode = "500", description = "Internal server error",
+                    content = @Content)
+    })
+    @GetMapping("/machine/{machineId}")
+    public ResponseEntity<GetAllOrdersByMachineId> getAllOrdersByMachineId(
+            @Parameter(description = "ID of the machine to fetch orders for", required = true, example = "1")
+            @PathVariable Long machineId) throws ResourceNotFoundException {
+
+        GetAllOrdersByMachineId response = getAllOrdersByMachineIdUseCase.getAllOrdersByMachineId(machineId);
+        return ResponseEntity.ok(response);
+    }
 }

@@ -1,7 +1,16 @@
 package com.app.usochicamochabackend.update.web;
 
+import com.app.usochicamochabackend.exception.ResourceNotFoundException;
+import com.app.usochicamochabackend.order.application.dto.GetAllOrdersByMachineId;
+import com.app.usochicamochabackend.order.application.port.GetAllOrdersByMachineIdUseCase;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import com.app.usochicamochabackend.update.application.dto.*;
@@ -75,4 +84,6 @@ public class OilChangeController {
     public PerformChangeHydraulicOilResponse performHydraulicOilChange(@RequestBody PerformChangeHydraulicOilRequest request) {
         return performHydraulicChange.performChangeHydraulicOil(request);
     }
+
+
 }
