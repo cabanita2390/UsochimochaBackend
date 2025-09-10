@@ -6,7 +6,7 @@ public record PerformChangeHydraulicOilResponse(
         Long id,
         MachineResponse machine,
         String brand,
-        Integer currentHourMeter,
+        Double currentHourMeter,
         Integer quantity,
         Integer averageHoursChange
 ) {}

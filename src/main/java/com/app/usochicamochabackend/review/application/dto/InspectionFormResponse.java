@@ -10,7 +10,7 @@ public record InspectionFormResponse(
         String UUID,
         Boolean isUnexpected,
         LocalDateTime dateStamp,
-        Integer hourMeter,
+        Double hourMeter,
         String leakStatus,
         String brakeStatus,
         String beltsPulleysStatus,

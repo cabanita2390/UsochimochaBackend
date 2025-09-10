@@ -25,7 +25,7 @@ public class OilChangeEntity {
     private Boolean motorOil;
     private String brand;
     private Integer quantity;
-    private Integer hourMeter;
+    private Double hourMeter;
     private Integer averageHoursChange;
 
     @ManyToOne(cascade = CascadeType.ALL)
