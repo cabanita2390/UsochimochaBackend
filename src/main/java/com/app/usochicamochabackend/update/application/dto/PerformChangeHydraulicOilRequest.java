@@ -8,6 +8,6 @@ public record PerformChangeHydraulicOilRequest(
         LocalDateTime dateTime,
         String brand,
         Integer quantity,
-        Integer currentHourMeter,
+        Double currentHourMeter,
         Integer averageHoursChange
 ) {}

@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.update.application.service;
 
+import com.app.usochicamochabackend.exception.BadRequestException;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
@@ -11,10 +12,12 @@ import com.app.usochicamochabackend.update.application.dto.*;
 import com.app.usochicamochabackend.update.application.port.*;
 import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
 import com.app.usochicamochabackend.update.infrastructure.repository.OilChangeRepository;
+import com.app.usochicamochabackend.update.web.OilChangeStreamController;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -34,6 +37,7 @@ public class OilChangeService implements
     private final MachineRepository machineRepository;
     private final InspectionRepository inspectionRepository;
     private final OilChangeRepository oilChangeRepository;
+    private final OilChangeStreamController streamController;
 
     @Override
     public List<ConsolidateHydraulicAndMotorOilDTO> getConsolidateHydraulicAndMotorOilAllMachines() {
@@ -70,11 +74,13 @@ public class OilChangeService implements
                 motorOil.hourMeterLastUpdate(),
                 motorOil.hourMeterNextUpdate(),
                 motorOil.timeLastUpdateMouths(),
-                motorOil.remainingHoursNextUpdateMouths()
+                motorOil.remainingHoursNextUpdateMouths(),
+                motorOil.status()
         );
 
         ConsolidateHydraulicOilDTO cleanHydraulicOil = new ConsolidateHydraulicOilDTO(
                 null,
+                hydraulicOil.id(),
                 hydraulicOil.type(),
                 hydraulicOil.brand(),
                 hydraulicOil.quantity(),
@@ -83,7 +89,8 @@ public class OilChangeService implements
                 hydraulicOil.hourMeterLastUpdate(),
                 hydraulicOil.hourMeterNextUpdate(),
                 hydraulicOil.timeLastUpdateMouths(),
-                hydraulicOil.remainingHoursNextUpdateMouths()
+                hydraulicOil.remainingHoursNextUpdateMouths(),
+                hydraulicOil.status()
         );
 
         return new ConsolidateHydraulicAndMotorOilDTO(
@@ -117,19 +124,31 @@ public class OilChangeService implements
         OilChangeEntity oilLastChange = oilChangeRepository.getLastHydraulicOilChangeByMachineId(machineId);
 
         int averageChangeHours = oilLastChange.getAverageHoursChange();
-        int hourMeterLastUpdate = oilLastChange.getHourMeter();
-        int hourMeterNextUpdate = hourMeterLastUpdate + averageChangeHours;
+        double hourMeterLastUpdate = oilLastChange.getHourMeter();
+        double hourMeterNextUpdate = hourMeterLastUpdate + averageChangeHours;
 
-        long daysBetween = java.time.temporal.ChronoUnit.DAYS.between(
-                oilLastChange.getDateStamp().toLocalDate(),
-                java.time.LocalDate.now()
-        );
+        double timeLastUpdateMouths = ChronoUnit.DAYS.between(
+                oilLastChange.getDateStamp(),
+                LocalDateTime.now()
+        ) / 30.0;
 
-        int timeLastUpdateMouths = (int) (daysBetween / 30);
-        int remainingHoursNextUpdateMouths = hourMeterNextUpdate - hourMeterLastUpdate;
+        double remainingHoursNextUpdateMouths = hourMeterNextUpdate - currentData.currentHourMeter();
+
+        String status = null;
+
+        if (currentData.currentHourMeter() <= (hourMeterNextUpdate - 50)) {
+            status = "OK";
+        } else if (currentData.currentHourMeter() <= hourMeterNextUpdate) {
+            status = machine.getName() + " proximo para cambio de aceite hidraulico";
+            streamController.sendNotification(status); // 🔔 Notificación
+        } else {
+            status = machine.getName() + " cambio de aceite hidraulico obligatorio";
+            streamController.sendNotification(status); // 🔔 Notificación
+        }
 
         return new ConsolidateHydraulicOilDTO(
                 currentData,
+                oilLastChange.getId(),
                 "HYDRAULIC",
                 oilLastChange.getBrand(),
                 oilLastChange.getQuantity(),
@@ -138,7 +157,8 @@ public class OilChangeService implements
                 hourMeterLastUpdate,
                 hourMeterNextUpdate,
                 timeLastUpdateMouths,
-                remainingHoursNextUpdateMouths
+                remainingHoursNextUpdateMouths,
+                status
         );
     }
 
@@ -155,29 +175,39 @@ public class OilChangeService implements
                 .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + machineId));
 
         InspectionEntity lastInspection = inspectionRepository.getLastInspection(machineId);
-
         CurrentData currentData = new CurrentData(
                 machine.getBelongsTo(),
                 machine.getName(),
-                lastInspection != null ? lastInspection.getHourMeter() : null,
-                lastInspection != null ? lastInspection.getDateStamp() : null
+                lastInspection.getHourMeter(),
+                lastInspection.getDateStamp()
         );
 
         OilChangeEntity oilLastChange = oilChangeRepository.getLastMotorOilChangeByMachineId(machineId);
 
-        if (oilLastChange.getDateStamp() == null) {
-            throw new IllegalStateException("OilChangeEntity with id " + oilLastChange.getId() + " has no dateStamp");
-        }
-
         int averageChangeHours = oilLastChange.getAverageHoursChange();
-        int hourMeterLastUpdate = oilLastChange.getHourMeter();
-        int hourMeterNextUpdate = hourMeterLastUpdate + averageChangeHours;
+        
+        double hourMeterLastUpdate = oilLastChange.getHourMeter();
+        
+        double hourMeterNextUpdate = hourMeterLastUpdate + averageChangeHours;
 
-        LocalDate lastDate = oilLastChange.getDateStamp().toLocalDate();
-        long daysBetween = ChronoUnit.DAYS.between(lastDate, LocalDate.now());
+        double timeLastUpdateMouths = ChronoUnit.DAYS.between(
+                oilLastChange.getDateStamp(),
+                LocalDateTime.now()
+        ) / 30.0;
 
-        int timeLastUpdateMonths = (int) (daysBetween / 30);
-        int remainingHoursNextUpdate = hourMeterNextUpdate - hourMeterLastUpdate;
+        double remainingHoursNextUpdateMouths = hourMeterNextUpdate - currentData.currentHourMeter();
+
+        String status = null;
+
+        if (currentData.currentHourMeter() <= (hourMeterNextUpdate - 50)) {
+            status = "OK";
+        } else if (currentData.currentHourMeter() <= hourMeterNextUpdate) {
+            status = machine.getName() + " proximo para cambio de aceite de motor";
+            streamController.sendNotification(status); // 🔔 Notificación
+        } else {
+            status = machine.getName() + " cambio de aceite de motor obligatorio";
+            streamController.sendNotification(status); // 🔔 Notificación
+        }
 
         return new ConsolidateMotorOilDTO(
                 currentData,
@@ -186,11 +216,12 @@ public class OilChangeService implements
                 oilLastChange.getBrand(),
                 oilLastChange.getQuantity(),
                 averageChangeHours,
-                lastDate,
-                hourMeterLastUpdate,
+                oilLastChange.getDateStamp().toLocalDate(),
+                oilLastChange.getHourMeter(),
                 hourMeterNextUpdate,
-                timeLastUpdateMonths,
-                remainingHoursNextUpdate
+                timeLastUpdateMouths,
+                remainingHoursNextUpdateMouths,
+                status
         );
     }
 
@@ -200,6 +231,15 @@ public class OilChangeService implements
     public PerformChangeMotorOilResponse performMotorOilChange(PerformChangeMotorOilRequest request) {
         OilChangeEntity oilChange = OilChangeMapper.motorOilRequestToEntity(request, machineRepository);
 
+        MachineEntity machine = machineRepository.findById(request.machineId())
+                .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
+
+        InspectionEntity lastInspection = inspectionRepository.getLastInspection(request.machineId());
+
+        if (request.currentHourMeter() < lastInspection.getHourMeter()) {
+            throw new BadRequestException("The stated hour meter cannot be less than the last inspection hour meter");
+        }
+
         oilChangeRepository.save(oilChange);
 
         return OilChangeMapper.motorOilEntityToResponse(oilChange);
@@ -208,6 +248,15 @@ public class OilChangeService implements
     @Override
     public PerformChangeHydraulicOilResponse performChangeHydraulicOil(PerformChangeHydraulicOilRequest request) {
         OilChangeEntity oilChange = OilChangeMapper.hydraulicOilRequestToEntity(request, machineRepository);
+
+        MachineEntity machine = machineRepository.findById(request.machineId())
+                .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
+
+        InspectionEntity lastInspection = inspectionRepository.getLastInspection(request.machineId());
+
+        if (request.currentHourMeter() < lastInspection.getHourMeter()) {
+            throw new BadRequestException("The stated hour meter cannot be less than the last inspection hour meter");
+        }
 
         oilChangeRepository.save(oilChange);
 

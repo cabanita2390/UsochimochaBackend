@@ -5,6 +5,6 @@ import java.time.LocalDateTime;
 public record CurrentData(
         String belongsTo,
         String machineName,
-        Integer currentHourMeter,
+        Double currentHourMeter,
         LocalDateTime lastUpdate
 ) {}

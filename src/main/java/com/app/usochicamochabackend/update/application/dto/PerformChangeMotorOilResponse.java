@@ -11,6 +11,6 @@ public record PerformChangeMotorOilResponse(
         LocalDateTime timestamp,
         String brand,
         Integer quantity,
-        Integer currentHourMeter,
+        Double currentHourMeter,
         Integer averageHoursChange
 ) {}

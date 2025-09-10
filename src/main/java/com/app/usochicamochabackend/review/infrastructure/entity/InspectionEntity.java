@@ -32,7 +32,7 @@ public class InspectionEntity {
     private Boolean unexpected;
     @Column(nullable = false)
     private LocalDateTime dateStamp;
-    private Integer hourMeter;
+    private Double hourMeter;
     private String leakStatus;
     private String brakeStatus;
     private String beltsPulleysStatus;
