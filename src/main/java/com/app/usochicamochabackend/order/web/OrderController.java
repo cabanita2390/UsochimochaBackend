@@ -4,8 +4,10 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.order.application.dto.AssignOrderRequest;
 import com.app.usochicamochabackend.order.application.dto.GetAllOrdersByInspectionIdResponse;
 import com.app.usochicamochabackend.order.application.dto.OrderResponse;
+import com.app.usochicamochabackend.order.application.dto.OrderWithMachineDTO;
 import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
 import com.app.usochicamochabackend.order.application.port.GetAllOrdersByInspectionIdUseCase;
+import com.app.usochicamochabackend.order.application.port.GetAllOrdersUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -14,6 +16,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,6 +30,7 @@ public class OrderController {
 
     private final AssignOrderUseCase assignOrderUseCase;
     private final GetAllOrdersByInspectionIdUseCase  getAllOrdersByInspectionIdUseCase;
+    private final GetAllOrdersUseCase getAllOrdersUseCase;
 
     @Operation(
             summary = "Assign a new order",
@@ -57,9 +61,14 @@ public class OrderController {
         return assignOrderUseCase.assignOrder(assignOrderRequest);
     }
 
-    @GetMapping("/orders/{inspectionId}")
+    @GetMapping("/all/{inspectionId}")
     public GetAllOrdersByInspectionIdResponse getAllOrdersByInspectionId(@PathVariable Long inspectionId) {
         return getAllOrdersByInspectionIdUseCase.getAllOrdersByInspectionId(inspectionId);
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<List<OrderWithMachineDTO>> getAllOrders() {
+        return ResponseEntity.ok(getAllOrdersUseCase.getAllOrders());
     }
 
 }
