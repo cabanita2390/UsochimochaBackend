@@ -11,8 +11,8 @@ import reactor.core.publisher.Sinks;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/notifications")
-public class NotificationStreamController {
+@RequestMapping("/soat/runt/notifications")
+public class SoatRuntStreamController {
 
     private final Sinks.Many<ExpirationNotificationDTO> notificationsSink =
             Sinks.many().multicast().onBackpressureBuffer();

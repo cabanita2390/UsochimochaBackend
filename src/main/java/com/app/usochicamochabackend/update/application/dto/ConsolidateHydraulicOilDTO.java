@@ -1,12 +1,14 @@
 package com.app.usochicamochabackend.update.application.dto;
 
+import com.app.usochicamochabackend.update.infrastructure.entity.BrandEntity;
+
 import java.time.LocalDate;
 
 public record ConsolidateHydraulicOilDTO(
         CurrentData currentData,
         Long id,
         String type,
-        String brand,
+        BrandEntity brand,
         Integer quantity,
         Integer averageChangeHours,
         LocalDate dateLastUpdate,

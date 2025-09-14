@@ -9,6 +9,7 @@ import com.app.usochicamochabackend.machine.application.port.*;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.mapper.MachineMapper;
+import com.app.usochicamochabackend.notifications.application.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
 
     private final MachineRepository machineRepository;
     private final SaveActionUseCase saveActionUseCase;
+    private final NotificationService notificationService;
 
     @Override
     public MachineResponse createMachine(MachineRequest machineRequest) {
@@ -34,11 +36,17 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
         saveActionUseCase.save("El usuario " + userPrincipal.username() +
                 " ha creado la máquina " + savedMachine.getName());
 
+        notificationService.notify("actions-updated");
+        notificationService.notify("machines-updated");
+
         return MachineMapper.toResponse(savedMachine);
     }
 
     @Override
     public List<MachineResponse> findAllMachines() {
+
+        notificationService.notify("actions-updated");
+
         return machineRepository.findAll().stream()
                 .filter(MachineEntity::getStatus)
                 .map(MachineMapper::toResponse)
@@ -53,6 +61,11 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
         if (!machine.getStatus()) {
             throw new ResourceNotFoundException("Machine not found with ID: " + id);
         }
+
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado la maquina " + machine.getName());
+
+        notificationService.notify("actions-updated");
 
         return MachineMapper.toResponse(machine);
     }
@@ -71,7 +84,6 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
 
-        // Detectar cambios
         List<String> cambios = new ArrayList<>();
 
         if (!Objects.equals(currentMachine.getName(), savedMachine.getName())) {
@@ -108,6 +120,9 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
 
         saveActionUseCase.save(mensaje);
 
+        notificationService.notify("actions-updated");
+        notificationService.notify("machines-updated");
+
         return MachineMapper.toResponse(savedMachine);
     }
 
@@ -128,5 +143,8 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
 
         saveActionUseCase.save("El usuario " + userPrincipal.username() +
                 " ha eliminado la máquina " + machine.getName());
+
+        notificationService.notify("actions-updated");
+        notificationService.notify("machines-updated");
     }
 }

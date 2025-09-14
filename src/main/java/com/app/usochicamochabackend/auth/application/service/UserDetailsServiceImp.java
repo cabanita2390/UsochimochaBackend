@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.auth.application.service;
 
+import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.auth.application.dto.*;
 import com.app.usochicamochabackend.auth.application.port.AuthenticateUseCase;
 import com.app.usochicamochabackend.auth.application.port.LoginUseCase;
@@ -8,6 +9,7 @@ import com.app.usochicamochabackend.auth.application.port.SearchUsernameUseCase;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
+import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -23,14 +25,18 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase, SearchUsernameUseCase, RefreshTokenUseCase, UserDetailsService {
+
     private final UserRepositoryJpa userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
+    private final SaveActionUseCase saveActionUseCase;
+    private final NotificationService notificationService;
 
     @Override
     public AuthResponse login(AuthRequest authLoginRequest) {
@@ -51,6 +57,12 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
 
         String jwtToken = jwtUtils.createToken(authentication);
         String refreshToken = jwtUtils.createRefreshToken(authentication);
+
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() +
+                " ha iniciado sesion el dia " + LocalDateTime.now().toLocalDate() + " a las " + LocalDateTime.now().toLocalTime());
+
+        notificationService.notify("actions-updated");
 
         return new AuthResponse(userEntity.getId(), username, "logged successfully!", jwtToken, refreshToken,true);
     }

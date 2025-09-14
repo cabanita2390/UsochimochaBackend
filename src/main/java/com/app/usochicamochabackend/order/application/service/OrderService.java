@@ -11,6 +11,7 @@ import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRep
 import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.mapper.OrderMapper;
+import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
 import com.app.usochicamochabackend.order.application.port.GetAllOrdersByInspectionIdUseCase;
@@ -22,10 +23,13 @@ import com.app.usochicamochabackend.order.infrastructure.repository.OrderReposit
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +40,7 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
     private final InspectionRepository inspectionRepository;
     private final UserRepositoryJpa userRepository;
     private final SaveActionUseCase saveActionUseCase;
+    private final NotificationService notificationService;
 
     @Override
     public OrderResponse assignOrder(AssignOrderRequest assignOrderRequest) {
@@ -58,46 +63,58 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
         );
 
         saveActionUseCase.save("El usuario " + assignerUser.getUsername() +
-                " ha asignado una orden de trabajo a la inspección " + inspectionEntity.getId());
+                " ha asignado una orden de trabajo a la inspección realizada a la maquina " + inspectionEntity.getMachine().getName() + " el dia " + orderEntity.getInspection().getDateStamp());
+
+        notificationService.notify("actions-updated");
+        notificationService.notify("orders-updated");
 
         return OrderMapper.toDto(orderEntity);
     }
 
     @Override
     public GetAllOrdersByInspectionIdResponse getAllOrdersByInspectionId(Long inspectionId) {
-        InspectionEntity inspectionEntity = inspectionRepository.findById(inspectionId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Inspection not found with ID: " + inspectionId));
+        InspectionEntity inspectionEntity = inspectionRepository.findById(inspectionId).orElseThrow(() -> new ResourceNotFoundException("Inspection not found with ID: " + inspectionId));
 
         List<OrderEntity> orders = orderRepository.getAllByInspectionId(inspectionId);
         if (orders.isEmpty()) {
-            throw new ResourceNotFoundException(
-                    "No orders found");
+            throw new ResourceNotFoundException("No orders found");
         }
+
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() +
+                " ha observado todas la ordenes de trabajo asigandas a la inspeccion que se le realizo a la maquina " + inspectionEntity.getMachine().getName() + " el dia " + inspectionEntity.getDateStamp().toLocalDate());
+
+        notificationService.notify("actions-updated");
 
         return new GetAllOrdersByInspectionIdResponse(InspectionMapper.toDto(inspectionEntity), orders.stream().map(OrderMapper::toDto).toList());
     }
 
     @Override
     public OrderResponse getOrderById(Long orderId) {
+        notificationService.notify("actions-updated");
+
         return OrderMapper.toDto(orderRepository.findById(orderId).orElseThrow(()->new ResourceNotFoundException("Order not found with ID: " + orderId)));
     }
 
     @Override
-    public List<OrderWithMachineDTO> getAllOrders() {
-        List<OrderEntity> orders = orderRepository.findAll();
+    public Page<OrderWithMachineDTO> getAllOrders(Pageable pageable) {
+        Page<OrderEntity> orders = orderRepository.findAll(pageable);
 
         if (orders.isEmpty()) {
             throw new ResourceNotFoundException("No orders found");
         }
 
-        return orders.stream()
-                .map(order -> {
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() +
+                " ha observado todas la ordenes de trabajo asigandas");
+
+        notificationService.notify("actions-updated");
+
+        return orders.map(order -> {
                     OrderWithoutInspectionResponse orderDTO = OrderMapper.toDtoWithoutInspection(order);
                     MachineResponse machineDTO = MachineMapper.toResponse(order.getInspection().getMachine());
                     return new OrderWithMachineDTO(orderDTO, machineDTO);
-                })
-                .toList();
+                });
     }
 
     @Override
@@ -113,6 +130,12 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
         List<OrderEntity> orders = inspections.stream()
                 .flatMap(inspection -> inspection.getOrders().stream())
                 .toList();
+
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() +
+                " ha observado todas la ordenes de trabajo asigandas a la maquina " + machineEntity.getName());
+
+        notificationService.notify("actions-updated");
 
         return new GetAllOrdersByMachineId(MachineMapper.toResponse(machineEntity), OrderMapper.toDtoListWithoutInspection(orders));
     }

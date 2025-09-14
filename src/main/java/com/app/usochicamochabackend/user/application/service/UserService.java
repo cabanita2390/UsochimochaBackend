@@ -6,6 +6,7 @@ import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.mapper.UserMapper;
+import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.user.application.dto.*;
 import com.app.usochicamochabackend.user.application.port.*;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class UserService implements
     private final UserRepositoryJpa userRepository;
     private final PasswordEncoder passwordEncoder;
     private final SaveActionUseCase saveActionUseCase;
+    private final NotificationService notificationService;
 
     @Override
     public CreateUserResponse createUser(CreateUserRequest request) {
@@ -45,9 +47,11 @@ public class UserService implements
 
         UserEntity userSaved = userRepository.save(user);
 
-       // UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
-       // saveActionUseCase.save("El usuario " + userSaved.getUsername() + " ha sido creado por " + userPrincipal.username());
+        saveActionUseCase.save("El usuario " + userSaved.getUsername() + " ha sido creado por " + userPrincipal.username());
+        notificationService.notify("users-updated");
+        notificationService.notify("actions-updated");
 
         return new CreateUserResponse(user.getId(), userSaved.getUsername(), userSaved.getEmail(),userSaved.getStatus(), userSaved.getRole(), userSaved.getFullName(), "User created successfully");
     }
@@ -60,6 +64,8 @@ public class UserService implements
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         saveActionUseCase.save("El usuario " + user.getUsername() + " ha sido eliminado por " + userPrincipal.username());
+        notificationService.notify("users-updated");
+        notificationService.notify("actions-updated");
 
         userRepository.save(user);
     }
@@ -71,12 +77,17 @@ public class UserService implements
                 .filter(UserEntity::getStatus)
                 .toList();
 
+        notificationService.notify("actions-updated");
+
         return UserMapper.toResponse(userEntities);
     }
 
     @Override
     public UserResponse findUserById(Long id) {
          UserEntity user = userRepository.findById(id).orElseThrow(()-> new ResourceNotFoundException("User not found with id: " + id));
+
+        notificationService.notify("actions-updated");
+
          return UserMapper.toResponse(user);
     }
 
@@ -120,6 +131,9 @@ public class UserService implements
 
         saveActionUseCase.save(mensaje);
 
+        notificationService.notify("actions-updated");
+        notificationService.notify("users-updated");
+
         return UserMapper.toResponse(userUpdated);
     }
 
@@ -134,6 +148,9 @@ public class UserService implements
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         saveActionUseCase.save("La contraseña del " + currentUser.getUsername() + " ha sido actualizada por " + userPrincipal.username());
+
+        notificationService.notify("actions-updated");
+        notificationService.notify("users-updated");
 
         return new ChangePasswordResponse(userUpdated, "Password was change successfully", true);
     }

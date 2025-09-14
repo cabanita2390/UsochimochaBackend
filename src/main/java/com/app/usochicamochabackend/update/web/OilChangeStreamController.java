@@ -13,12 +13,12 @@ import java.time.Duration;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @RestController
-@RequestMapping("/api/v1/notifications")
+@RequestMapping("/oil_change/notifications")
 public class OilChangeStreamController {
 
     private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer();
 
-    @GetMapping(value = "/oil-change/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> stream() {
         return sink.asFlux()
                 .map(data -> ServerSentEvent.<String>builder()
