@@ -11,6 +11,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -28,7 +32,7 @@ import java.util.List;
 public class InspectionController {
 
     private final CreateInspectionOnlyDataUseCase createInspectionOnlyDataUseCase;
-    private final GetAllInspectionsWithoutImagesUseCase  getAllInspectionsWithoutImagesUseCase;
+    private final GetAllInspectionsWithoutImagesUseCase getAllInspectionsWithoutImagesUseCase;
     private final GetInspectionByIdUseCase getInspectionByIdUseCase;
     private final GetInspectionImagesUseCase  getInspectionImagesUseCase;
     private final SaveInspectionImageUseCase  saveInspectionImageUseCase;
@@ -98,11 +102,15 @@ public class InspectionController {
 
     @GetMapping
     @Operation(
-            summary = "Get all inspections",
-            description = "Returns all inspections without including images."
+            summary = "Get all inspections (paginated)",
+            description = "Returns all inspections without including images, with pagination."
     )
-    public ResponseEntity<List<InspectionFormResponse>> getAllInspections() {
-        List<InspectionFormResponse> inspections = getAllInspectionsWithoutImagesUseCase.getAllInspectionsWithoutImages();
+    public ResponseEntity<Page<InspectionFormResponse>> getAllInspections(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+        Page<InspectionFormResponse> inspections = getAllInspectionsWithoutImagesUseCase.getAllInspectionsWithoutImages(pageable);
         return ResponseEntity.ok(inspections);
     }
 

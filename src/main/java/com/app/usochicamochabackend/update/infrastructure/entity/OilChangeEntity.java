@@ -23,7 +23,11 @@ public class OilChangeEntity {
     private LocalDateTime dateStamp;
     private Boolean hydraulicOil;
     private Boolean motorOil;
-    private String brand;
+
+    @ManyToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "brand")
+    private BrandEntity brand;
+
     private Integer quantity;
     private Double hourMeter;
     private Integer averageHoursChange;

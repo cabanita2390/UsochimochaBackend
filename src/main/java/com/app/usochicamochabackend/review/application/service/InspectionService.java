@@ -1,12 +1,15 @@
 package com.app.usochicamochabackend.review.application.service;
 
+import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
+import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
+import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.mapper.ImagesMapper;
 import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.mapper.MachineMapper;
-import com.app.usochicamochabackend.order.application.dto.GetAllOrdersByInspectionIdResponse;
+import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.review.application.dto.*;
 import com.app.usochicamochabackend.review.application.port.*;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
@@ -14,8 +17,11 @@ import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntit
 import com.app.usochicamochabackend.review.infrastructure.repository.ImageRepository;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.review.web.InspectionStreamController;
-import com.app.usochicamochabackend.review.web.NotificationStreamController;
+import com.app.usochicamochabackend.review.web.SoatRuntStreamController;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -26,6 +32,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,11 +41,13 @@ import java.util.List;
 public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase {
 
     private final InspectionStreamController inspectionStreamController;
-    private final NotificationStreamController notificationStreamController;
+    private final SoatRuntStreamController notificationStreamController;
+    private final NotificationService notificationService;
     private final InspectionRepository inspectionRepository;
     private final UserRepositoryJpa userRepository;
     private final MachineRepository machineRepository;
     private final ImageRepository imageRepository;
+    private final SaveActionUseCase saveActionUseCase;
 
     @Override
     public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
@@ -73,6 +82,12 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
                     )
             );
         }
+
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() + " hizo una inspeccion a la maquina " + machine.getName());
+
+        notificationService.notify("actions-updated");
+        notificationService.notify("inspections-updated");
 
         return inspectionResponse;
     }
@@ -163,6 +178,11 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         InspectionEntity inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
 
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado una inspeccion realizada a la maquina " + inspection.getMachine().getName() + " realizada el dia " + inspection.getDateStamp().toLocalDate());
+
+        notificationService.notify("actions-updated");
+
         return InspectionMapper.toDtoWithImagesAndOrders(inspection);
     }
 
@@ -182,14 +202,27 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     }
 
     @Override
-    public List<InspectionFormResponse> getAllInspectionsWithoutImages() {
-        List<InspectionEntity> inspectionEntityList = inspectionRepository.findAll();
-        return InspectionMapper.toDtoListWithoutImagesAndOrders(inspectionEntityList);
+    public List<ImageDTO> getAllImagesByInspectionId(Long inspectionId) {
+        InspectionEntity inspection = inspectionRepository.findById(inspectionId).orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
+        List<ImageEntity> imageEntitiesList = imageRepository.findByInspectionId(inspectionId);
+
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado todas las imagenes de la inspeccion realizada a la maquina " + inspection.getMachine().getName() + " realizada el dia " + inspection.getDateStamp().toLocalDate());
+
+        notificationService.notify("actions-updated");
+
+        return ImagesMapper.toDtoList(imageEntitiesList);
     }
 
     @Override
-    public List<ImageDTO> getAllImagesByInspectionId(Long inspectionId) {
-        List<ImageEntity> imageEntitiesList = imageRepository.findByInspectionId(inspectionId);
-        return ImagesMapper.toDtoList(imageEntitiesList);
+    public Page<InspectionFormResponse> getAllInspectionsWithoutImages(Pageable pageable) {
+        Page<InspectionEntity> inspections = inspectionRepository.findAll(pageable);
+
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado todas las inspecciones el dia " + LocalDateTime.now());
+
+        notificationService.notify("actions-updated");
+
+        return inspections.map(InspectionMapper::toDto);
     }
 }
