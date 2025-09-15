@@ -34,7 +34,6 @@ public class ResultEntity {
     @OneToOne(cascade = CascadeType.ALL)
     private LaborEntity laborForce;
 
-    @OneToMany(cascade = CascadeType.ALL)
-    @JoinColumn(name = "result_id")
-    private List<SparePartEntity> sparePart;
+    @OneToOne(cascade = CascadeType.ALL)
+    private SparePartEntity sparePart;
 }

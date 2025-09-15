@@ -11,5 +11,5 @@ public record ExecuteDTO(
         String description,
         String timeSpent,
         LaborResponse labor,
-        List<SparePartResponse> spareParts
+        SparePartResponse sparePart
 ) {}

@@ -546,7 +546,7 @@ public class DataSeeder {
             ResultEntity result1 = ResultEntity.builder()
                     .order(order1)
                     .laborForce(labor1)
-                    .sparePart(List.of(part1))
+                    .sparePart(part1)
                     .description("Aceite cambiado con éxito")
                     .build();
 
@@ -562,7 +562,7 @@ public class DataSeeder {
             ResultEntity result2 = ResultEntity.builder()
                     .order(order2)
                     .laborForce(labor2)
-                    .sparePart(List.of(part2))
+                    .sparePart(part2)
                     .description("Sistema hidráulico reparado")
                     .build();
 
