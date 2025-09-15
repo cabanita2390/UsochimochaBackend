@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.performance.application.dto;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -9,5 +10,6 @@ public record ResultDTO(
         String description,
         String timeSpent,
         LaborResponse labor,
-        List<SparePartResponse> spareParts
+        SparePartResponse sparePart,
+        BigDecimal totalPrice
 ) {}

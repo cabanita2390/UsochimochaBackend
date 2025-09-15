@@ -29,20 +29,16 @@ public class ResultMapper {
         result.setDescription(request.description());
         result.setOrder(order);
 
-        // --- regla de negocio sameMecanic ---
         UserEntity mechanic = null;
         if (request.labor() != null && Boolean.TRUE.equals(request.labor().sameMecanic())) {
             mechanic = order.getInspection() != null ? order.getInspection().getUser() : null;
         }
 
-        // Labor (única)
         LaborEntity labor = LaborMapper.toEntity(request.labor(), mechanic);
         result.setLaborForce(labor);
 
-        // Spare parts
-        List<SparePartEntity> spareParts = request.spareParts().stream()
-                .map(SparePartMapper::toEntity)
-                .toList();
+        SparePartEntity spareParts = SparePartMapper.toEntity(request.sparePart());
+
         result.setSparePart(spareParts);
 
         return result;
@@ -51,9 +47,7 @@ public class ResultMapper {
     public static ExecuteDTO toResponse(ResultEntity entity, OrderResponse orderResponse) {
         if (entity == null) return null;
 
-        List<SparePartResponse> spareParts = entity.getSparePart().stream()
-                .map(SparePartMapper::toResponse)
-                .toList();
+        SparePartResponse sparePart = SparePartMapper.toResponse(entity.getSparePart());
 
         LaborResponse labor = LaborMapper.toResponse(entity.getLaborForce());
 
@@ -63,16 +57,14 @@ public class ResultMapper {
                 entity.getDescription(),
                 entity.getTimeSpent(),
                 labor,
-                spareParts
+                sparePart
         );
     }
 
     public static ResultDTO toResponseResult(ResultEntity entity) {
         if (entity == null) return null;
 
-        List<SparePartResponse> spareParts = entity.getSparePart().stream()
-                .map(SparePartMapper::toResponse)
-                .toList();
+        SparePartResponse sparePart = SparePartMapper.toResponse(entity.getSparePart());
 
         LaborResponse labor = LaborMapper.toResponse(entity.getLaborForce());
 
@@ -82,7 +74,8 @@ public class ResultMapper {
                 entity.getDescription(),
                 entity.getTimeSpent(),
                 labor,
-                spareParts
+                sparePart,
+                labor.price().add(sparePart.price())
         );
     }
 

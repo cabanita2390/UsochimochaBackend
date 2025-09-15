@@ -41,9 +41,10 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
 
     @Override
     public MachineCurriculumDTO getMachineCurriculum(Long machineId) {
-        MachineEntity machine = machineRepository.findById(machineId).orElseThrow(() ->  new ResourceNotFoundException("Machine not found"));
-        List<InspectionEntity> inspectionEntities = inspectionRepository.findByMachineId(machineId);
+        MachineEntity machine = machineRepository.findById(machineId)
+                .orElseThrow(() -> new ResourceNotFoundException("Machine not found"));
 
+        List<InspectionEntity> inspectionEntities = inspectionRepository.findByMachineId(machineId);
         if (inspectionEntities.isEmpty()) {
             throw new ResourceNotFoundException("No inspections found");
         }
@@ -54,21 +55,18 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
                 .filter(Objects::nonNull)
                 .toList();
 
+        // acá cada DTO ya tiene su totalPrice gracias al mapper
         List<ResultDTO> resultDTOS = ResultMapper.toResponseList(resultEntities);
 
-        BigDecimal totalPrice = resultDTOS.stream()
-                .flatMap(result -> Stream.concat(
-                        Stream.ofNullable(result.labor()).map(LaborResponse::price),
-                        result.spareParts().stream().map(SparePartResponse::price)
-                ))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
+                .getAuthentication().getPrincipal();
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() +
                 " ha observado el curriculum de la maquina " + machine.getName());
 
         notificationService.notify("actions-updated");
 
-        return new MachineCurriculumDTO(MachineMapper.toResponse(machine), resultDTOS, totalPrice);
+        return new MachineCurriculumDTO(MachineMapper.toResponse(machine), resultDTOS);
     }
+
 }

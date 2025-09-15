@@ -10,5 +10,5 @@ public record ExecuteAnOrderRequest(
         String timeSpent,
         String description,
         LaborRequest labor,
-        List<SparePartRequest> spareParts
+        SparePartRequest sparePart
 ) {}
