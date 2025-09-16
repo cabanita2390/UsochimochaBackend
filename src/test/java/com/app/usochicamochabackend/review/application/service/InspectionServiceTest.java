@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.review.application.service;
 
+import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormResponse;
 import com.app.usochicamochabackend.review.application.dto.ImageDTO;
@@ -29,6 +30,12 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -102,9 +109,9 @@ class InspectionServiceTest {
                 "GOOD",
                 "GOOD",
                 "2024-12-31",
-                "Test observations",
                 "Applied",
                 "All points greased",
+                "Test observations",
                 1L,
                 1L
         );
@@ -130,52 +137,73 @@ class InspectionServiceTest {
         verify(machineRepository).findById(1L);
         verify(inspectionRepository).save(any(InspectionEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify(anyString());
+        verify(notificationService).notify("inspections-updated");
+        verify(notificationService).notify("actions-updated");
         verify(inspectionStreamController).publish(any(InspectionFormResponse.class));
     }
 
     @Test
-    void saveInspectionImage_ShouldSaveImage_WhenInspectionExists() {
+    void saveInspectionImage_ShouldSaveImage_WhenInspectionExists() throws Exception {
         // Given
-        String imageUrl = "http://example.com/image.jpg";
+        MultipartFile mockFile = mock(MultipartFile.class);
+        when(mockFile.getOriginalFilename()).thenReturn("test.jpg");
+        when(mockFile.getContentType()).thenReturn("image/jpeg");
+        when(mockFile.getBytes()).thenReturn(new byte[]{1, 2, 3});
+        when(mockFile.getInputStream()).thenReturn(null); // For duplicate check
+
         when(inspectionRepository.findById(1L)).thenReturn(Optional.of(testInspection));
+        when(inspectionRepository.save(any(InspectionEntity.class))).thenReturn(testInspection);
 
         // When
-        inspectionService.saveInspectionImage(1L, imageUrl);
+        inspectionService.saveInspectionImage(1L, mockFile);
 
         // Then
         verify(inspectionRepository).findById(1L);
         verify(imageRepository).save(any(ImageEntity.class));
+        verify(inspectionRepository).save(any(InspectionEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify(anyString());
+        verify(notificationService).notify("inspections-updated");
+        verify(notificationService).notify("actions-updated");
     }
 
     @Test
-    void saveInspectionImage_ShouldThrowException_WhenInspectionNotFound() {
+    void saveInspectionImage_ShouldThrowException_WhenInspectionNotFound() throws Exception {
         // Given
+        MultipartFile mockFile = mock(MultipartFile.class);
+        when(mockFile.getOriginalFilename()).thenReturn("test.jpg");
+        when(mockFile.getContentType()).thenReturn("image/jpeg");
+        when(mockFile.getBytes()).thenReturn(new byte[]{1, 2, 3});
+
         when(inspectionRepository.findById(999L)).thenReturn(Optional.empty());
 
         // When & Then
-        assertThrows(RuntimeException.class, 
-            () -> inspectionService.saveInspectionImage(999L, "http://example.com/image.jpg"));
+        assertThrows(IllegalArgumentException.class,
+            () -> inspectionService.saveInspectionImage(999L, mockFile));
         verify(inspectionRepository).findById(999L);
         verify(imageRepository, never()).save(any(ImageEntity.class));
     }
 
     @Test
-    void getInspectionById_ShouldReturnInspectionFormResponse_WhenInspectionExists() {
+    void getInspectionById_ShouldReturnInspectionDTO_WhenInspectionExists() {
         // Given
         when(inspectionRepository.findById(1L)).thenReturn(Optional.of(testInspection));
 
         // When
-        InspectionFormResponse response = inspectionService.getInspectionById(1L);
+        InspectionDTO response = inspectionService.getInspectionById(1L);
 
         // Then
         assertNotNull(response);
+        assertEquals(1L, response.id());
         assertEquals("test-uuid-123", response.UUID());
         assertEquals("GOOD", response.leakStatus());
         assertEquals("Test observations", response.observations());
+        assertNotNull(response.user());
+        assertNotNull(response.machine());
+        assertNotNull(response.images());
+        assertNotNull(response.orders());
         verify(inspectionRepository).findById(1L);
+        verify(saveActionUseCase).save(anyString());
+        verify(notificationService).notify("actions-updated");
     }
 
     @Test
@@ -198,7 +226,7 @@ class InspectionServiceTest {
         when(imageRepository.findByInspectionId(1L)).thenReturn(images);
 
         // When
-        List<ImageDTO> imageDTOs = inspectionService.getInspectionImages(1L);
+        List<ImageDTO> imageDTOs = inspectionService.getAllImagesByInspectionId(1L);
 
         // Then
         assertNotNull(imageDTOs);
@@ -209,23 +237,27 @@ class InspectionServiceTest {
     }
 
     @Test
-    void getAllInspectionsWithoutImages_ShouldReturnListOfInspections() {
+    void getAllInspectionsWithoutImages_ShouldReturnPageOfInspections() {
         // Given
+        Pageable pageable = PageRequest.of(0, 10);
         InspectionEntity inspection2 = TestDataBuilder.createTestInspection(testMachine, testUser);
         inspection2.setId(2L);
         inspection2.setUUID("test-uuid-789");
 
         List<InspectionEntity> inspections = Arrays.asList(testInspection, inspection2);
-        when(inspectionRepository.findAll()).thenReturn(inspections);
+        Page<InspectionEntity> inspectionPage = new PageImpl<>(inspections, pageable, inspections.size());
+        when(inspectionRepository.findAll(pageable)).thenReturn(inspectionPage);
 
         // When
-        List<InspectionFormResponse> responses = inspectionService.getAllInspectionsWithoutImages();
+        Page<InspectionFormResponse> responses = inspectionService.getAllInspectionsWithoutImages(pageable);
 
         // Then
         assertNotNull(responses);
-        assertEquals(2, responses.size());
-        assertEquals("test-uuid-123", responses.get(0).UUID());
-        assertEquals("test-uuid-789", responses.get(1).UUID());
-        verify(inspectionRepository).findAll();
+        assertEquals(2, responses.getContent().size());
+        assertEquals("test-uuid-123", responses.getContent().get(0).UUID());
+        assertEquals("test-uuid-789", responses.getContent().get(1).UUID());
+        verify(inspectionRepository).findAll(pageable);
+        verify(saveActionUseCase).save(anyString());
+        verify(notificationService).notify("actions-updated");
     }
 }
