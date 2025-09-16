@@ -79,7 +79,7 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             throw new ResourceNotFoundException("Machine not found with ID: " + id);
         }
 
-        MachineEntity savedMachine = machineRepository.save(new MachineEntity(null, machineRequest.name(), machineRequest.belongsTo(), machineRequest.model(), machineRequest.soat(), machineRequest.brand(), machineRequest.runt(), true, machineRequest.numEngine(), machineRequest.numInterIdentification()));
+        MachineEntity savedMachine = machineRepository.save(new MachineEntity(id, machineRequest.name(), machineRequest.belongsTo(), machineRequest.model(), machineRequest.soat(), machineRequest.brand(), machineRequest.runt(), true, machineRequest.numEngine(), machineRequest.numInterIdentification()));
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
                 .getAuthentication().getPrincipal();
