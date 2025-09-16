@@ -53,7 +53,7 @@ public class UserService implements
         notificationService.notify("users-updated");
         notificationService.notify("actions-updated");
 
-        return new CreateUserResponse(user.getId(), userSaved.getUsername(), userSaved.getEmail(),userSaved.getStatus(), userSaved.getRole(), userSaved.getFullName(), "User created successfully");
+        return new CreateUserResponse(user.getId(), userSaved.getFullName(), userSaved.getUsername(), userSaved.getEmail(), userSaved.getRole(), userSaved.getStatus(), "User created successfully");
     }
 
     @Override
