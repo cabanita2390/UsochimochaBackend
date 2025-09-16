@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 public record PerformChangeMotorOilRequest(
         Long machineId,
         LocalDateTime dateTime,
-        BrandEntity brand,
+        Long brandId,
         Integer quantity,
         Double currentHourMeter,
         Integer averageHoursChange

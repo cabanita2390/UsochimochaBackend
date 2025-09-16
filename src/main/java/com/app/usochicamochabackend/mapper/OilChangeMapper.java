@@ -7,18 +7,22 @@ import com.app.usochicamochabackend.update.application.dto.PerformChangeHydrauli
 import com.app.usochicamochabackend.update.application.dto.PerformChangeHydraulicOilResponse;
 import com.app.usochicamochabackend.update.application.dto.PerformChangeMotorOilRequest;
 import com.app.usochicamochabackend.update.application.dto.PerformChangeMotorOilResponse;
+import com.app.usochicamochabackend.update.infrastructure.entity.BrandEntity;
 import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
+import com.app.usochicamochabackend.update.infrastructure.repository.BrandRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 public final class OilChangeMapper {
-    public static OilChangeEntity motorOilRequestToEntity(PerformChangeMotorOilRequest request, MachineRepository machineRepository) {
+    public static OilChangeEntity motorOilRequestToEntity(PerformChangeMotorOilRequest request, MachineRepository machineRepository, BrandRepository brandRepository) {
         MachineEntity machine = machineRepository.findById(request.machineId()).orElseThrow(() -> new ResourceNotFoundException("Machine not found with id: " + request.machineId()));
         OilChangeEntity entity = new OilChangeEntity();
 
+        BrandEntity brandEntity = brandRepository.findBrandEntityById(request.brandId());
+
         entity.setMotorOil(true);
         entity.setDateStamp(request.dateTime());
-        entity.setBrand(request.brand());
+        entity.setBrand(brandEntity);
         entity.setQuantity(request.quantity());
         entity.setHourMeter(request.currentHourMeter());
         entity.setAverageHoursChange(request.averageHoursChange());
@@ -39,13 +43,15 @@ public final class OilChangeMapper {
         );
     }
 
-    public static OilChangeEntity hydraulicOilRequestToEntity(PerformChangeHydraulicOilRequest request, MachineRepository machineRepository) {
+    public static OilChangeEntity hydraulicOilRequestToEntity(PerformChangeHydraulicOilRequest request, MachineRepository machineRepository, BrandRepository brandRepository) {
         MachineEntity machine = MachineMapper.idToEntity(request.machineId(), machineRepository);
         OilChangeEntity entity = new OilChangeEntity();
 
+        BrandEntity brandEntity = brandRepository.findBrandEntityById(request.brandId());
+
         entity.setHydraulicOil(true);
         entity.setDateStamp(request.dateTime());
-        entity.setBrand(request.brand());
+        entity.setBrand(brandEntity);
         entity.setQuantity(request.quantity());
         entity.setHourMeter(request.currentHourMeter());
         entity.setAverageHoursChange(request.averageHoursChange());
