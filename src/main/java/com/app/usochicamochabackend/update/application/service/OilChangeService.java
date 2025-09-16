@@ -14,6 +14,7 @@ import com.app.usochicamochabackend.review.infrastructure.repository.InspectionR
 import com.app.usochicamochabackend.update.application.dto.*;
 import com.app.usochicamochabackend.update.application.port.*;
 import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
+import com.app.usochicamochabackend.update.infrastructure.repository.BrandRepository;
 import com.app.usochicamochabackend.update.infrastructure.repository.OilChangeRepository;
 import com.app.usochicamochabackend.update.web.OilChangeStreamController;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,7 @@ public class OilChangeService implements
 {
 
     private final MachineRepository machineRepository;
+    private final BrandRepository brandRepository;
     private final InspectionRepository inspectionRepository;
     private final OilChangeRepository oilChangeRepository;
     private final SaveActionUseCase saveActionUseCase;
@@ -280,7 +282,7 @@ public class OilChangeService implements
 
     @Override
     public PerformChangeMotorOilResponse performMotorOilChange(PerformChangeMotorOilRequest request) {
-        OilChangeEntity oilChange = OilChangeMapper.motorOilRequestToEntity(request, machineRepository);
+        OilChangeEntity oilChange = OilChangeMapper.motorOilRequestToEntity(request, machineRepository, brandRepository);
 
         MachineEntity machine = machineRepository.findById(request.machineId()).orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
 
@@ -302,7 +304,7 @@ public class OilChangeService implements
 
     @Override
     public PerformChangeHydraulicOilResponse performChangeHydraulicOil(PerformChangeHydraulicOilRequest request) {
-        OilChangeEntity oilChange = OilChangeMapper.hydraulicOilRequestToEntity(request, machineRepository);
+        OilChangeEntity oilChange = OilChangeMapper.hydraulicOilRequestToEntity(request, machineRepository, brandRepository);
 
         MachineEntity machine = machineRepository.findById(request.machineId()).orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
 

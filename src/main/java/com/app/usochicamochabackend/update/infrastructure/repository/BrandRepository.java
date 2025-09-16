@@ -7,6 +7,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 public interface BrandRepository extends JpaRepository<BrandEntity, Long> {
+    BrandEntity findBrandEntityById(Long id);
 
     List<BrandEntity> findByStatusTrue();
 
