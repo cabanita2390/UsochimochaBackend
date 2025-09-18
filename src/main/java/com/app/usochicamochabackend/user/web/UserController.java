@@ -80,7 +80,7 @@ public class UserController {
                 .body(saved);
     }
 
-    @PutMapping
+    @PutMapping("/{id}")
     @Operation(summary = "Update User")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User updated",
@@ -88,12 +88,11 @@ public class UserController {
             @ApiResponse(responseCode = "404", description = "User not found")
     })
     public ResponseEntity<UserResponse> updateUser(
+            @PathVariable Long id,
             @org.springframework.web.bind.annotation.RequestBody UpdateUserRequest user
     ) throws URISyntaxException {
         UserResponse updated = updateUserUseCase.updateUser(user);
-        return ResponseEntity
-                .created(new URI("/api/v1/user/" + updated.id()))
-                .body(updated);
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
@@ -107,7 +106,7 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/change-password")
+    @PatchMapping("/{id}/change-password")
     @Operation(
             summary = "Change a user's password",
             description = "Updates the password of a user identified by their ID."
@@ -120,14 +119,14 @@ public class UserController {
             @ApiResponse(responseCode = "400", description = "Invalid input data")
     })
     public ResponseEntity<ChangePasswordResponse> changePassword(
+            @PathVariable Long id,
             @RequestBody(
-                    description = "Request containing user ID and new password",
+                    description = "Request containing new password",
                     required = true,
                     content = @Content(
                             schema = @Schema(implementation = ChangePasswordRequest.class),
                             examples = @ExampleObject(value = """
                                     {
-                                      "id": 1,
                                       "newPassword": "newSecurePass123"
                                     }
                                     """)

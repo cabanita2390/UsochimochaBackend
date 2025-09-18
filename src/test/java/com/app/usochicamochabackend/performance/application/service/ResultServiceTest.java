@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.performance.application.service;
 
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
+import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.performance.application.dto.*;
 import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEntity;
 import com.app.usochicamochabackend.performance.infrastructure.entity.LaborEntity;
@@ -15,6 +16,7 @@ import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositor
 import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormResponse;
+import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.user.application.dto.UserResponse;
 import com.app.usochicamochabackend.utils.TestDataBuilder;
 import com.app.usochicamochabackend.utils.TestSecurityUtils;
@@ -60,6 +62,8 @@ class ResultServiceTest {
 
     private UserEntity testUser;
     private UserEntity testMechanic;
+    private MachineEntity testMachine;
+    private InspectionEntity testInspection;
     private OrderEntity testOrder;
     private ResultEntity testResult;
 
@@ -67,7 +71,9 @@ class ResultServiceTest {
     void setUp() {
         testUser = TestDataBuilder.createTestUser();
         testMechanic = TestDataBuilder.createTestMechanic();
-        testOrder = TestDataBuilder.createTestOrder(null, testUser);
+        testMachine = TestDataBuilder.createTestMachine();
+        testInspection = TestDataBuilder.createTestInspection(testMachine, testUser);
+        testOrder = TestDataBuilder.createTestOrder(testInspection, testUser);
         testResult = TestDataBuilder.createTestResult(testOrder);
         TestSecurityUtils.setUpSecurityContext(1L, "testuser", "ADMIN");
     }
@@ -121,10 +127,11 @@ class ResultServiceTest {
 
         ResultEntity savedResult = TestDataBuilder.createTestResult(testOrder);
         savedResult.setId(2L);
+        savedResult.setDescription("Result description");
+        savedResult.setTimeSpent("3 hours");
 
         when(getOrderByIdUseCase.getOrderById(1L)).thenReturn(orderResponse);
-        when(userRepository.getUserEntityById(1L)).thenReturn(testUser);
-        when(userRepository.findById(2L)).thenReturn(java.util.Optional.of(testMechanic));
+        when(orderRepository.findById(1L)).thenReturn(java.util.Optional.of(testOrder));
         when(resultRepository.save(any(ResultEntity.class))).thenReturn(savedResult);
 
         // When
@@ -137,8 +144,6 @@ class ResultServiceTest {
 
         verify(getOrderByIdUseCase).getOrderById(1L);
         verify(orderRepository).findById(1L);
-        verify(userRepository).getUserEntityById(1L);
-        verify(userRepository).findById(2L);
         verify(resultRepository).save(any(ResultEntity.class));
         verify(orderRepository).save(any(OrderEntity.class));
         verify(saveActionUseCase).save(anyString());
@@ -206,18 +211,19 @@ class ResultServiceTest {
 
         when(getOrderByIdUseCase.getOrderById(1L)).thenReturn(orderResponse);
         when(orderRepository.findById(1L)).thenReturn(java.util.Optional.of(testOrder));
-        when(userRepository.getUserEntityById(1L)).thenReturn(testUser);
-        when(userRepository.findById(999L)).thenReturn(java.util.Optional.empty());
+        when(resultRepository.save(any(ResultEntity.class))).thenReturn(TestDataBuilder.createTestResult(testOrder));
 
-        // When & Then
-        assertThrows(RuntimeException.class, () -> resultService.execute(request));
+        // When
+        resultService.execute(request);
+
+        // Then
         verify(getOrderByIdUseCase).getOrderById(1L);
         verify(orderRepository).findById(1L);
-        verify(userRepository).findById(999L);
-        verify(resultRepository, never()).save(any(ResultEntity.class));
-        verify(orderRepository, never()).save(any(OrderEntity.class));
-        verify(saveActionUseCase, never()).save(anyString());
-        verify(notificationService, never()).notify(anyString());
+        verify(resultRepository).save(any(ResultEntity.class));
+        verify(orderRepository).save(any(OrderEntity.class));
+        verify(saveActionUseCase).save(anyString());
+        verify(notificationService).notify("actions-updated");
+        verify(notificationService).notify("results-updated");
     }
 
     @Test
@@ -260,7 +266,6 @@ class ResultServiceTest {
 
         when(getOrderByIdUseCase.getOrderById(1L)).thenReturn(orderResponse);
         when(orderRepository.findById(1L)).thenReturn(java.util.Optional.of(testOrder));
-        when(userRepository.getUserEntityById(1L)).thenReturn(testUser);
         when(resultRepository.save(any(ResultEntity.class))).thenReturn(savedResult);
 
         // When

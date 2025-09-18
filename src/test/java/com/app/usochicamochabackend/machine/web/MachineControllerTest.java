@@ -1,15 +1,19 @@
 package com.app.usochicamochabackend.machine.web;
 
+import com.app.usochicamochabackend.config.TestWebConfig;
 import com.app.usochicamochabackend.machine.application.dto.MachineRequest;
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
 import com.app.usochicamochabackend.machine.application.port.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.mockito.Mock;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
@@ -23,30 +27,31 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@Import(TestWebConfig.class)
 @WebMvcTest(MachineController.class)
+@ActiveProfiles("test")
 class MachineControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Mock
+    @MockBean
     private CreateMachineUseCase createMachineUseCase;
 
-    @Mock
+    @MockBean
     private DeleteMachineUseCase deleteMachineUseCase;
 
-    @Mock
+    @MockBean
     private FindAllMachinesUseCase findAllMachinesUseCase;
 
-    @Mock
+    @MockBean
     private FindMachineByIdUseCase findMachineByIdUseCase;
 
-    @Mock
+    @MockBean
     private UpdateMachineUseCase updateMachineUseCase;
 
     @Autowired
     private ObjectMapper objectMapper;
-
     @Test
     @WithMockUser(roles = "ADMIN")
     void createMachine_ShouldReturnCreatedMachine() throws Exception {
@@ -83,8 +88,8 @@ class MachineControllerTest {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Test Machine"))
-                .andExpect(jsonPath("$.model").value("Model X"))
-                .andExpect(jsonPath("$.belongsTo").value("Test Company"))
+                .andExpect(jsonPath("$.belongsTo").value("Model X"))
+                .andExpect(jsonPath("$.model").value("Test Company"))
                 .andExpect(jsonPath("$.brand").value("Test Brand"));
     }
 
@@ -115,8 +120,8 @@ class MachineControllerTest {
         MachineResponse response = new MachineResponse(
                 1L,
                 "Test Machine",
-                "Model X",
                 "Test Company",
+                "Model X",
                 LocalDate.now().plusMonths(6),
                 "Test Brand",
                 LocalDate.now().plusMonths(12),
@@ -130,8 +135,8 @@ class MachineControllerTest {
                 .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Test Machine"))
-                .andExpect(jsonPath("$.model").value("Model X"))
-                .andExpect(jsonPath("$.belongsTo").value("Test Company"));
+                .andExpect(jsonPath("$.belongsTo").value("Test Company"))
+                .andExpect(jsonPath("$.model").value("Model X"));
     }
 
     @Test
@@ -152,8 +157,8 @@ class MachineControllerTest {
         MachineResponse response = new MachineResponse(
                 1L,
                 "Updated Machine",
-                "Updated Model",
                 "Updated Company",
+                "Updated Model",
                 LocalDate.now().plusMonths(8),
                 "Updated Brand",
                 LocalDate.now().plusMonths(14),
@@ -170,8 +175,8 @@ class MachineControllerTest {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Updated Machine"))
-                .andExpect(jsonPath("$.model").value("Updated Model"))
-                .andExpect(jsonPath("$.belongsTo").value("Updated Company"));
+                .andExpect(jsonPath("$.belongsTo").value("Updated Company"))
+                .andExpect(jsonPath("$.model").value("Updated Model"));
     }
 
     @Test

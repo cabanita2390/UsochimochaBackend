@@ -100,6 +100,10 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
             UserEntity userEntity = userRepository.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("user not found"));
 
+            if (!userEntity.getStatus()) {
+                throw new BadCredentialsException("Invalid username or password!");
+            }
+
             GrantedAuthority role = new SimpleGrantedAuthority("ROLE_".concat(userEntity.getRole()));
 
             UserPrincipal userPrincipal = new UserPrincipal(userEntity.getId(), username);

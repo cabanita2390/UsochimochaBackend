@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.update.application.service;
 import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.mapper.BrandMapper;
+import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.update.application.dto.BrandRequest;
 import com.app.usochicamochabackend.update.application.dto.BrandResponse;
 import com.app.usochicamochabackend.update.application.port.*;
@@ -26,6 +27,7 @@ public class BrandService implements
 
     private final BrandRepository brandRepository;
     private final SaveActionUseCase saveActionUseCase;
+    private final NotificationService notificationService;
 
     @Override
     public BrandResponse createBrand(BrandRequest request) {
@@ -61,6 +63,9 @@ public class BrandService implements
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha actualizado una marca de aceite " + existing.getName() + " de tipo " + existing.getType());
 
+        notificationService.notify("actions-updated");
+        notificationService.notify("brands-updated");
+
         return BrandMapper.toResponse(brandRepository.save(existing));
     }
 
@@ -78,6 +83,9 @@ public class BrandService implements
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha  eliminado una marca de aceite " + brand.getName() + " de tipo " + brand.getType());
+
+        notificationService.notify("actions-updated");
+        notificationService.notify("brands-updated");
     }
 
     @Override

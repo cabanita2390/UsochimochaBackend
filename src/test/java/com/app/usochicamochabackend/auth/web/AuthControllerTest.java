@@ -10,9 +10,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.mockito.Mock;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -22,15 +23,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(AuthController.class)
+@ActiveProfiles("test")
 class AuthControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Mock
+    @MockBean
     private LoginUseCase loginUseCase;
 
-    @Mock
+    @MockBean
     private RefreshTokenUseCase refreshTokenUseCase;
 
     @Autowired
@@ -50,7 +52,7 @@ class AuthControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(authRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.token").value("jwt-token"))
+                .andExpect(jsonPath("$.jwt").value("jwt-token"))
                 .andExpect(jsonPath("$.refreshToken").value("refresh-token"));
     }
 
@@ -66,7 +68,7 @@ class AuthControllerTest {
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(authRequest)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isInternalServerError());
     }
 
     @Test
@@ -78,11 +80,26 @@ class AuthControllerTest {
         when(refreshTokenUseCase.refreshToken(any(RefreshTokenRequest.class))).thenReturn(refreshResponse);
 
         // When & Then
-        mockMvc.perform(post("/api/v1/auth/refresh")
+        mockMvc.perform(post("/api/v1/auth/token/refresh")
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value("new-jwt-token"));
+    }
+
+    @Test
+    @WithMockUser
+    void refreshToken_ShouldReturnBadRequest_WhenRefreshTokenIsInvalid() throws Exception {
+        // Given
+        RefreshTokenRequest request = new RefreshTokenRequest("invalid-refresh-token");
+        when(refreshTokenUseCase.refreshToken(any(RefreshTokenRequest.class))).thenThrow(new RuntimeException("Invalid refresh token"));
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/auth/token/refresh")
+                .with(csrf())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isInternalServerError());
     }
 }

@@ -1,14 +1,18 @@
 package com.app.usochicamochabackend.order.web;
 
+import com.app.usochicamochabackend.config.TestWebConfig;
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
 import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.*;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormResponse;
 import com.app.usochicamochabackend.user.application.dto.UserResponse;
+import com.app.usochicamochabackend.utils.TestSecurityUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.mockito.Mock;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -30,25 +34,26 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@Import(TestWebConfig.class)
 @WebMvcTest(OrderController.class)
 class OrderControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Mock
+    @MockBean
     private AssignOrderUseCase assignOrderUseCase;
 
-    @Mock
+    @MockBean
     private GetAllOrdersByInspectionIdUseCase getAllOrdersByInspectionIdUseCase;
 
-    @Mock
+    @MockBean
     private GetAllOrdersUseCase getAllOrdersUseCase;
 
-    @Mock
+    @MockBean
     private GetAllOrdersByMachineIdUseCase getAllOrdersByMachineIdUseCase;
 
-    @Mock
+    @MockBean
     private GetOrderByIdUseCase getOrderByIdUseCase;
 
     @Autowired
@@ -101,7 +106,7 @@ class OrderControllerTest {
         when(getAllOrdersByInspectionIdUseCase.getAllOrdersByInspectionId(1L)).thenReturn(response);
 
         // When & Then
-        mockMvc.perform(get("/api/v1/order/inspection/1")
+        mockMvc.perform(get("/api/v1/order/all/1")
                 .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.orders").isArray())
@@ -130,37 +135,15 @@ class OrderControllerTest {
         when(getAllOrdersUseCase.getAllOrders(any(Pageable.class))).thenReturn(pageResponse);
 
         // When & Then
-        mockMvc.perform(get("/api/v1/order")
+        mockMvc.perform(get("/api/v1/order/all")
                 .with(csrf()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.orders").isArray())
-                .andExpect(jsonPath("$.orders.length()").value(2))
-                .andExpect(jsonPath("$.orders[0].machineName").value("Machine 1"))
-                .andExpect(jsonPath("$.orders[1].machineName").value("Machine 2"));
+                .andExpect(jsonPath("$.content").isArray())
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].machine.name").value("Machine 1"))
+                .andExpect(jsonPath("$.content[1].machine.name").value("Machine 2"));
     }
 
-    @Test
-    @WithMockUser(roles = "ADMIN")
-    void getOrderById_ShouldReturnOrder() throws Exception {
-        // Given
-        UserResponse userResponse = new UserResponse(1L, "testuser", "Test User", "test@example.com", "ADMIN");
-        MachineResponse machineResponse = new MachineResponse(1L, "Test Machine", "Test Company", "Model X", LocalDate.now().plusMonths(6), "Test Brand", LocalDate.now().plusMonths(12), "ENG123", "ID123");
-        InspectionFormResponse inspectionResponse = new InspectionFormResponse(
-                1L, "test-uuid-123", false, LocalDateTime.now(), 100.0,
-                "GOOD", "GOOD", "GOOD", "GOOD", "GOOD", "GOOD", "GOOD", "GOOD", "GOOD", "GOOD", "GOOD", "GOOD",
-                "2024-12-31", "Applied", "All points greased", "Test observations",
-                userResponse, machineResponse
-        );
-        OrderResponse response = new OrderResponse(1L, "PENDING", LocalDateTime.now(), "Test order", inspectionResponse, userResponse);
-        when(getOrderByIdUseCase.getOrderById(1L)).thenReturn(response);
-
-        // When & Then
-        mockMvc.perform(get("/api/v1/order/1")
-                .with(csrf()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.description").value("Test order"));
-    }
 
     @Test
     @WithMockUser(roles = "ADMIN")

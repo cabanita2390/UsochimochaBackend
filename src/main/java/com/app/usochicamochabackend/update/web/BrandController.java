@@ -11,13 +11,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/v1/oil")
+@RequestMapping("/api/v1/oil/brand")
 @Tag(name = "Brands")
 public class BrandController {
 
@@ -36,8 +37,9 @@ public class BrandController {
             @ApiResponse(responseCode = "400", description = "Invalid input", content = @Content)
     })
     @PostMapping
-    public BrandResponse create(@RequestBody BrandRequest brand) {
-        return createBrand.createBrand(brand);
+    public ResponseEntity<BrandResponse> create(@RequestBody BrandRequest brand) {
+        BrandResponse response = createBrand.createBrand(brand);
+        return ResponseEntity.status(201).body(response);
     }
 
     @Operation(summary = "Get a brand by ID", description = "Retrieve a brand using its unique ID.")
@@ -75,10 +77,11 @@ public class BrandController {
             @ApiResponse(responseCode = "404", description = "Brand not found", content = @Content)
     })
     @DeleteMapping("/{id}")
-    public void delete(
+    public ResponseEntity<Void> delete(
             @Parameter(description = "ID of the brand to delete", example = "1")
             @PathVariable Long id) {
         deleteBrand.deleteBrandById(id);
+        return ResponseEntity.noContent().build();
     }
 
     @Operation(summary = "Get all brands", description = "Retrieve all active brands (status=true).")

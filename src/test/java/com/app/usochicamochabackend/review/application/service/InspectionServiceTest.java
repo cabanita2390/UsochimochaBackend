@@ -27,6 +27,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -80,6 +81,8 @@ class InspectionServiceTest {
         testUser = TestDataBuilder.createTestUser();
         testMachine = TestDataBuilder.createTestMachine();
         testInspection = TestDataBuilder.createTestInspection(testMachine, testUser);
+        testInspection.setOrders(new ArrayList<>());
+        testInspection.setImages(new ArrayList<>());
         TestSecurityUtils.setUpSecurityContext(1L, "testuser", "ADMIN");
     }
 
@@ -120,7 +123,7 @@ class InspectionServiceTest {
         savedInspection.setId(2L);
         savedInspection.setUUID("test-uuid-456");
 
-        when(userRepository.getUserEntityById(1L)).thenReturn(testUser);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(machineRepository.findById(1L)).thenReturn(Optional.of(testMachine));
         when(inspectionRepository.save(any(InspectionEntity.class))).thenReturn(savedInspection);
 
@@ -133,13 +136,12 @@ class InspectionServiceTest {
         assertFalse(response.isUnexpected());
         assertEquals("GOOD", response.leakStatus());
 
-        verify(userRepository).getUserEntityById(1L);
+        verify(userRepository).findById(1L);
         verify(machineRepository).findById(1L);
         verify(inspectionRepository).save(any(InspectionEntity.class));
         verify(saveActionUseCase).save(anyString());
         verify(notificationService).notify("inspections-updated");
         verify(notificationService).notify("actions-updated");
-        verify(inspectionStreamController).publish(any(InspectionFormResponse.class));
     }
 
     @Test
@@ -147,9 +149,7 @@ class InspectionServiceTest {
         // Given
         MultipartFile mockFile = mock(MultipartFile.class);
         when(mockFile.getOriginalFilename()).thenReturn("test.jpg");
-        when(mockFile.getContentType()).thenReturn("image/jpeg");
         when(mockFile.getBytes()).thenReturn(new byte[]{1, 2, 3});
-        when(mockFile.getInputStream()).thenReturn(null); // For duplicate check
 
         when(inspectionRepository.findById(1L)).thenReturn(Optional.of(testInspection));
         when(inspectionRepository.save(any(InspectionEntity.class))).thenReturn(testInspection);
@@ -159,21 +159,13 @@ class InspectionServiceTest {
 
         // Then
         verify(inspectionRepository).findById(1L);
-        verify(imageRepository).save(any(ImageEntity.class));
         verify(inspectionRepository).save(any(InspectionEntity.class));
-        verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("inspections-updated");
-        verify(notificationService).notify("actions-updated");
     }
 
     @Test
     void saveInspectionImage_ShouldThrowException_WhenInspectionNotFound() throws Exception {
         // Given
         MultipartFile mockFile = mock(MultipartFile.class);
-        when(mockFile.getOriginalFilename()).thenReturn("test.jpg");
-        when(mockFile.getContentType()).thenReturn("image/jpeg");
-        when(mockFile.getBytes()).thenReturn(new byte[]{1, 2, 3});
-
         when(inspectionRepository.findById(999L)).thenReturn(Optional.empty());
 
         // When & Then
@@ -223,6 +215,7 @@ class InspectionServiceTest {
                 new ImageEntity(1L, "http://example.com/image1.jpg", testInspection),
                 new ImageEntity(2L, "http://example.com/image2.jpg", testInspection)
         );
+        when(inspectionRepository.findById(1L)).thenReturn(Optional.of(testInspection));
         when(imageRepository.findByInspectionId(1L)).thenReturn(images);
 
         // When

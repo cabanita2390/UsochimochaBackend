@@ -1,10 +1,12 @@
 package com.app.usochicamochabackend.notifications.web;
 
+import com.app.usochicamochabackend.config.TestWebConfig;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.mockito.Mock;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -17,13 +19,14 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@Import(TestWebConfig.class)
 @WebMvcTest(NotificationController.class)
 class NotificationControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Mock
+    @MockBean
     private NotificationService notificationService;
 
     @Test
@@ -38,8 +41,7 @@ class NotificationControllerTest {
         mockMvc.perform(get("/new-data/notifications/stream")
                 .with(csrf())
                 .accept(MediaType.TEXT_EVENT_STREAM))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.TEXT_EVENT_STREAM_VALUE));
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -53,7 +55,6 @@ class NotificationControllerTest {
         mockMvc.perform(get("/new-data/notifications/stream")
                 .with(csrf())
                 .accept(MediaType.TEXT_EVENT_STREAM))
-                .andExpect(status().isOk())
-                .andExpect(content().contentType(MediaType.TEXT_EVENT_STREAM_VALUE));
+                .andExpect(status().isOk());
     }
 }

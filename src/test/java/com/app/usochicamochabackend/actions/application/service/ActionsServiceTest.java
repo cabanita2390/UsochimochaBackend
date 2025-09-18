@@ -95,7 +95,7 @@ class ActionsServiceTest {
         assertEquals(2, result.getContent().size());
         assertEquals("Action 1", result.getContent().get(0).getDetails());
         assertEquals("Action 2", result.getContent().get(1).getDetails());
-        verify(userRepositoryJpa).getUserEntityById(userId);
+        verify(userRepositoryJpa, times(2)).getUserEntityById(userId);
         verify(actionRepository).findByUserId(userId, pageable);
         verify(actionRepository).save(any(ActionEntity.class)); // Action logging
         verify(notificationService).notify("actions-updated");

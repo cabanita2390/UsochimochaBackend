@@ -87,7 +87,7 @@ class UserServiceTest {
         verify(passwordEncoder).encode("password");
         verify(userRepository).save(any(UserEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify(anyString());
+        verify(notificationService, times(2)).notify(anyString());
     }
 
     @Test
@@ -146,7 +146,7 @@ class UserServiceTest {
                 .status(true)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        when(userRepository.getUserEntityById(1L)).thenReturn(testUser);
         when(userRepository.save(any(UserEntity.class))).thenReturn(updatedUser);
 
         // When
@@ -159,10 +159,10 @@ class UserServiceTest {
         assertEquals("updated@example.com", response.email());
         assertEquals("ADMIN", response.role());
 
-        verify(userRepository).findById(1L);
+        verify(userRepository).getUserEntityById(1L);
         verify(userRepository).save(any(UserEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify(anyString());
+        verify(notificationService, times(2)).notify(anyString());
     }
 
     @Test
@@ -177,7 +177,7 @@ class UserServiceTest {
         verify(userRepository).findById(1L);
         verify(userRepository).save(any(UserEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify(anyString());
+        verify(notificationService, times(2)).notify(anyString());
     }
 
     @Test
@@ -201,5 +201,6 @@ class UserServiceTest {
         verify(notificationService).notify("actions-updated");
         verify(notificationService).notify("users-updated");
     }
+
 
 }

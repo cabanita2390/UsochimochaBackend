@@ -10,7 +10,9 @@ public class NotificationService {
     private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer();
 
     public void notify(String event) {
-        sink.tryEmitNext(event);
+        if (event != null) {
+            sink.tryEmitNext(event);
+        }
     }
 
     public Flux<String> getNotifications() {

@@ -88,7 +88,7 @@ class NotificationServiceTest {
         // When & Then
         StepVerifier.create(notifications)
                 .then(() -> notificationService.notify(null))
-                .expectNext((String) null)
+                .expectNoEvent(Duration.ofMillis(100))
                 .thenCancel()
                 .verify(Duration.ofSeconds(5));
     }

@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.review.web;
 
+import com.app.usochicamochabackend.config.TestWebConfig;
 import com.app.usochicamochabackend.order.application.dto.OrderWithoutInspectionResponse;
 import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
@@ -8,6 +9,7 @@ import com.app.usochicamochabackend.review.application.dto.ImageDTO;
 import com.app.usochicamochabackend.review.application.port.*;
 import com.app.usochicamochabackend.user.application.dto.UserResponse;
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
+import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -16,10 +18,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.mockito.Mock;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,26 +37,28 @@ import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 
+@Import(TestWebConfig.class)
 @WebMvcTest(InspectionController.class)
 class InspectionControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @Mock
+    @MockBean
     private CreateInspectionOnlyDataUseCase createInspectionOnlyDataUseCase;
 
-    @Mock
+    @MockBean
     private GetAllInspectionsWithoutImagesUseCase getAllInspectionsWithoutImagesUseCase;
 
-    @Mock
+    @MockBean
     private GetInspectionByIdUseCase getInspectionByIdUseCase;
 
-    @Mock
+    @MockBean
     private GetInspectionImagesUseCase getInspectionImagesUseCase;
 
-    @Mock
+    @MockBean
     private SaveInspectionImageUseCase saveInspectionImageUseCase;
 
     @Autowired
@@ -125,7 +132,7 @@ class InspectionControllerTest {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.UUID").value("test-uuid-123"))
-                .andExpect(jsonPath("$.unexpected").value(false))
+                .andExpect(jsonPath("$.isUnexpected").value(false))
                 .andExpect(jsonPath("$.leakStatus").value("GOOD"))
                 .andExpect(jsonPath("$.observations").value("Test observations"));
     }
@@ -233,10 +240,22 @@ class InspectionControllerTest {
     @Test
     @WithMockUser(roles = "ADMIN")
     void saveInspectionImage_ShouldReturnCreated() throws Exception {
+        // Given
+        MockMultipartFile imageFile = new MockMultipartFile(
+                "imagen",
+                "test-image.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                "test image content".getBytes()
+        );
+
+        ImageDTO response = new ImageDTO(1L, "http://example.com/test-image.jpg");
+        when(saveInspectionImageUseCase.saveInspectionImage(eq(1L), any(MultipartFile.class))).thenReturn(response);
+
         // When & Then
-        mockMvc.perform(post("/api/v1/inspection/1/images")
-                .with(csrf())
-                .param("imageUrl", "http://example.com/new-image.jpg"))
-                .andExpect(status().isCreated());
+        mockMvc.perform(multipart("/api/v1/inspection/1/image")
+                .file(imageFile)
+                .with(csrf()))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.url").value("http://example.com/test-image.jpg"));
     }
 }

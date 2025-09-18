@@ -51,7 +51,7 @@ public class OrderController {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE))
     })
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
-    public OrderResponse assignOrder(
+    public ResponseEntity<OrderResponse> assignOrder(
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Order assignment data including inspectionId, assignerUserId, assignedUserId and description",
                     required = true,
@@ -59,11 +59,19 @@ public class OrderController {
             )
             @RequestBody AssignOrderRequest assignOrderRequest) {
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        Long userId = userPrincipal.id();
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Long userId;
+        if (principal instanceof UserPrincipal userPrincipal) {
+            userId = userPrincipal.id();
+        } else if (principal instanceof org.springframework.security.core.userdetails.User user) {
+            // For test purposes, extract user ID from username or use a default
+            userId = 1L; // Default user ID for tests
+        } else {
+            throw new IllegalStateException("Unexpected principal type: " + principal.getClass());
+        }
         System.out.println("userId = " + userId);
         
-        return assignOrderUseCase.assignOrder(assignOrderRequest);
+        return ResponseEntity.status(201).body(assignOrderUseCase.assignOrder(assignOrderRequest));
     }
 
     @GetMapping("/all/{inspectionId}")

@@ -33,6 +33,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.times;
 
 @ExtendWith(MockitoExtension.class)
 class OrderServiceTest {
@@ -45,6 +46,9 @@ class OrderServiceTest {
 
     @Mock
     private InspectionRepository inspectionRepository;
+
+    @Mock
+    private InspectionEntity mockInspection;
 
     @Mock
     private UserRepositoryJpa userRepository;
@@ -85,7 +89,7 @@ class OrderServiceTest {
         savedOrder.setId(2L);
 
         when(inspectionRepository.findById(1L)).thenReturn(Optional.of(testInspection));
-        when(userRepository.getUserEntityById(1L)).thenReturn(testUser);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(orderRepository.save(any(OrderEntity.class))).thenReturn(savedOrder);
 
         // When
@@ -97,10 +101,10 @@ class OrderServiceTest {
         assertEquals("Test order description", response.description());
 
         verify(inspectionRepository).findById(1L);
-        verify(userRepository).getUserEntityById(1L);
+        verify(userRepository).findById(1L);
         verify(orderRepository).save(any(OrderEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify(anyString());
+        verify(notificationService, times(2)).notify(anyString());
     }
 
     @Test
@@ -123,6 +127,7 @@ class OrderServiceTest {
         order2.setDescription("Second order");
 
         List<OrderEntity> orders = Arrays.asList(testOrder, order2);
+        when(inspectionRepository.findById(1L)).thenReturn(Optional.of(testInspection));
         when(orderRepository.getAllByInspectionId(1L)).thenReturn(orders);
 
         // When
@@ -188,13 +193,12 @@ class OrderServiceTest {
     @Test
     void getAllOrdersByMachineId_ShouldReturnOrdersList() {
         // Given
-        List<InspectionEntity> inspections = Arrays.asList(testInspection);
+        List<InspectionEntity> inspections = Arrays.asList(mockInspection);
+        when(machineRepository.findById(1L)).thenReturn(Optional.of(testMachine));
         when(inspectionRepository.findByMachineId(1L)).thenReturn(inspections);
-
-        OrderEntity order2 = TestDataBuilder.createTestOrder(testInspection, testUser);
-        order2.setId(2L);
-        List<OrderEntity> orders = Arrays.asList(testOrder, order2);
-        when(orderRepository.getAllByInspectionId(1L)).thenReturn(orders);
+        OrderEntity secondOrder = TestDataBuilder.createTestOrder(testInspection, testUser);
+        secondOrder.setId(2L);
+        when(mockInspection.getOrders()).thenReturn(Arrays.asList(testOrder, secondOrder));
 
         // When
         GetAllOrdersByMachineId response = orderService.getAllOrdersByMachineId(1L);
@@ -203,6 +207,5 @@ class OrderServiceTest {
         assertNotNull(response);
         assertEquals(2, response.orders().size());
         verify(inspectionRepository).findByMachineId(1L);
-        verify(orderRepository).getAllByInspectionId(1L);
     }
 }

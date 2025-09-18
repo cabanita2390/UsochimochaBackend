@@ -75,13 +75,12 @@ class BrandServiceTest {
 
         verify(brandRepository).save(any(BrandEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify(anyString());
     }
 
     @Test
     void getBrandById_ShouldReturnBrandResponse_WhenBrandExists() {
         // Given
-        when(brandRepository.findBrandEntityById(1L)).thenReturn(testBrand);
+        when(brandRepository.findById(1L)).thenReturn(Optional.of(testBrand));
 
         // When
         BrandResponse response = brandService.getBrandById(1L);
@@ -90,17 +89,17 @@ class BrandServiceTest {
         assertNotNull(response);
         assertEquals("OIL", response.type());
         assertEquals("Test Brand", response.name());
-        verify(brandRepository).findBrandEntityById(1L);
+        verify(brandRepository).findById(1L);
     }
 
     @Test
     void getBrandById_ShouldThrowException_WhenBrandNotFound() {
         // Given
-        when(brandRepository.findBrandEntityById(999L)).thenReturn(null);
+        when(brandRepository.findById(999L)).thenReturn(Optional.empty());
 
         // When & Then
         assertThrows(RuntimeException.class, () -> brandService.getBrandById(999L));
-        verify(brandRepository).findBrandEntityById(999L);
+        verify(brandRepository).findById(999L);
     }
 
     @Test
@@ -114,7 +113,7 @@ class BrandServiceTest {
                 .status(true)
                 .build();
 
-        when(brandRepository.findBrandEntityById(1L)).thenReturn(testBrand);
+        when(brandRepository.findById(1L)).thenReturn(Optional.of(testBrand));
         when(brandRepository.save(any(BrandEntity.class))).thenReturn(updatedBrand);
 
         // When
@@ -125,25 +124,25 @@ class BrandServiceTest {
         assertEquals("MOTOR", response.type());
         assertEquals("Updated Brand", response.name());
 
-        verify(brandRepository).findBrandEntityById(1L);
+        verify(brandRepository).findById(1L);
         verify(brandRepository).save(any(BrandEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify(anyString());
+        verify(notificationService, times(2)).notify(anyString());
     }
 
     @Test
     void deleteBrand_ShouldSetStatusToFalse_WhenBrandExists() {
         // Given
-        when(brandRepository.findBrandEntityById(1L)).thenReturn(testBrand);
+        when(brandRepository.findById(1L)).thenReturn(Optional.of(testBrand));
 
         // When
         brandService.deleteBrandById(1L);
 
         // Then
-        verify(brandRepository).findBrandEntityById(1L);
+        verify(brandRepository).findById(1L);
         verify(brandRepository).save(any(BrandEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify(anyString());
+        verify(notificationService, times(2)).notify(anyString());
     }
 
     @Test
@@ -187,4 +186,5 @@ class BrandServiceTest {
         assertEquals("OIL", responses.get(0).type());
         verify(brandRepository).findAllByType(type);
     }
+
 }

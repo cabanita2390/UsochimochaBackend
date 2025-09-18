@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.mockito.Mock;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -27,22 +27,22 @@ class UserControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @Mock
+    @MockBean
     private CreateUserUseCase createUserUseCase;
 
-    @Mock
+    @MockBean
     private DeleteUserUseCase deleteUserUseCase;
 
-    @Mock
+    @MockBean
     private FindAllUsersUseCase findAllUsersUseCase;
 
-    @Mock
+    @MockBean
     private FindUserByIdUseCase findUserByIdUseCase;
 
-    @Mock
+    @MockBean
     private UpdateUserUseCase updateUserUseCase;
 
-    @Mock
+    @MockBean
     private ChangePasswordUseCase changePasswordUseCase;
 
     @Autowired
@@ -73,8 +73,8 @@ class UserControllerTest {
     void getAllUsers_ShouldReturnUsersList() throws Exception {
         // Given
         List<UserResponse> users = Arrays.asList(
-                new UserResponse(1L, "User 1", "user1", "user1@example.com", "ADMIN"),
-                new UserResponse(2L, "User 2", "user2", "user2@example.com", "MECHANIC")
+                new UserResponse(1L, "user1", "User 1", "user1@example.com", "ADMIN"),
+                new UserResponse(2L, "user2", "User 2", "user2@example.com", "MECHANIC")
         );
         UsersResponse response = new UsersResponse(users);
         when(findAllUsersUseCase.findAllUsers()).thenReturn(response);
@@ -93,7 +93,7 @@ class UserControllerTest {
     @WithMockUser(roles = "ADMIN")
     void getUserById_ShouldReturnUser() throws Exception {
         // Given
-        UserResponse response = new UserResponse(1L, "Test User", "testuser", "test@example.com", "ADMIN");
+        UserResponse response = new UserResponse(1L, "testuser", "Test User", "test@example.com", "ADMIN");
         when(findUserByIdUseCase.findUserById(1L)).thenReturn(response);
 
         // When & Then
@@ -110,7 +110,7 @@ class UserControllerTest {
     void updateUser_ShouldReturnUpdatedUser() throws Exception {
         // Given
         UpdateUserRequest request = new UpdateUserRequest(1L, "Updated User", true, "updateduser", "updated@example.com", "ADMIN");
-        UserResponse response = new UserResponse(1L, "Updated User", "updateduser", "updated@example.com", "ADMIN");
+        UserResponse response = new UserResponse(1L, "updateduser", "Updated User", "updated@example.com", "ADMIN");
         when(updateUserUseCase.updateUser(any(UpdateUserRequest.class))).thenReturn(response);
 
         // When & Then

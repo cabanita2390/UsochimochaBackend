@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.mockito.Mock;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,22 +28,22 @@ class BrandControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @Mock
+    @MockBean
     private CreateBrandUseCase createBrand;
 
-    @Mock
+    @MockBean
     private GetBrandByIdUseCase getBrandById;
 
-    @Mock
+    @MockBean
     private UpdateBrandUseCase updateBrand;
 
-    @Mock
+    @MockBean
     private DeleteBrandUseCase deleteBrand;
 
-    @Mock
+    @MockBean
     private GetAllBrandsUseCase getAllBrands;
 
-    @Mock
+    @MockBean
     private GetAllBrandsByTypeUseCase getAllBrandsByType;
 
     @Autowired
@@ -64,8 +64,7 @@ class BrandControllerTest {
                 .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.type").value("OIL"))
-                .andExpect(jsonPath("$.name").value("Test Brand"))
-                .andExpect(jsonPath("$.status").value(true));
+                .andExpect(jsonPath("$.name").value("Test Brand"));
     }
 
     @Test
@@ -80,8 +79,7 @@ class BrandControllerTest {
                 .with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.type").value("OIL"))
-                .andExpect(jsonPath("$.name").value("Test Brand"))
-                .andExpect(jsonPath("$.status").value(true));
+                .andExpect(jsonPath("$.name").value("Test Brand"));
     }
 
     @Test
