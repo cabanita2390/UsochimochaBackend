@@ -56,6 +56,7 @@ public class OilChangeService implements
         notificationService.notify("actions-updated");
 
         return machineRepository.findAll().stream()
+                .filter(MachineEntity::getStatus)
                 .map(machine -> getConsolidateHydraulicAndMotorOilById(machine.getId()))
                 .filter(Objects::nonNull)
                 .toList();
