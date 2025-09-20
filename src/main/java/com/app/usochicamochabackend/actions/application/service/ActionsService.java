@@ -27,10 +27,14 @@ public class ActionsService implements SaveActionUseCase, GetAllActionsByUserIdU
 
     @Override
     public void save(String details) {
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        UserEntity user = userRepositoryJpa.getUserEntityById(userPrincipal.id());
-
-        actionRepository.save(new ActionEntity(null, details, user));
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            UserEntity user = userRepositoryJpa.getUserEntityById(userPrincipal.id());
+            actionRepository.save(new ActionEntity(null, details, user));
+        } else {
+            // For system actions or when no user is authenticated, save without user
+            actionRepository.save(new ActionEntity(null, details, null));
+        }
     }
 
     @Override

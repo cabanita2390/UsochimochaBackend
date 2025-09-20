@@ -47,13 +47,16 @@ public class UserService implements
 
         UserEntity userSaved = userRepository.save(user);
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-
-        saveActionUseCase.save("El usuario " + userSaved.getUsername() + " ha sido creado por " + userPrincipal.username());
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            saveActionUseCase.save("El usuario " + userSaved.getUsername() + " ha sido creado por " + userPrincipal.username());
+        } else {
+            saveActionUseCase.save("El usuario " + userSaved.getUsername() + " ha sido creado");
+        }
         notificationService.notify("users-updated");
         notificationService.notify("actions-updated");
 
-        return new CreateUserResponse(user.getId(), userSaved.getUsername(), userSaved.getEmail(),userSaved.getStatus(), userSaved.getRole(), userSaved.getFullName(), "User created successfully");
+        return new CreateUserResponse(user.getId(), userSaved.getFullName(), userSaved.getUsername(), userSaved.getEmail(), userSaved.getRole(), userSaved.getStatus(), "User created successfully");
     }
 
     @Override
@@ -61,9 +64,12 @@ public class UserService implements
         UserEntity user = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         user.setStatus(false);
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-
-        saveActionUseCase.save("El usuario " + user.getUsername() + " ha sido eliminado por " + userPrincipal.username());
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            saveActionUseCase.save("El usuario " + user.getUsername() + " ha sido eliminado por " + userPrincipal.username());
+        } else {
+            saveActionUseCase.save("El usuario " + user.getUsername() + " ha sido eliminado");
+        }
         notificationService.notify("users-updated");
         notificationService.notify("actions-updated");
 
@@ -119,11 +125,14 @@ public class UserService implements
 
         UserEntity userUpdated = userRepository.save(currentUser);
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
-                .getAuthentication().getPrincipal();
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        String performer = "sistema";
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            performer = userPrincipal.username();
+        }
 
         String mensaje = "El usuario " + userUpdated.getUsername() +
-                " ha sido actualizado por " + userPrincipal.username();
+                " ha sido actualizado por " + performer;
 
         if (!changes.isEmpty()) {
             mensaje += ". Campos modificados: " + String.join(", ", changes);
@@ -145,9 +154,13 @@ public class UserService implements
         currentUser.setPassword(passwordEncoder.encode(request.newPassword()));
         UserResponse userUpdated = UserMapper.toResponse(userRepository.save(currentUser));
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        String performer = "sistema";
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            performer = userPrincipal.username();
+        }
 
-        saveActionUseCase.save("La contraseña del " + currentUser.getUsername() + " ha sido actualizada por " + userPrincipal.username());
+        saveActionUseCase.save("La contraseña del " + currentUser.getUsername() + " ha sido actualizada por " + performer);
 
         notificationService.notify("actions-updated");
         notificationService.notify("users-updated");
