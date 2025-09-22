@@ -99,6 +99,10 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
 
     @Override
     public ImageDTO saveInspectionImage(Long inspectionId, MultipartFile image) throws IOException {
+        if (image.getSize() > 1048576L) {
+            throw new IllegalArgumentException("Image size exceeds 1000kb limit");
+        }
+
         InspectionEntity inspection = inspectionRepository.findById(inspectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Inspection not found"));
 
