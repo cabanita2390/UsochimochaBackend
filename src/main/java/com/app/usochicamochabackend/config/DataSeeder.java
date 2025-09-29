@@ -11,7 +11,9 @@ import com.app.usochicamochabackend.performance.infrastructure.entity.LaborEntit
 import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEntity;
 import com.app.usochicamochabackend.performance.infrastructure.entity.SparePartEntity;
 import com.app.usochicamochabackend.performance.infrastructure.repository.ResultRepository;
+import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
+import com.app.usochicamochabackend.review.infrastructure.repository.ImageRepository;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
@@ -32,6 +34,7 @@ public class DataSeeder {
             UserRepositoryJpa userRepository,
             MachineRepository machineRepository,
             InspectionRepository inspectionRepository,
+            ImageRepository imageRepository,
             OrderRepository orderRepository,
             ResultRepository resultRepository,
             ActionRepository actionRepository
@@ -519,6 +522,17 @@ public class DataSeeder {
 
 
             inspectionRepository.saveAll(List.of(inspection1, inspection2, inspection3, inspection4, inspection5, inspection6, inspection7, inspection8, inspection9, inspection10, inspection11, inspection12, inspection13, inspection14, inspection15, inspection16, inspection17));
+
+            // === Images ===
+            ImageEntity image1 = ImageEntity.builder()
+                    .url("uploads/UUID-EXC-001/UUID-EXC-001-1.png")
+                    .inspection(inspection1)
+                    .build();
+
+            imageRepository.save(image1);
+
+            inspection1.setImages(List.of(image1));
+            inspectionRepository.save(inspection1);
 
             // === Órdenes y Resultados ===
             OrderEntity order1 = OrderEntity.builder()
