@@ -245,10 +245,10 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         InspectionEntity inspection = inspectionRepository.findById(inspectionId).orElseThrow(() -> new ResourceNotFoundException("Inspection not found"));
         List<ImageEntity> imageEntitiesList = imageRepository.findByInspectionId(inspectionId);
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado todas las imagenes de la inspeccion realizada a la maquina " + inspection.getMachine().getName() + " realizada el dia " + inspection.getDateStamp().toLocalDate());
-
-        notificationService.notify("actions-updated");
+        if (SecurityContextHolder.getContext().getAuthentication().getPrincipal() instanceof UserPrincipal userPrincipal) {
+            saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado todas las imagenes de la inspeccion realizada a la maquina " + inspection.getMachine().getName() + " realizada el dia " + inspection.getDateStamp().toLocalDate());
+            notificationService.notify("actions-updated");
+        }
 
         return ImagesMapper.toDtoList(imageEntitiesList);
     }
