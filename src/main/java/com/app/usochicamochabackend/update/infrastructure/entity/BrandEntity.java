@@ -21,5 +21,6 @@ public class BrandEntity {
 
     private String name;
 
+    @Builder.Default
     private boolean status = true;
 }

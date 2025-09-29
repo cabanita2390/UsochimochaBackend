@@ -21,6 +21,6 @@ public class SparePartEntity {
 
     private String ref;
     private String name;
-    private Integer quantity;
+    private String quantity;
     private BigDecimal price;
 }
