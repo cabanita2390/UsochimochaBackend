@@ -35,6 +35,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +54,17 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
         InspectionEntity entity = InspectionMapper.toEntityWithoutOrdersAndImages(
                 request, userRepository, machineRepository);
+
+        // Check for identical inspection in the last 12 hours
+        LocalDateTime twelveHoursAgo = LocalDateTime.now().minusHours(12);
+        List<InspectionEntity> recentInspections = inspectionRepository.findByMachineIdAndUserIdAndDateStampAfter(
+                request.machineId(), request.userId(), twelveHoursAgo);
+
+        for (InspectionEntity existing : recentInspections) {
+            if (isIdenticalInspection(entity, existing)) {
+                return InspectionMapper.toDto(existing);
+            }
+        }
 
         InspectionEntity saved = inspectionRepository.save(entity);
         InspectionFormResponse inspectionResponse = InspectionMapper.toDto(saved);
@@ -95,6 +107,29 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     private boolean isExpiringSoon(LocalDate date) {
         return date != null && !date.isBefore(LocalDate.now()) &&
                 !date.isAfter(LocalDate.now().plusDays(15));
+    }
+
+    private boolean isIdenticalInspection(InspectionEntity newInspection, InspectionEntity existing) {
+        return newInspection.getMachine().getId().equals(existing.getMachine().getId()) &&
+                newInspection.getUser().getId().equals(existing.getUser().getId()) &&
+                Objects.equals(newInspection.getUnexpected(), existing.getUnexpected()) &&
+                Objects.equals(newInspection.getHourMeter(), existing.getHourMeter()) &&
+                Objects.equals(newInspection.getLeakStatus(), existing.getLeakStatus()) &&
+                Objects.equals(newInspection.getBrakeStatus(), existing.getBrakeStatus()) &&
+                Objects.equals(newInspection.getBeltsPulleysStatus(), existing.getBeltsPulleysStatus()) &&
+                Objects.equals(newInspection.getTireLanesStatus(), existing.getTireLanesStatus()) &&
+                Objects.equals(newInspection.getCarIgnitionStatus(), existing.getCarIgnitionStatus()) &&
+                Objects.equals(newInspection.getElectricalStatus(), existing.getElectricalStatus()) &&
+                Objects.equals(newInspection.getMechanicalStatus(), existing.getMechanicalStatus()) &&
+                Objects.equals(newInspection.getTemperatureStatus(), existing.getTemperatureStatus()) &&
+                Objects.equals(newInspection.getOilStatus(), existing.getOilStatus()) &&
+                Objects.equals(newInspection.getHydraulicStatus(), existing.getHydraulicStatus()) &&
+                Objects.equals(newInspection.getCoolantStatus(), existing.getCoolantStatus()) &&
+                Objects.equals(newInspection.getStructuralStatus(), existing.getStructuralStatus()) &&
+                Objects.equals(newInspection.getExpirationDateFireExtinguisher(), existing.getExpirationDateFireExtinguisher()) &&
+                Objects.equals(newInspection.getObservations(), existing.getObservations()) &&
+                Objects.equals(newInspection.getGreasingAction(), existing.getGreasingAction()) &&
+                Objects.equals(newInspection.getGreasingObservations(), existing.getGreasingObservations());
     }
 
     @Override
