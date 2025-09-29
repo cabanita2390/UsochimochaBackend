@@ -28,44 +28,9 @@ import java.util.List;
 @Tag(name = "Oil Changes", description = "Operations related to motor and hydraulic oil changes")
 public class OilChangeController {
 
-    private final GetConsolidateMotorOilByIdMachineUseCase getConsolidateMotorOilByIdMachine;
-    private final GetConsolidateMotorOilAllMachinesUseCase getConsolidateMotorOilAllMachines;
-    private final GetConsolidateHydraulicOilByIdMachineUseCase getConsolidateHydraulicOilByIdMachine;
-    private final GetConsolidateHydraulicOilAllMachines getConsolidateHydraulicOilAllMachines;
-    private final GetConsolidateHydraulicAndMotorOilByIdMachineUseCase getConsolidateHydraulicAndMotorOilByIdMachine;
     private final GetConsolidateHydraulicAndMotorOilAllMachinesUseCase getConsolidateHydraulicAndMotorOilAllMachines;
     private final PerformMotorOilChangeUseCase performMotorOilChange;
     private final PerformHydraulicChangeUseCase performHydraulicChange;
-
-    @GetMapping("/motor/{machineId}")
-    @Operation(summary = "Get motor oil consolidation for a machine")
-    public ConsolidateMotorOilDTO getMotorOilByMachine(@PathVariable Long machineId) {
-        return getConsolidateMotorOilByIdMachine.getConsolidateMotorOilByIdMachine(machineId);
-    }
-
-    @GetMapping("/motor")
-    @Operation(summary = "Get motor oil consolidation for all machines")
-    public List<ConsolidateMotorOilDTO> getAllMotorOil() {
-        return getConsolidateMotorOilAllMachines.getConsolidateMotorOilAll();
-    }
-
-    @GetMapping("/hydraulic/{machineId}")
-    @Operation(summary = "Get hydraulic oil consolidation for a machine")
-    public ConsolidateHydraulicOilDTO getHydraulicOilByMachine(@PathVariable Long machineId) {
-        return getConsolidateHydraulicOilByIdMachine.getConsolidateHydraulicOilByIdMachine(machineId);
-    }
-
-    @GetMapping("/hydraulic")
-    @Operation(summary = "Get hydraulic oil consolidation for all machines")
-    public List<ConsolidateHydraulicOilDTO> getAllHydraulicOil() {
-        return getConsolidateHydraulicOilAllMachines.getConsolidateHydraulicOilAllMachines();
-    }
-
-    @GetMapping("/consolidated/{machineId}")
-    @Operation(summary = "Get consolidated motor and hydraulic oil for a machine")
-    public ConsolidateHydraulicAndMotorOilDTO getConsolidatedByMachine(@PathVariable Long machineId) {
-        return getConsolidateHydraulicAndMotorOilByIdMachine.getConsolidateHydraulicAndMotorOilById(machineId);
-    }
 
     @GetMapping("/consolidated")
     @Operation(summary = "Get consolidated motor and hydraulic oil for all machines")
