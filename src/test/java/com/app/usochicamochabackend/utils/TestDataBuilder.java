@@ -122,7 +122,7 @@ public class TestDataBuilder {
                 .id(1L)
                 .ref("SP001")
                 .name("Test Spare Part")
-                .quantity(2)
+                .quantity("2")
                 .price(new BigDecimal("50.00"))
                 .build();
     }
