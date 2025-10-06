@@ -96,7 +96,7 @@ class ResultServiceTest {
         SparePartRequest sparePartRequest = new SparePartRequest(
                 "SP002",
                 "Test Spare Part 2",
-                3,
+                "3",
                 new BigDecimal("75.00")
         );
 

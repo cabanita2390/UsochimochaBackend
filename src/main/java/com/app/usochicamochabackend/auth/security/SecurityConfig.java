@@ -47,7 +47,23 @@ public class SecurityConfig  {
                             "/v3/api-docs/**",
                             "/v3/api-docs.yaml"
                     ).permitAll();
-                    http.anyRequest().authenticated();
+                    http.requestMatchers("/api/v1/auth/**").permitAll();
+                    http.requestMatchers("/new-data/notifications/**").hasRole("ADMIN");
+                    http.requestMatchers("/api/actions/**").hasRole("ADMIN");
+                    http.requestMatchers("/api/v1/results/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.POST,"/api/v1/inspection/**").hasRole( "MECANIC");
+                    http.requestMatchers("/api/v1/inspection/**").hasRole( "ADMIN");
+                    http.requestMatchers(HttpMethod.GET,"/api/v1/machine/**").hasRole( "MECANIC");
+                    http.requestMatchers("/api/v1/machine/**").hasRole( "ADMIN");
+                    http.requestMatchers("/api/v1/user/**").hasRole("ADMIN");
+                    http.requestMatchers("/api/v1/order/**").hasRole("ADMIN");
+                    http.requestMatchers("/api/v1/curriculum/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.POST,"/api/oil-changes/**").hasRole("MECANIC");
+                    http.requestMatchers("/api/oil-changes/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.GET,"/api/v1/oil/brand/**").hasRole("MECANIC");
+                    http.requestMatchers("/api/v1/oil/brand/**").hasRole("ADMIN");
+                    http.requestMatchers("/oil_change/notifications/**").hasRole("ADMIN");
+                    http.anyRequest().hasRole("ADMIN");
                 });
 
         return httpSecurity.build();
