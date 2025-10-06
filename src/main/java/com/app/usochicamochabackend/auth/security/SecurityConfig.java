@@ -42,11 +42,13 @@ public class SecurityConfig  {
                 .authorizeHttpRequests(http -> {
                     http.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
                     http.requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll();
+                    http.requestMatchers(HttpMethod.GET, "/uploads/**").permitAll();
                     http.requestMatchers(
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
                             "/v3/api-docs.yaml"
                     ).permitAll();
+
                     http.anyRequest().authenticated();
                 });
 
