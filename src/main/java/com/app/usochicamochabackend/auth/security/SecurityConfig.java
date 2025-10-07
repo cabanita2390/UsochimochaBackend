@@ -54,7 +54,7 @@ public class SecurityConfig  {
                     http.requestMatchers("/api/v1/results/**").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.POST,"/api/v1/inspection/**").hasRole( "MECANIC");
                     http.requestMatchers("/api/v1/inspection/**").hasRole( "ADMIN");
-                    http.requestMatchers(HttpMethod.GET,"/api/v1/machine/**").hasRole( "MECANIC");
+                    http.requestMatchers(HttpMethod.GET,"/api/v1/machine/**").hasAnyRole( "MECANIC", "ADMIN");
                     http.requestMatchers("/api/v1/machine/**").hasRole( "ADMIN");
                     http.requestMatchers("/api/v1/user/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/order/**").hasRole("ADMIN");
