@@ -48,7 +48,12 @@ public class SecurityConfig  {
                             "/v3/api-docs/**",
                             "/v3/api-docs.yaml"
                     ).permitAll();
+
                     http.requestMatchers("/api/v1/auth/**").permitAll();
+                    http.requestMatchers(HttpMethod.POST,"/api/oil-changes/motor").hasAnyRole( "MECANIC", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST,"/api/oil-changes/hydraulic").hasAnyRole( "MECANIC", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST,"/api/v1/user/{id}/change-password").hasAnyRole(  "ADMIN");
+                    http.requestMatchers(HttpMethod.POST,"/api/v1/inspection/**").hasAnyRole( "MECANIC", "ADMIN");
                     http.requestMatchers("/new-data/notifications/**").hasRole("ADMIN");
                     http.requestMatchers("/api/actions/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/results/**").hasRole("ADMIN");
