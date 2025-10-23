@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormResponse;
 import com.app.usochicamochabackend.review.application.port.*;
+import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -36,6 +38,8 @@ public class InspectionController {
     private final GetInspectionByIdUseCase getInspectionByIdUseCase;
     private final GetInspectionImagesUseCase  getInspectionImagesUseCase;
     private final SaveInspectionImageUseCase  saveInspectionImageUseCase;
+    private final GetAllInspectionsForExportUseCase getAllInspectionsForExportUseCase;
+    private final ExcelGenerationService excelGenerationService;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
@@ -112,6 +116,28 @@ public class InspectionController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
         Page<InspectionFormResponse> inspections = getAllInspectionsWithoutImagesUseCase.getAllInspectionsWithoutImages(pageable);
         return ResponseEntity.ok(inspections);
+    }
+
+    @GetMapping("/export")
+    @Operation(
+            summary = "Export all inspections to Excel",
+            description = "Generates and downloads an Excel file with all inspections data."
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Excel file generated successfully"),
+            @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<byte[]> exportInspectionsToExcel() throws IOException {
+        List<com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity> inspections = getAllInspectionsForExportUseCase.getAllInspectionsForExport();
+        byte[] excelData = excelGenerationService.generateInspectionsExcel(inspections);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", "inspecciones.xlsx");
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(excelData);
     }
 
 }

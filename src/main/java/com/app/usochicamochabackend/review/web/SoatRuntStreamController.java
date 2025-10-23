@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import reactor.core.publisher.Sinks;
+import java.util.concurrent.*;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -20,8 +20,7 @@ import java.util.concurrent.TimeUnit;
 @RequestMapping("/soat/runt/notifications")
 public class SoatRuntStreamController {
 
-    private final Sinks.Many<ExpirationNotificationDTO> notificationsSink =
-            Sinks.many().multicast().onBackpressureBuffer();
+    private final BlockingQueue<ExpirationNotificationDTO> notificationsQueue = new LinkedBlockingQueue<>();
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamNotifications() {
@@ -36,24 +35,16 @@ public class SoatRuntStreamController {
             return emitter;
         }
 
-        notificationsSink.asFlux().subscribe(
-            data -> {
-                try {
-                    emitter.send(SseEmitter.event().data(data));
-                } catch (Exception e) {
-                    log.warn("Error sending SOAT/RUNT notification data, likely client disconnected", e);
-                    // Don't complete again if already completed
-                }
-            },
-            error -> {
-                log.error("SOAT/RUNT stream error", error);
-                emitter.completeWithError(error);
-            },
-            () -> {
-                log.info("SOAT/RUNT stream completed");
-                emitter.complete();
+        // Send existing notifications from queue
+        ExpirationNotificationDTO data;
+        while ((data = notificationsQueue.poll()) != null) {
+            try {
+                emitter.send(SseEmitter.event().data(data));
+            } catch (Exception e) {
+                log.warn("Error sending SOAT/RUNT notification data, likely client disconnected", e);
+                break;
             }
-        );
+        }
 
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
         executor.scheduleAtFixedRate(() -> {
@@ -83,6 +74,6 @@ public class SoatRuntStreamController {
 
     public void publish(ExpirationNotificationDTO notification) {
         log.debug("Publishing SOAT/RUNT notification: {}", notification);
-        notificationsSink.tryEmitNext(notification);
+        notificationsQueue.offer(notification);
     }
 }

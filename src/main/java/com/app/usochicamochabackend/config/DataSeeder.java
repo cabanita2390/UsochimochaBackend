@@ -5,6 +5,9 @@ import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import com.app.usochicamochabackend.update.infrastructure.entity.BrandEntity;
+import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
+import com.app.usochicamochabackend.update.infrastructure.repository.OilChangeRepository;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
 import com.app.usochicamochabackend.order.infrastructure.repository.OrderRepository;
 import com.app.usochicamochabackend.performance.infrastructure.entity.LaborEntity;
@@ -37,15 +40,34 @@ public class DataSeeder {
             ImageRepository imageRepository,
             OrderRepository orderRepository,
             ResultRepository resultRepository,
-            ActionRepository actionRepository
+            ActionRepository actionRepository,
+            OilChangeRepository oilChangeRepository
     ) {
         return args -> {
-            // Limpiar repos
-            resultRepository.deleteAll();
-            orderRepository.deleteAll();
-            inspectionRepository.deleteAll();
-            machineRepository.deleteAll();
-            userRepository.deleteAll();
+            // Limpiar repos - Order matters for foreign key constraints
+            // Delete entities that reference others first, then the referenced entities
+
+            // First, break relationships by setting foreign keys to null where possible
+            // But for simplicity, delete in the correct dependency order:
+
+            // 1. Delete Orders first (they reference Results, Inspections, and Users)
+            orderRepository.deleteAllInBatch();
+
+            // 2. Now delete Results (nothing should reference them now)
+            resultRepository.deleteAllInBatch();
+
+            // 3. Delete Images (they reference Inspections)
+            imageRepository.deleteAllInBatch();
+
+            // 4. Delete Inspections (they reference Machines and Users)
+            inspectionRepository.deleteAllInBatch();
+
+            // 5. Delete OilChanges (they reference Machines and Brands)
+            oilChangeRepository.deleteAllInBatch();
+
+            // 6. Delete Machines and Users (base entities)
+            machineRepository.deleteAllInBatch();
+            userRepository.deleteAllInBatch();
 
             // === Usuarios ===
             UserEntity admin = UserEntity.builder()
@@ -69,31 +91,164 @@ public class DataSeeder {
             userRepository.saveAll(List.of(admin, mechanic));
 
             // === Máquinas ===
-            MachineEntity excavator = MachineEntity.builder()
-                    .name("Excavator")
-                    .model("CAT320")
-                    .belongsTo("Distrito")
+            MachineEntity excavator1 = MachineEntity.builder()
+                    .name("Excavator Principal")
+                    .model("CAT320D")
+                    .belongsTo("Constructora ACME")
                     .status(true)
                     .soat(LocalDate.now().plusYears(1))
                     .brand("Caterpillar")
                     .runt(LocalDate.now().plusYears(1))
                     .numEngine("ENG12345")
-                    .numInterIdentification("CHASIS123")
+                    .numInterIdentification("CHASIS001")
                     .build();
 
-            MachineEntity bulldozer = MachineEntity.builder()
-                    .name("Bulldozer")
-                    .model("D6R")
+            MachineEntity bulldozer1 = MachineEntity.builder()
+                    .name("Bulldozer D6")
+                    .model("D6R-XL")
                     .belongsTo("Constructora ACME")
                     .status(true)
                     .soat(LocalDate.now().plusYears(1))
                     .brand("Caterpillar")
                     .runt(LocalDate.now().plusYears(1))
                     .numEngine("ENG67890")
-                    .numInterIdentification("CHASIS999")
+                    .numInterIdentification("CHASIS002")
                     .build();
 
-            machineRepository.saveAll(List.of(excavator, bulldozer));
+            MachineEntity crane1 = MachineEntity.builder()
+                    .name("Grúa Torre")
+                    .model("TC5020")
+                    .belongsTo("Infraestructura MAX")
+                    .status(true)
+                    .soat(LocalDate.now().plusYears(1))
+                    .brand("Liebherr")
+                    .runt(LocalDate.now().plusYears(1))
+                    .numEngine("ENG11111")
+                    .numInterIdentification("CHASIS003")
+                    .build();
+
+            MachineEntity loader1 = MachineEntity.builder()
+                    .name("Cargador Frontal")
+                    .model("WL950")
+                    .belongsTo("Minería del Sur")
+                    .status(true)
+                    .soat(LocalDate.now().plusYears(1))
+                    .brand("Komatsu")
+                    .runt(LocalDate.now().plusYears(1))
+                    .numEngine("ENG22222")
+                    .numInterIdentification("CHASIS004")
+                    .build();
+
+            MachineEntity excavator2 = MachineEntity.builder()
+                    .name("Excavadora Midi")
+                    .model("ZX350LC")
+                    .belongsTo("Constructora Beta")
+                    .status(true)
+                    .soat(LocalDate.now().plusYears(1))
+                    .brand("Hitachi")
+                    .runt(LocalDate.now().plusYears(1))
+                    .numEngine("ENG33333")
+                    .numInterIdentification("CHASIS005")
+                    .build();
+
+            MachineEntity compactor1 = MachineEntity.builder()
+                    .name("Compactador de Suelo")
+                    .model("CS56B")
+                    .belongsTo("Vías Nacionales")
+                    .status(true)
+                    .soat(LocalDate.now().plusYears(1))
+                    .brand("Caterpillar")
+                    .runt(LocalDate.now().plusYears(1))
+                    .numEngine("ENG44444")
+                    .numInterIdentification("CHASIS006")
+                    .build();
+
+            MachineEntity drill1 = MachineEntity.builder()
+                    .name("Perforadora Hidráulica")
+                    .model("MD5150C")
+                    .belongsTo("Minería del Sur")
+                    .status(true)
+                    .soat(LocalDate.now().plusYears(1))
+                    .brand("Caterpillar")
+                    .runt(LocalDate.now().plusYears(1))
+                    .numEngine("ENG55555")
+                    .numInterIdentification("CHASIS007")
+                    .build();
+
+            MachineEntity forklift1 = MachineEntity.builder()
+                    .name("Montacargas")
+                    .model("FD70N")
+                    .belongsTo("Logística Express")
+                    .status(true)
+                    .soat(LocalDate.now().plusYears(1))
+                    .brand("Komatsu")
+                    .runt(LocalDate.now().plusYears(1))
+                    .numEngine("ENG66666")
+                    .numInterIdentification("CHASIS008")
+                    .build();
+
+            MachineEntity backhoe1 = MachineEntity.builder()
+                    .name("Retroexcavadora")
+                    .model("420F2")
+                    .belongsTo("Constructora Gamma")
+                    .status(true)
+                    .soat(LocalDate.now().plusYears(1))
+                    .brand("Caterpillar")
+                    .runt(LocalDate.now().plusYears(1))
+                    .numEngine("ENG77777")
+                    .numInterIdentification("CHASIS009")
+                    .build();
+
+            MachineEntity grader1 = MachineEntity.builder()
+                    .name("Motoconformadora")
+                    .model("140M3")
+                    .belongsTo("Vías Nacionales")
+                    .status(true)
+                    .soat(LocalDate.now().plusYears(1))
+                    .brand("Caterpillar")
+                    .runt(LocalDate.now().plusYears(1))
+                    .numEngine("ENG88888")
+                    .numInterIdentification("CHASIS010")
+                    .build();
+
+            machineRepository.saveAll(List.of(excavator1, bulldozer1, crane1, loader1, excavator2, compactor1, drill1, forklift1, backhoe1, grader1));
+
+            // Fetch fresh machine entities from database to avoid detached entity issues
+            MachineEntity freshExcavator1 = machineRepository.findById(excavator1.getId()).orElseThrow();
+            MachineEntity freshBulldozer1 = machineRepository.findById(bulldozer1.getId()).orElseThrow();
+            MachineEntity freshCrane1 = machineRepository.findById(crane1.getId()).orElseThrow();
+            MachineEntity freshLoader1 = machineRepository.findById(loader1.getId()).orElseThrow();
+            MachineEntity freshExcavator2 = machineRepository.findById(excavator2.getId()).orElseThrow();
+            MachineEntity freshCompactor1 = machineRepository.findById(compactor1.getId()).orElseThrow();
+            MachineEntity freshDrill1 = machineRepository.findById(drill1.getId()).orElseThrow();
+            MachineEntity freshForklift1 = machineRepository.findById(forklift1.getId()).orElseThrow();
+            MachineEntity freshBackhoe1 = machineRepository.findById(backhoe1.getId()).orElseThrow();
+            MachineEntity freshGrader1 = machineRepository.findById(grader1.getId()).orElseThrow();
+
+            // === Marcas de aceite ===
+            BrandEntity motorOilBrand1 = BrandEntity.builder()
+                    .name("Shell Helix Ultra")
+                    .type("MOTOR_OIL")
+                    .status(true)
+                    .build();
+
+            BrandEntity motorOilBrand2 = BrandEntity.builder()
+                    .name("Mobil 1")
+                    .type("MOTOR_OIL")
+                    .status(true)
+                    .build();
+
+            BrandEntity hydraulicOilBrand1 = BrandEntity.builder()
+                    .name("Shell Tellus")
+                    .type("HYDRAULIC_OIL")
+                    .status(true)
+                    .build();
+
+            BrandEntity hydraulicOilBrand2 = BrandEntity.builder()
+                    .name("Mobil DTE")
+                    .type("HYDRAULIC_OIL")
+                    .status(true)
+                    .build();
 
             // === Inspecciones ===
             InspectionEntity inspection1 = InspectionEntity.builder()
@@ -116,7 +271,7 @@ public class DataSeeder {
                     .greasingAction("OK")
                     .greasingObservations("Todo en orden")
                     .unexpected(false)
-                    .machine(excavator)
+                    .machine(freshExcavator1)
                     .user(admin)
                     .observations("Inspección rutinaria")
                     .build();
@@ -141,7 +296,7 @@ public class DataSeeder {
                     .greasingAction("Revisión adicional")
                     .greasingObservations("Fugas menores detectadas")
                     .unexpected(true)
-                    .machine(bulldozer)
+                    .machine(freshBulldozer1)
                     .user(mechanic)
                     .observations("Necesita reparación hidráulica")
                     .build();
@@ -165,7 +320,7 @@ public class DataSeeder {
                     .greasingAction("Lubricar")
                     .greasingObservations("Correa debe reemplazarse pronto")
                     .unexpected(false)
-                    .machine(excavator)
+                    .machine(freshExcavator1)
                     .user(mechanic)
                     .observations("Correas desgastadas")
                     .build();
@@ -190,7 +345,7 @@ public class DataSeeder {
                     .greasingAction("Agregar aceite")
                     .greasingObservations("Nivel de aceite bajo")
                     .unexpected(true)
-                    .machine(bulldozer)
+                    .machine(freshBulldozer1)
                     .user(admin)
                     .observations("Requiere mantenimiento por aceite bajo")
                     .build();
@@ -215,7 +370,7 @@ public class DataSeeder {
                     .greasingAction("Revisar refrigerante")
                     .greasingObservations("Temperatura elevada en motor")
                     .unexpected(true)
-                    .machine(excavator)
+                    .machine(freshExcavator1)
                     .user(admin)
                     .observations("Revisar sistema de refrigeración")
                     .build();
@@ -240,7 +395,7 @@ public class DataSeeder {
                     .greasingAction("Revisión")
                     .greasingObservations("Encendido lento")
                     .unexpected(true)
-                    .machine(bulldozer)
+                    .machine(freshBulldozer1)
                     .user(mechanic)
                     .observations("Posible falla en el arranque")
                     .build();
@@ -265,7 +420,7 @@ public class DataSeeder {
                     .greasingAction("Revisar frenos")
                     .greasingObservations("Discos de freno algo gastados")
                     .unexpected(false)
-                    .machine(excavator)
+                    .machine(freshExcavator1)
                     .user(admin)
                     .observations("Necesitará cambio de frenos pronto")
                     .build();
@@ -290,7 +445,7 @@ public class DataSeeder {
                     .greasingAction("Revisar conexiones eléctricas")
                     .greasingObservations("Voltaje inestable")
                     .unexpected(true)
-                    .machine(bulldozer)
+                    .machine(freshBulldozer1)
                     .user(admin)
                     .observations("Batería cercana a su vida útil")
                     .build();
@@ -315,7 +470,7 @@ public class DataSeeder {
                     .greasingAction("Verificar estructura")
                     .greasingObservations("Se requiere reparación estructural ligera")
                     .unexpected(true)
-                    .machine(excavator)
+                    .machine(freshExcavator1)
                     .user(mechanic)
                     .observations("Soldadura necesaria en brazo mecánico")
                     .build();
@@ -340,7 +495,7 @@ public class DataSeeder {
                     .greasingAction("Agregar aceite")
                     .greasingObservations("Aceite casi agotado")
                     .unexpected(true)
-                    .machine(bulldozer)
+                    .machine(freshBulldozer1)
                     .user(admin)
                     .observations("Requiere cambio de aceite inmediato")
                     .build();
@@ -365,7 +520,7 @@ public class DataSeeder {
                     .greasingAction("Revisar neumáticos")
                     .greasingObservations("Llantas desgastadas")
                     .unexpected(true)
-                    .machine(excavator)
+                    .machine(freshExcavator1)
                     .user(admin)
                     .observations("Se recomienda reemplazar llantas")
                     .build();
@@ -390,7 +545,7 @@ public class DataSeeder {
                     .greasingAction("Agregar refrigerante")
                     .greasingObservations("Nivel bajo de refrigerante")
                     .unexpected(true)
-                    .machine(bulldozer)
+                    .machine(freshBulldozer1)
                     .user(mechanic)
                     .observations("Sistema de refrigeración en riesgo")
                     .build();
@@ -415,7 +570,7 @@ public class DataSeeder {
                     .greasingAction("Revisar motor")
                     .greasingObservations("Vibraciones en motor")
                     .unexpected(true)
-                    .machine(excavator)
+                    .machine(freshExcavator1)
                     .user(admin)
                     .observations("Podría requerir alineación del motor")
                     .build();
@@ -440,7 +595,7 @@ public class DataSeeder {
                     .greasingAction("Revisar fuga")
                     .greasingObservations("Se detectó fuga pequeña")
                     .unexpected(true)
-                    .machine(bulldozer)
+                    .machine(freshBulldozer1)
                     .user(admin)
                     .observations("Controlar fuga en sistema hidráulico")
                     .build();
@@ -465,7 +620,7 @@ public class DataSeeder {
                     .greasingAction("Revisar frenos")
                     .greasingObservations("Pastillas desgastadas")
                     .unexpected(true)
-                    .machine(excavator)
+                    .machine(freshExcavator2)
                     .user(mechanic)
                     .observations("Cambio de frenos recomendado")
                     .build();
@@ -490,7 +645,7 @@ public class DataSeeder {
                     .greasingAction("Verificar sistema de refrigeración")
                     .greasingObservations("Temperatura sobre lo normal")
                     .unexpected(true)
-                    .machine(bulldozer)
+                    .machine(freshBulldozer1)
                     .user(admin)
                     .observations("Posible obstrucción en radiador")
                     .build();
@@ -515,13 +670,243 @@ public class DataSeeder {
                     .greasingAction("Cambio de llantas")
                     .greasingObservations("Llantas desgastadas en exceso")
                     .unexpected(true)
-                    .machine(excavator)
+                    .machine(freshExcavator2)
                     .user(mechanic)
                     .observations("Necesario reemplazar llantas inmediatamente")
                     .build();
 
 
             inspectionRepository.saveAll(List.of(inspection1, inspection2, inspection3, inspection4, inspection5, inspection6, inspection7, inspection8, inspection9, inspection10, inspection11, inspection12, inspection13, inspection14, inspection15, inspection16, inspection17));
+
+            // === Cambios de aceite ===
+            // Motor oil changes
+            OilChangeEntity motorOilChange1 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(30))
+                    .motorOil(true)
+                    .hydraulicOil(false)
+                    .brand(motorOilBrand1)
+                    .quantity(15)
+                    .hourMeter(1500.0)
+                    .averageHoursChange(250)
+                    .machine(freshExcavator1)
+                    .build();
+
+            OilChangeEntity motorOilChange2 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(25))
+                    .motorOil(true)
+                    .hydraulicOil(false)
+                    .brand(motorOilBrand2)
+                    .quantity(12)
+                    .hourMeter(800.0)
+                    .averageHoursChange(200)
+                    .machine(freshBulldozer1)
+                    .build();
+
+            OilChangeEntity motorOilChange3 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(20))
+                    .motorOil(true)
+                    .hydraulicOil(false)
+                    .brand(motorOilBrand1)
+                    .quantity(8)
+                    .hourMeter(600.0)
+                    .averageHoursChange(300)
+                    .machine(freshCrane1)
+                    .build();
+
+            OilChangeEntity motorOilChange4 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(35))
+                    .motorOil(true)
+                    .hydraulicOil(false)
+                    .brand(motorOilBrand2)
+                    .quantity(10)
+                    .hourMeter(1200.0)
+                    .averageHoursChange(200)
+                    .machine(freshLoader1)
+                    .build();
+
+            OilChangeEntity motorOilChange5 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(28))
+                    .motorOil(true)
+                    .hydraulicOil(false)
+                    .brand(motorOilBrand1)
+                    .quantity(14)
+                    .hourMeter(1600.0)
+                    .averageHoursChange(250)
+                    .machine(freshExcavator2)
+                    .build();
+
+            OilChangeEntity motorOilChange6 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(40))
+                    .motorOil(true)
+                    .hydraulicOil(false)
+                    .brand(motorOilBrand2)
+                    .quantity(6)
+                    .hourMeter(900.0)
+                    .averageHoursChange(150)
+                    .machine(freshCompactor1)
+                    .build();
+
+            OilChangeEntity motorOilChange7 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(22))
+                    .motorOil(true)
+                    .hydraulicOil(false)
+                    .brand(motorOilBrand1)
+                    .quantity(18)
+                    .hourMeter(1100.0)
+                    .averageHoursChange(300)
+                    .machine(freshDrill1)
+                    .build();
+
+            OilChangeEntity motorOilChange8 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(32))
+                    .motorOil(true)
+                    .hydraulicOil(false)
+                    .brand(motorOilBrand2)
+                    .quantity(5)
+                    .hourMeter(700.0)
+                    .averageHoursChange(150)
+                    .machine(freshForklift1)
+                    .build();
+
+            OilChangeEntity motorOilChange9 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(26))
+                    .motorOil(true)
+                    .hydraulicOil(false)
+                    .brand(motorOilBrand1)
+                    .quantity(11)
+                    .hourMeter(1300.0)
+                    .averageHoursChange(200)
+                    .machine(freshBackhoe1)
+                    .build();
+
+            OilChangeEntity motorOilChange10 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(38))
+                    .motorOil(true)
+                    .hydraulicOil(false)
+                    .brand(motorOilBrand2)
+                    .quantity(9)
+                    .hourMeter(1000.0)
+                    .averageHoursChange(180)
+                    .machine(freshGrader1)
+                    .build();
+
+            // Hydraulic oil changes
+            OilChangeEntity hydraulicOilChange1 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(45))
+                    .motorOil(false)
+                    .hydraulicOil(true)
+                    .brand(hydraulicOilBrand1)
+                    .quantity(200)
+                    .hourMeter(1500.0)
+                    .averageHoursChange(500)
+                    .machine(freshExcavator1)
+                    .build();
+
+            OilChangeEntity hydraulicOilChange2 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(50))
+                    .motorOil(false)
+                    .hydraulicOil(true)
+                    .brand(hydraulicOilBrand2)
+                    .quantity(150)
+                    .hourMeter(800.0)
+                    .averageHoursChange(400)
+                    .machine(freshBulldozer1)
+                    .build();
+
+            OilChangeEntity hydraulicOilChange3 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(55))
+                    .motorOil(false)
+                    .hydraulicOil(true)
+                    .brand(hydraulicOilBrand1)
+                    .quantity(300)
+                    .hourMeter(600.0)
+                    .averageHoursChange(600)
+                    .machine(freshCrane1)
+                    .build();
+
+            OilChangeEntity hydraulicOilChange4 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(42))
+                    .motorOil(false)
+                    .hydraulicOil(true)
+                    .brand(hydraulicOilBrand2)
+                    .quantity(120)
+                    .hourMeter(1200.0)
+                    .averageHoursChange(350)
+                    .machine(freshLoader1)
+                    .build();
+
+            OilChangeEntity hydraulicOilChange5 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(48))
+                    .motorOil(false)
+                    .hydraulicOil(true)
+                    .brand(hydraulicOilBrand1)
+                    .quantity(180)
+                    .hourMeter(1600.0)
+                    .averageHoursChange(450)
+                    .machine(freshExcavator2)
+                    .build();
+
+            OilChangeEntity hydraulicOilChange6 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(60))
+                    .motorOil(false)
+                    .hydraulicOil(true)
+                    .brand(hydraulicOilBrand2)
+                    .quantity(80)
+                    .hourMeter(900.0)
+                    .averageHoursChange(300)
+                    .machine(freshCompactor1)
+                    .build();
+
+            OilChangeEntity hydraulicOilChange7 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(52))
+                    .motorOil(false)
+                    .hydraulicOil(true)
+                    .brand(hydraulicOilBrand1)
+                    .quantity(250)
+                    .hourMeter(1100.0)
+                    .averageHoursChange(550)
+                    .machine(freshDrill1)
+                    .build();
+
+            OilChangeEntity hydraulicOilChange8 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(58))
+                    .motorOil(false)
+                    .hydraulicOil(true)
+                    .brand(hydraulicOilBrand2)
+                    .quantity(60)
+                    .hourMeter(700.0)
+                    .averageHoursChange(250)
+                    .machine(freshForklift1)
+                    .build();
+
+            OilChangeEntity hydraulicOilChange9 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(46))
+                    .motorOil(false)
+                    .hydraulicOil(true)
+                    .brand(hydraulicOilBrand1)
+                    .quantity(140)
+                    .hourMeter(1300.0)
+                    .averageHoursChange(400)
+                    .machine(freshBackhoe1)
+                    .build();
+
+            OilChangeEntity hydraulicOilChange10 = OilChangeEntity.builder()
+                    .dateStamp(LocalDateTime.now().minusDays(54))
+                    .motorOil(false)
+                    .hydraulicOil(true)
+                    .brand(hydraulicOilBrand2)
+                    .quantity(100)
+                    .hourMeter(1000.0)
+                    .averageHoursChange(350)
+                    .machine(freshGrader1)
+                    .build();
+
+            oilChangeRepository.saveAll(List.of(
+                motorOilChange1, motorOilChange2, motorOilChange3, motorOilChange4, motorOilChange5,
+                motorOilChange6, motorOilChange7, motorOilChange8, motorOilChange9, motorOilChange10,
+                hydraulicOilChange1, hydraulicOilChange2, hydraulicOilChange3, hydraulicOilChange4, hydraulicOilChange5,
+                hydraulicOilChange6, hydraulicOilChange7, hydraulicOilChange8, hydraulicOilChange9, hydraulicOilChange10
+            ));
 
             // === Images ===
             ImageEntity image1 = ImageEntity.builder()

@@ -39,7 +39,7 @@ import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
-public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase {
+public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase, GetAllInspectionsForExportUseCase {
 
     private final InspectionStreamController inspectionStreamController;
     private final SoatRuntStreamController notificationStreamController;
@@ -263,5 +263,10 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         notificationService.notify("actions-updated");
 
         return inspections.map(InspectionMapper::toDto);
+    }
+
+    @Override
+    public List<InspectionEntity> getAllInspectionsForExport() {
+        return inspectionRepository.findAllWithMachineAndUser();
     }
 }

@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import reactor.core.Disposable;
+import java.util.concurrent.*;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -35,26 +35,17 @@ public class NotificationController {
             return emitter;
         }
 
-        Disposable disposable = notificationService.getNotifications()
-                .map(event -> event.isBlank() ? "new-data" : event)
-                .subscribe(
-                    data -> {
-                        try {
-                            emitter.send(SseEmitter.event().data(data));
-                        } catch (Exception e) {
-                            log.warn("Error sending notification data, likely client disconnected", e);
-                            // Don't complete again if already completed
-                        }
-                    },
-                    error -> {
-                        log.error("New data notifications stream error", error);
-                        emitter.completeWithError(error);
-                    },
-                    () -> {
-                        log.info("New data notifications stream completed");
-                        emitter.complete();
-                    }
-                );
+        // Send existing notifications from queue
+        String event;
+        while ((event = notificationService.getNotifications().poll()) != null) {
+            String data = event.isBlank() ? "new-data" : event;
+            try {
+                emitter.send(SseEmitter.event().data(data));
+            } catch (Exception e) {
+                log.warn("Error sending notification data, likely client disconnected", e);
+                break;
+            }
+        }
 
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
         executor.scheduleAtFixedRate(() -> {
@@ -68,7 +59,6 @@ public class NotificationController {
 
         Runnable cleanup = () -> {
             log.info("Cleaning up new data notifications stream");
-            disposable.dispose();
             executor.shutdown();
         };
 

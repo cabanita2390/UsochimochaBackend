@@ -32,7 +32,7 @@ public class OilChangeEntity {
     private Double hourMeter;
     private Integer averageHoursChange;
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne
     @JoinColumn(name = "machine_id")
     private MachineEntity machine;
 }

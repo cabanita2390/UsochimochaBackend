@@ -6,7 +6,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import reactor.core.publisher.Sinks;
+import java.util.concurrent.*;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 @RequestMapping("/oil_change/notifications")
 public class OilChangeStreamController {
 
-    private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer();
+    private final BlockingQueue<String> notificationsQueue = new LinkedBlockingQueue<>();
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter stream() {
@@ -32,24 +32,16 @@ public class OilChangeStreamController {
             return emitter;
         }
 
-        sink.asFlux().subscribe(
-            data -> {
-                try {
-                    emitter.send(SseEmitter.event().data(data));
-                } catch (Exception e) {
-                    log.warn("Error sending oil change data, likely client disconnected", e);
-                    // Don't complete again if already completed
-                }
-            },
-            error -> {
-                log.error("Oil change stream error", error);
-                emitter.completeWithError(error);
-            },
-            () -> {
-                log.info("Oil change stream completed");
-                emitter.complete();
+        // Send existing notifications from queue
+        String data;
+        while ((data = notificationsQueue.poll()) != null) {
+            try {
+                emitter.send(SseEmitter.event().data(data));
+            } catch (Exception e) {
+                log.warn("Error sending oil change data, likely client disconnected", e);
+                break;
             }
-        );
+        }
 
         ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
         executor.scheduleAtFixedRate(() -> {
@@ -79,6 +71,6 @@ public class OilChangeStreamController {
 
     public void sendNotification(String status) {
         log.debug("Sending oil change notification: {}", status);
-        sink.tryEmitNext(status);
+        notificationsQueue.offer(status);
     }
 }

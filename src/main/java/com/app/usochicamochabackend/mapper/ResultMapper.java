@@ -4,6 +4,7 @@ import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.order.application.dto.OrderResponse;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
+import com.app.usochicamochabackend.order.infrastructure.repository.OrderRepository;
 import com.app.usochicamochabackend.performance.application.dto.*;
 import com.app.usochicamochabackend.performance.infrastructure.entity.LaborEntity;
 import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEntity;
@@ -68,10 +69,13 @@ public class ResultMapper {
 
         LaborResponse labor = LaborMapper.toResponse(entity.getLaborForce());
 
+        OrderResponse order = OrderMapper.toDto(entity.getOrder());
+
         return new ResultDTO(
                 entity.getId(),
                 entity.getDate(),
                 entity.getDescription(),
+                order.inspection().hourMeter(),
                 entity.getTimeSpent(),
                 labor,
                 sparePart,

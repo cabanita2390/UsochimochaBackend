@@ -30,11 +30,20 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
     public MachineResponse createMachine(MachineRequest machineRequest) {
         MachineEntity savedMachine = machineRepository.save(new MachineEntity(null, machineRequest.name(), machineRequest.model(), machineRequest.belongsTo(), machineRequest.soat(), machineRequest.brand(), machineRequest.runt(), true, machineRequest.numEngine(), machineRequest.numInterIdentification()));
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
-                .getAuthentication().getPrincipal();
+        try {
+            Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            String username = "anonymous";
 
-        saveActionUseCase.save("El usuario " + userPrincipal.username() +
-                " ha creado la máquina " + savedMachine.getName());
+            if (principal instanceof UserPrincipal userPrincipal) {
+                username = userPrincipal.username();
+            }
+
+            saveActionUseCase.save("El usuario " + username +
+                    " ha creado la máquina " + savedMachine.getName());
+        } catch (Exception e) {
+            // If no authentication or error getting principal, use anonymous
+            saveActionUseCase.save("Usuario anonymous ha creado la máquina " + savedMachine.getName());
+        }
 
         notificationService.notify("actions-updated");
         notificationService.notify("machines-updated");
@@ -62,8 +71,19 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             throw new ResourceNotFoundException("Machine not found with ID: " + id);
         }
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado la maquina " + machine.getName());
+        try {
+            Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            String username = "anonymous";
+
+            if (principal instanceof UserPrincipal userPrincipal) {
+                username = userPrincipal.username();
+            }
+
+            saveActionUseCase.save("El usuario " + username + " ha observado la maquina " + machine.getName());
+        } catch (Exception e) {
+            // If no authentication or error getting principal, use anonymous
+            saveActionUseCase.save("Usuario anonymous ha observado la maquina " + machine.getName());
+        }
 
         notificationService.notify("actions-updated");
 
@@ -80,9 +100,6 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
         }
 
         MachineEntity savedMachine = machineRepository.save(new MachineEntity(id, machineRequest.name(), machineRequest.model(), machineRequest.belongsTo(), machineRequest.soat(), machineRequest.brand(), machineRequest.runt(), true, machineRequest.numEngine(), machineRequest.numInterIdentification()));
-
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
-                .getAuthentication().getPrincipal();
 
         List<String> cambios = new ArrayList<>();
 
@@ -111,14 +128,27 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             cambios.add("status: " + currentMachine.getStatus() + " -> " + savedMachine.getStatus());
         }
 
-        String mensaje = "El usuario " + userPrincipal.username() +
-                " ha actualizado la máquina " + savedMachine.getName();
+        try {
+            Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            String username = "anonymous";
+
+            if (principal instanceof UserPrincipal userPrincipal) {
+                username = userPrincipal.username();
+            }
+
+            String mensaje = "El usuario " + username +
+                    " ha actualizado la máquina " + savedMachine.getName();
 
         if (!cambios.isEmpty()) {
             mensaje += ". Cambios: " + String.join(", ", cambios);
         }
 
         saveActionUseCase.save(mensaje);
+        } catch (Exception e) {
+            // If no authentication or error getting principal, use anonymous
+            String mensaje = "Usuario anonymous ha actualizado la máquina " + savedMachine.getName();
+            saveActionUseCase.save(mensaje);
+        }
 
         notificationService.notify("actions-updated");
         notificationService.notify("machines-updated");
