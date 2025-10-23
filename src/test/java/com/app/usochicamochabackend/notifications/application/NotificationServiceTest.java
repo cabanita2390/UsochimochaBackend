@@ -1,13 +1,11 @@
-package com.app.usochicamochabackend.notifications.application;
+opackage com.app.usochicamochabackend.notifications.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
-import reactor.core.publisher.Flux;
-import reactor.test.StepVerifier;
 
-import java.time.Duration;
+import java.util.concurrent.BlockingQueue;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -22,45 +20,41 @@ class NotificationServiceTest {
     }
 
     @Test
-    void notify_ShouldEmitNotification() {
+    void notify_ShouldAddNotificationToQueue() {
         // Given
         String testEvent = "Test notification event";
-        Flux<String> notifications = notificationService.getNotifications();
+        BlockingQueue<String> notifications = notificationService.getNotifications();
 
-        // When & Then
-        StepVerifier.create(notifications)
-                .then(() -> notificationService.notify(testEvent))
-                .expectNext(testEvent)
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
+        // When
+        notificationService.notify(testEvent);
+
+        // Then
+        assertEquals(testEvent, notifications.poll());
     }
 
     @Test
-    void notify_ShouldEmitMultipleNotifications() {
+    void notify_ShouldAddMultipleNotificationsToQueue() {
         // Given
         String event1 = "First notification";
         String event2 = "Second notification";
         String event3 = "Third notification";
-        Flux<String> notifications = notificationService.getNotifications();
+        BlockingQueue<String> notifications = notificationService.getNotifications();
 
-        // When & Then
-        StepVerifier.create(notifications)
-                .then(() -> {
-                    notificationService.notify(event1);
-                    notificationService.notify(event2);
-                    notificationService.notify(event3);
-                })
-                .expectNext(event1)
-                .expectNext(event2)
-                .expectNext(event3)
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
+        // When
+        notificationService.notify(event1);
+        notificationService.notify(event2);
+        notificationService.notify(event3);
+
+        // Then
+        assertEquals(event1, notifications.poll());
+        assertEquals(event2, notifications.poll());
+        assertEquals(event3, notifications.poll());
     }
 
     @Test
-    void getNotifications_ShouldReturnFlux() {
+    void getNotifications_ShouldReturnQueue() {
         // When
-        Flux<String> notifications = notificationService.getNotifications();
+        BlockingQueue<String> notifications = notificationService.getNotifications();
 
         // Then
         assertNotNull(notifications);
@@ -70,14 +64,13 @@ class NotificationServiceTest {
     void notify_ShouldHandleEmptyString() {
         // Given
         String emptyEvent = "";
-        Flux<String> notifications = notificationService.getNotifications();
+        BlockingQueue<String> notifications = notificationService.getNotifications();
 
-        // When & Then
-        StepVerifier.create(notifications)
-                .then(() -> notificationService.notify(emptyEvent))
-                .expectNext(emptyEvent)
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
+        // When
+        notificationService.notify(emptyEvent);
+
+        // Then
+        assertEquals(emptyEvent, notifications.poll());
     }
 
     @Test

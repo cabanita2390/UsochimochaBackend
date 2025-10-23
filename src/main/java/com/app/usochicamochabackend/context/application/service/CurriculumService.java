@@ -58,11 +58,20 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
         // acá cada DTO ya tiene su totalPrice gracias al mapper
         List<ResultDTO> resultDTOS = ResultMapper.toResponseList(resultEntities);
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
-                .getAuthentication().getPrincipal();
+        try {
+            Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+            String username = "anonymous";
 
-        saveActionUseCase.save("El usuario " + userPrincipal.username() +
-                " ha observado el curriculum de la maquina " + machine.getName());
+            if (principal instanceof UserPrincipal userPrincipal) {
+                username = userPrincipal.username();
+            }
+
+            saveActionUseCase.save("El usuario " + username +
+                    " ha observado el curriculum de la maquina " + machine.getName());
+        } catch (Exception e) {
+            // If no authentication or error getting principal, use anonymous
+            saveActionUseCase.save("Usuario anonymous ha observado el curriculum de la maquina " + machine.getName());
+        }
 
         notificationService.notify("actions-updated");
 

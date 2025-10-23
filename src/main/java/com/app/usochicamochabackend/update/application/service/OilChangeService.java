@@ -166,10 +166,10 @@ public class OilChangeService implements
         double hourMeterLastUpdate = oilLastChange.getHourMeter();
         double hourMeterNextUpdate = hourMeterLastUpdate + averageChangeHours;
 
-        double timeLastUpdateMouths = ChronoUnit.DAYS.between(
+        double timeLastUpdateMouths = Math.round((ChronoUnit.DAYS.between(
                 oilLastChange.getDateStamp(),
                 LocalDateTime.now()
-        ) / 30.0;
+        ) / 30.0) * 10.0) / 10.0;
 
         double remainingHoursNextUpdateMouths = hourMeterNextUpdate - currentData.currentHourMeter();
 
@@ -178,10 +178,10 @@ public class OilChangeService implements
         if (currentData.currentHourMeter() <= (hourMeterNextUpdate - 50)) {
             status = "OK";
         } else if (currentData.currentHourMeter() <= hourMeterNextUpdate) {
-            status = machine.getName() + " proximo para cambio de aceite hidraulico";
+            status = "Proximo a cambio";
             streamController.sendNotification(status);
         } else {
-            status = machine.getName() + " cambio de aceite hidraulico obligatorio";
+            status = "Cambio de aceite";
             streamController.sendNotification(status);
         }
 
@@ -240,10 +240,10 @@ public class OilChangeService implements
         
         double hourMeterNextUpdate = hourMeterLastUpdate + averageChangeHours;
 
-        double timeLastUpdateMouths = ChronoUnit.DAYS.between(
+        double timeLastUpdateMouths = Math.round((ChronoUnit.DAYS.between(
                 oilLastChange.getDateStamp(),
                 LocalDateTime.now()
-        ) / 30.0;
+        ) / 30.0) * 10.0) / 10.0;
 
         double remainingHoursNextUpdateMouths = hourMeterNextUpdate - currentData.currentHourMeter();
 
@@ -252,10 +252,10 @@ public class OilChangeService implements
         if (currentData.currentHourMeter() <= (hourMeterNextUpdate - 50)) {
             status = "OK";
         } else if (currentData.currentHourMeter() <= hourMeterNextUpdate) {
-            status = machine.getName() + " proximo para cambio de aceite de motor";
+            status = "Proximo a cambio";
             streamController.sendNotification(status);
         } else {
-            status = machine.getName() + " cambio de aceite de motor obligatorio";
+            status = "Cambio de aceite";
             streamController.sendNotification(status);
         }
 

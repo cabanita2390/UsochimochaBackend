@@ -20,4 +20,7 @@ public interface InspectionRepository extends JpaRepository<InspectionEntity, Lo
     InspectionEntity getLastInspection(@Param("machineId") Long machineId);
 
     List<InspectionEntity> findByMachineIdAndUserIdAndDateStampAfter(Long machineId, Long userId, LocalDateTime dateStamp);
+
+    @Query("SELECT i FROM InspectionEntity i JOIN FETCH i.machine JOIN FETCH i.user")
+    List<InspectionEntity> findAllWithMachineAndUser();
 }

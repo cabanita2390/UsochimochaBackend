@@ -18,11 +18,14 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.MediaType;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 @Configuration
@@ -48,8 +51,7 @@ public class SecurityConfig  {
                             "/v3/api-docs/**",
                             "/v3/api-docs.yaml"
                     ).permitAll();
-
-                    http.requestMatchers("/api/v1/auth/**").permitAll();
+                   /*http.requestMatchers("/api/v1/auth/**").permitAll();
                     http.requestMatchers(HttpMethod.POST,"/api/oil-changes/motor").hasAnyRole( "MECANIC", "ADMIN");
                     http.requestMatchers(HttpMethod.POST,"/api/oil-changes/hydraulic").hasAnyRole( "MECANIC", "ADMIN");
                     http.requestMatchers(HttpMethod.POST,"/api/v1/user/{id}/change-password").hasAnyRole(  "ADMIN");
@@ -64,13 +66,15 @@ public class SecurityConfig  {
                     http.requestMatchers("/api/v1/user/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/order/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/curriculum/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.GET,"/api/oil-changes/**").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.POST,"/api/oil-changes/**").hasRole("MECANIC");
                     http.requestMatchers("/api/oil-changes/**").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.GET,"/api/v1/oil/brand/**").hasAnyRole("MECANIC", "ADMIN");
                     http.requestMatchers("/api/v1/oil/brand/**").hasRole("ADMIN");
-                    http.requestMatchers("/oil_change/notifications/**").hasRole("ADMIN");
-                    http.anyRequest().hasRole("ADMIN");
-                });
+                    http.requestMatchers("/oil_change/notifications/**").hasRole("ADMIN"); */
+                    http.anyRequest().permitAll();
+                })
+                .exceptionHandling(ex -> ex.accessDeniedHandler(accessDeniedHandler()));
 
         return httpSecurity.build();
     }
@@ -103,6 +107,15 @@ public class SecurityConfig  {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (request, response, ex) -> {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.getWriter().write("{\"error\": \"Access denied\"}");
+        };
     }
 
 }

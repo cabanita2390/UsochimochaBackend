@@ -19,9 +19,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
+import java.util.logging.Logger;
 
 public class JwtTokenValidator extends OncePerRequestFilter {
 
+    private static final Logger logger = Logger.getLogger(JwtTokenValidator.class.getName());
     private final JwtUtils jwtUtils;
 
     public JwtTokenValidator(JwtUtils jwtUtils) {
@@ -62,6 +64,7 @@ public class JwtTokenValidator extends OncePerRequestFilter {
 
             } catch (Exception ex) {
                 // 🔥 Captura error del token inválido/expirado
+                logger.warning("Invalid JWT token: " + ex.getMessage());
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
                 response.getWriter().write("{\"error\": \"Invalid or expired token\"}");

@@ -6,6 +6,8 @@ import io.swagger.v3.oas.annotations.info.Info;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.security.SecurityScheme;
 import io.swagger.v3.oas.annotations.servers.Server;
+import org.springdoc.core.models.GroupedOpenApi;
+import org.springframework.context.annotation.Bean;
 
 @OpenAPIDefinition(info = @Info(
         title = "Usochicamocha API",
@@ -20,7 +22,7 @@ import io.swagger.v3.oas.annotations.servers.Server;
             @Server(
                     description = "PROD SERVER",
                     url = "https://usochimochabackend.onrender.com"
-            )    
+            )
         },
         security = {
                 @SecurityRequirement(name = "bearerAuth")
@@ -32,4 +34,13 @@ import io.swagger.v3.oas.annotations.servers.Server;
         scheme = "bearer",
         bearerFormat = "JWT"
 )
-public class SwaggerConfig {}
+public class SwaggerConfig {
+
+    @Bean
+    public GroupedOpenApi publicApi() {
+        return GroupedOpenApi.builder()
+                .group("public")
+                .pathsToMatch("/api/**")
+                .build();
+    }
+}

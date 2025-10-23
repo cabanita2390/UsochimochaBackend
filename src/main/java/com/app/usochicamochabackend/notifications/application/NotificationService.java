@@ -1,21 +1,21 @@
 package com.app.usochicamochabackend.notifications.application;
 
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Sinks;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 @Service
 public class NotificationService {
 
-    private final Sinks.Many<String> sink = Sinks.many().multicast().onBackpressureBuffer();
+    private final BlockingQueue<String> notificationsQueue = new LinkedBlockingQueue<>();
 
     public void notify(String event) {
         if (event != null) {
-            sink.tryEmitNext(event);
+            notificationsQueue.offer(event);
         }
     }
 
-    public Flux<String> getNotifications() {
-        return sink.asFlux();
+    public BlockingQueue<String> getNotifications() {
+        return notificationsQueue;
     }
 }
