@@ -16,8 +16,7 @@ import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.ImageRepository;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
-import com.app.usochicamochabackend.review.web.InspectionStreamController;
-import com.app.usochicamochabackend.review.web.SoatRuntStreamController;
+import com.app.usochicamochabackend.review.application.dto.ExpirationNotificationDTO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,8 +40,6 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase, GetAllInspectionsForExportUseCase {
 
-    private final InspectionStreamController inspectionStreamController;
-    private final SoatRuntStreamController notificationStreamController;
     private final NotificationService notificationService;
     private final InspectionRepository inspectionRepository;
     private final UserRepositoryJpa userRepository;
@@ -70,29 +67,27 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         InspectionFormResponse inspectionResponse = InspectionMapper.toDto(saved);
 
         if (Boolean.TRUE.equals(saved.getUnexpected())) {
-            inspectionStreamController.publish(inspectionResponse);
+            notificationService.notifyInspection(inspectionResponse.toString());
         }
 
         MachineEntity machine = saved.getMachine();
 
         if (isExpiringSoon(machine.getSoat())) {
-            notificationStreamController.publish(
-                    new ExpirationNotificationDTO(
-                            "SOAT",
-                            "⚠️ El SOAT de la máquina '" + machine.getName() + "' vence pronto",
-                            MachineMapper.toResponse(machine)
-                    )
+            ExpirationNotificationDTO soatNotification = new ExpirationNotificationDTO(
+                    "SOAT",
+                    "⚠️ El SOAT de la máquina '" + machine.getName() + "' vence pronto",
+                    MachineMapper.toResponse(machine)
             );
+            notificationService.notifySoatRunt(soatNotification.toString());
         }
 
         if (isExpiringSoon(machine.getRunt())) {
-            notificationStreamController.publish(
-                    new ExpirationNotificationDTO(
-                            "RUNT",
-                            "⚠️ El RUNT de la máquina '" + machine.getName() + "' vence pronto",
-                            MachineMapper.toResponse(machine)
-                    )
+            ExpirationNotificationDTO runtNotification = new ExpirationNotificationDTO(
+                    "RUNT",
+                    "⚠️ El RUNT de la máquina '" + machine.getName() + "' vence pronto",
+                    MachineMapper.toResponse(machine)
             );
+            notificationService.notifySoatRunt(runtNotification.toString());
         }
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();

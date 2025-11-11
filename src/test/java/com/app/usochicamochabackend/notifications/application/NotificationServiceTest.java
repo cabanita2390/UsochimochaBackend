@@ -1,15 +1,12 @@
-opackage com.app.usochicamochabackend.notifications.application;
+package com.app.usochicamochabackend.notifications.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.concurrent.BlockingQueue;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@ExtendWith(MockitoExtension.class)
 class NotificationServiceTest {
 
     private NotificationService notificationService;
@@ -76,13 +73,13 @@ class NotificationServiceTest {
     @Test
     void notify_ShouldHandleNullValue() {
         // Given
-        Flux<String> notifications = notificationService.getNotifications();
+        BlockingQueue<String> notifications = notificationService.getNotifications();
+        int initialSize = notifications.size();
 
-        // When & Then
-        StepVerifier.create(notifications)
-                .then(() -> notificationService.notify(null))
-                .expectNoEvent(Duration.ofMillis(100))
-                .thenCancel()
-                .verify(Duration.ofSeconds(5));
+        // When
+        notificationService.notify(null);
+
+        // Then - size should not change since null events are not added
+        assertEquals(initialSize, notifications.size());
     }
 }

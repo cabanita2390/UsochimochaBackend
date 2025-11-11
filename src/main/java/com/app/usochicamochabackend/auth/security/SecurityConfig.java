@@ -46,6 +46,9 @@ public class SecurityConfig  {
                     http.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
                     http.requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll();
                     http.requestMatchers(HttpMethod.GET, "/uploads/**").permitAll();
+                    // WebSocket endpoints
+                    http.requestMatchers("/ws/**").permitAll();
+                    http.requestMatchers("/ws-direct/**").permitAll();
                     http.requestMatchers(
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
@@ -87,10 +90,18 @@ public class SecurityConfig  {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOriginPattern("*");
+        // Permitir orígenes específicos para desarrollo
+        configuration.addAllowedOriginPattern("http://localhost:5173");
+        configuration.addAllowedOriginPattern("http://localhost:3000");
+        configuration.addAllowedOriginPattern("http://localhost:4173");
+        // Permitir todos los headers necesarios para WebSocket
         configuration.addAllowedHeader("*");
+        // Permitir todos los métodos
         configuration.addAllowedMethod("*");
-        configuration.setAllowCredentials(false);
+        // IMPORTANTE: Permitir credenciales para WebSocket con autenticación
+        configuration.setAllowCredentials(true);
+        // Permitir headers específicos para WebSocket
+        configuration.setExposedHeaders(List.of("Content-Type", "Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

@@ -9,7 +9,6 @@ import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.review.infrastructure.repository.ImageRepository;
 import com.app.usochicamochabackend.review.web.InspectionStreamController;
-import com.app.usochicamochabackend.review.web.SoatRuntStreamController;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
@@ -48,8 +47,6 @@ class InspectionServiceTest {
     @Mock
     private InspectionStreamController inspectionStreamController;
 
-    @Mock
-    private SoatRuntStreamController notificationStreamController;
 
     @Mock
     private NotificationService notificationService;

@@ -16,7 +16,7 @@ import com.app.usochicamochabackend.update.application.port.*;
 import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
 import com.app.usochicamochabackend.update.infrastructure.repository.BrandRepository;
 import com.app.usochicamochabackend.update.infrastructure.repository.OilChangeRepository;
-import com.app.usochicamochabackend.update.web.OilChangeStreamController;
+// OilChangeStreamController removed - using WebSocket only
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -45,7 +45,6 @@ public class OilChangeService implements
     private final InspectionRepository inspectionRepository;
     private final OilChangeRepository oilChangeRepository;
     private final SaveActionUseCase saveActionUseCase;
-    private final OilChangeStreamController streamController;
     private final NotificationService notificationService;
 
     @Override
@@ -179,10 +178,10 @@ public class OilChangeService implements
             status = "OK";
         } else if (currentData.currentHourMeter() <= hourMeterNextUpdate) {
             status = "Proximo a cambio";
-            streamController.sendNotification(status);
+            notificationService.notifyOilChange("Proximo a cambio: " + machine.getName());
         } else {
             status = "Cambio de aceite";
-            streamController.sendNotification(status);
+            notificationService.notifyOilChange("Cambio de aceite requerido: " + machine.getName());
         }
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -253,10 +252,10 @@ public class OilChangeService implements
             status = "OK";
         } else if (currentData.currentHourMeter() <= hourMeterNextUpdate) {
             status = "Proximo a cambio";
-            streamController.sendNotification(status);
+            notificationService.notifyOilChange("Proximo a cambio: " + machine.getName());
         } else {
             status = "Cambio de aceite";
-            streamController.sendNotification(status);
+            notificationService.notifyOilChange("Cambio de aceite requerido: " + machine.getName());
         }
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();

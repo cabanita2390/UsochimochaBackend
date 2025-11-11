@@ -10,9 +10,9 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
-import reactor.core.publisher.Flux;
 
-import java.time.Duration;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -33,8 +33,9 @@ class NotificationControllerTest {
     @WithMockUser(roles = "ADMIN")
     void streamNotifications_ShouldReturnServerSentEvents() throws Exception {
         // Given
-        Flux<String> notifications = Flux.just("Test notification 1", "Test notification 2")
-                .delayElements(Duration.ofMillis(100));
+        BlockingQueue<String> notifications = new LinkedBlockingQueue<>();
+        notifications.offer("Test notification 1");
+        notifications.offer("Test notification 2");
         when(notificationService.getNotifications()).thenReturn(notifications);
 
         // When & Then
@@ -48,7 +49,7 @@ class NotificationControllerTest {
     @WithMockUser(roles = "ADMIN")
     void streamNotifications_ShouldHandleEmptyStream() throws Exception {
         // Given
-        Flux<String> emptyNotifications = Flux.empty();
+        BlockingQueue<String> emptyNotifications = new LinkedBlockingQueue<>();
         when(notificationService.getNotifications()).thenReturn(emptyNotifications);
 
         // When & Then
