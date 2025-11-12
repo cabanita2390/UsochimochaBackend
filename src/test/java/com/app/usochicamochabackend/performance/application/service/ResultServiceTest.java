@@ -147,8 +147,6 @@ class ResultServiceTest {
         verify(resultRepository).save(any(ResultEntity.class));
         verify(orderRepository).save(any(OrderEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
-        verify(notificationService).notify("results-updated");
     }
 
     @Test
@@ -171,7 +169,7 @@ class ResultServiceTest {
         verify(resultRepository, never()).save(any(ResultEntity.class));
         verify(orderRepository, never()).save(any(OrderEntity.class));
         verify(saveActionUseCase, never()).save(anyString());
-        verify(notificationService, never()).notify(anyString());
+
     }
 
     @Test
@@ -222,8 +220,6 @@ class ResultServiceTest {
         verify(resultRepository).save(any(ResultEntity.class));
         verify(orderRepository).save(any(OrderEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
-        verify(notificationService).notify("results-updated");
     }
 
     @Test
@@ -283,7 +279,6 @@ class ResultServiceTest {
         verify(resultRepository).save(any(ResultEntity.class));
         verify(orderRepository).save(any(OrderEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
-        verify(notificationService).notify("results-updated");
+
     }
 }

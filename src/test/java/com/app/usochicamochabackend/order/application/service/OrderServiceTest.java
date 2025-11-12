@@ -104,7 +104,7 @@ class OrderServiceTest {
         verify(userRepository).findById(1L);
         verify(orderRepository).save(any(OrderEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService, times(2)).notify(anyString());
+
     }
 
     @Test
@@ -187,7 +187,7 @@ class OrderServiceTest {
         assertEquals("Test order description", response.getContent().get(1).order().description());
         verify(orderRepository).findAll(pageable);
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
+
     }
 
     @Test

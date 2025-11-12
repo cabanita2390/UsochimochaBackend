@@ -100,7 +100,7 @@ class UserDetailsServiceImpTest {
         assertEquals("jwt-token", response.jwt());
         assertEquals("refresh-token", response.refreshToken());
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
+
     }
 
     @Test

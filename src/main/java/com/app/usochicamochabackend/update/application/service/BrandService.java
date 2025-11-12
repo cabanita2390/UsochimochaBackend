@@ -63,8 +63,6 @@ public class BrandService implements
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha actualizado una marca de aceite " + existing.getName() + " de tipo " + existing.getType());
 
-        notificationService.notify("actions-updated");
-        notificationService.notify("brands-updated");
 
         return BrandMapper.toResponse(brandRepository.save(existing));
     }
@@ -84,8 +82,6 @@ public class BrandService implements
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha  eliminado una marca de aceite " + brand.getName() + " de tipo " + brand.getType());
 
-        notificationService.notify("actions-updated");
-        notificationService.notify("brands-updated");
     }
 
     @Override

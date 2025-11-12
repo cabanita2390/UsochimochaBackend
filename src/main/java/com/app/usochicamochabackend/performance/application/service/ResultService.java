@@ -52,8 +52,6 @@ public class ResultService implements ExecuteAnOrderUseCase {
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha ejecutado una orden de trabajo asignada a la inspeccion realizada a la maquina " + orderEntity.getInspection().getMachine().getName() + " el dia " + orderEntity.getInspection().getDateStamp());
 
-        notificationService.notify("actions-updated");
-        notificationService.notify("results-updated");
 
         return ResultMapper.toResponse(savedResult, orderResponse);
     }

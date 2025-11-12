@@ -42,7 +42,7 @@ public class ActionsService implements SaveActionUseCase, GetAllActionsByUserIdU
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         save("El usuario " + userPrincipal.username() + " ha observado todas las acciones");
 
-        notificationService.notify("actions-updated");
+        
 
         return actionRepository.findAll(pageable);
     }
@@ -54,7 +54,7 @@ public class ActionsService implements SaveActionUseCase, GetAllActionsByUserIdU
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         save("El usuario " + userPrincipal.username() + " ha observado todas las acciones realizadas por el usuario " + user.getUsername());
 
-        notificationService.notify("actions-updated");
+        
 
         return actionRepository.findByUserId(userId, pageable);
     }

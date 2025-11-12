@@ -1,85 +1,189 @@
 package com.app.usochicamochabackend.notifications.application;
 
+import com.app.usochicamochabackend.notifications.infrastructure.websocket.NotificationWebSocketHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class NotificationServiceTest {
 
     private NotificationService notificationService;
+    private NotificationWebSocketHandler webSocketHandler;
 
     @BeforeEach
     void setUp() {
-        notificationService = new NotificationService();
+        webSocketHandler = mock(NotificationWebSocketHandler.class);
+        notificationService = new NotificationService(webSocketHandler);
     }
 
     @Test
-    void notify_ShouldAddNotificationToQueue() {
+    void notifyInspection_ShouldCallWebSocketHandler() {
         // Given
-        String testEvent = "Test notification event";
-        BlockingQueue<String> notifications = notificationService.getNotifications();
+        String inspectionData = "{\"machineId\": 1, \"type\": \"inspection\"}";
 
         // When
-        notificationService.notify(testEvent);
+        notificationService.notifyInspection(inspectionData);
 
         // Then
-        assertEquals(testEvent, notifications.poll());
+        verify(webSocketHandler).broadcastInspection(inspectionData);
+        // Verify statistics are recorded
+        var stats = notificationService.getNotificationStats();
+        assertTrue(stats.containsKey("inspection"));
+        assertEquals(1L, stats.get("inspection"));
     }
 
     @Test
-    void notify_ShouldAddMultipleNotificationsToQueue() {
-        // Given
-        String event1 = "First notification";
-        String event2 = "Second notification";
-        String event3 = "Third notification";
-        BlockingQueue<String> notifications = notificationService.getNotifications();
-
+    void notifyInspection_ShouldNotHandleNullData() {
         // When
-        notificationService.notify(event1);
-        notificationService.notify(event2);
-        notificationService.notify(event3);
+        notificationService.notifyInspection(null);
 
         // Then
-        assertEquals(event1, notifications.poll());
-        assertEquals(event2, notifications.poll());
-        assertEquals(event3, notifications.poll());
+        verify(webSocketHandler, never()).broadcastInspection(anyString());
     }
 
     @Test
-    void getNotifications_ShouldReturnQueue() {
+    void notifyOilChange_ShouldCallWebSocketHandler() {
+        // Given
+        String oilChangeData = "{\"machineId\": 1, \"type\": \"oil-change\"}";
+
         // When
-        BlockingQueue<String> notifications = notificationService.getNotifications();
+        notificationService.notifyOilChange(oilChangeData);
 
         // Then
-        assertNotNull(notifications);
+        verify(webSocketHandler).broadcastOilChange(oilChangeData);
+        // Verify statistics are recorded
+        var stats = notificationService.getNotificationStats();
+        assertTrue(stats.containsKey("oil-change"));
+        assertEquals(1L, stats.get("oil-change"));
     }
 
     @Test
-    void notify_ShouldHandleEmptyString() {
-        // Given
-        String emptyEvent = "";
-        BlockingQueue<String> notifications = notificationService.getNotifications();
-
+    void notifyOilChange_ShouldNotHandleNullData() {
         // When
-        notificationService.notify(emptyEvent);
+        notificationService.notifyOilChange(null);
 
         // Then
-        assertEquals(emptyEvent, notifications.poll());
+        verify(webSocketHandler, never()).broadcastOilChange(anyString());
     }
 
     @Test
-    void notify_ShouldHandleNullValue() {
+    void notifyUser_ShouldCallWebSocketHandlerWithUsername() {
         // Given
-        BlockingQueue<String> notifications = notificationService.getNotifications();
-        int initialSize = notifications.size();
+        String username = "testuser";
+        String notification = "Test notification";
 
         // When
-        notificationService.notify(null);
+        notificationService.notifyUser(username, notification);
 
-        // Then - size should not change since null events are not added
-        assertEquals(initialSize, notifications.size());
+        // Then
+        verify(webSocketHandler).sendToUser(username, notification);
+        // Verify statistics are recorded
+        var stats = notificationService.getNotificationStats();
+        assertTrue(stats.containsKey("user-specific"));
+        assertEquals(1L, stats.get("user-specific"));
     }
+
+    @Test
+    void notifyUser_ShouldNotHandleNullParameters() {
+        // When
+        notificationService.notifyUser(null, "notification");
+        notificationService.notifyUser("username", null);
+        notificationService.notifyUser(null, null);
+
+        // Then
+        verify(webSocketHandler, never()).sendToUser(anyString(), anyString());
+    }
+
+    @Test
+    void notifySoatRunt_ShouldCallWebSocketHandler() {
+        // Given
+        String soatRuntData = "{\"type\": \"SOAT\", \"machineId\": 1}";
+
+        // When
+        notificationService.notifySoatRunt(soatRuntData);
+
+        // Then
+        verify(webSocketHandler).broadcastSoatRuntNotification(soatRuntData);
+        // Verify statistics are recorded
+        var stats = notificationService.getNotificationStats();
+        assertTrue(stats.containsKey("soat-runt"));
+        assertEquals(1L, stats.get("soat-runt"));
+    }
+
+    @Test
+    void notifySoatRuntStreamStatus_ShouldCallWebSocketHandler() {
+        // Given
+        String status = "stream_open";
+
+        // When
+        notificationService.notifySoatRuntStreamStatus(status);
+
+        // Then
+        verify(webSocketHandler).broadcastSoatRuntStreamStatus(status);
+        // Verify statistics are recorded
+        var stats = notificationService.getNotificationStats();
+        assertTrue(stats.containsKey("soat-runt-stream"));
+        assertEquals(1L, stats.get("soat-runt-stream"));
+    }
+
+    @Test
+    void notifySoatRuntUser_ShouldCallWebSocketHandler() {
+        // Given
+        String username = "testuser";
+        String soatRuntData = "{\"type\": \"SOAT\", \"machineId\": 1}";
+
+        // When
+        notificationService.notifySoatRuntUser(username, soatRuntData);
+
+        // Then
+        verify(webSocketHandler).sendSoatRuntToUser(username, soatRuntData);
+        // Verify statistics are recorded
+        var stats = notificationService.getNotificationStats();
+        assertTrue(stats.containsKey("soat-runt-user"));
+        assertEquals(1L, stats.get("soat-runt-user"));
+    }
+
+    @Test
+    void getNotificationStats_ShouldReturnConcurrentHashMap() {
+        // When
+        var stats = notificationService.getNotificationStats();
+
+        // Then
+        assertNotNull(stats);
+        assertTrue(stats instanceof ConcurrentHashMap);
+        assertTrue(stats.isEmpty()); // Initially empty
+    }
+
+    @Test
+    void resetNotificationStats_ShouldClearStatistics() {
+        // Given - add some statistics
+        notificationService.notifyInspection("test");
+        notificationService.notifyOilChange("test");
+        assertEquals(2, notificationService.getNotificationStats().size());
+
+        // When
+        notificationService.resetNotificationStats();
+
+        // Then
+        var stats = notificationService.getNotificationStats();
+        assertEquals(0, stats.size());
+    }
+
+//    @Test
+//    void multipleNotifications_ShouldAccumulateStatistics() {
+//        // When
+//        notificationService.notifyInspection("data1");
+//        notificationService.notifyInspection("data2");
+//        notificationService.notifyOilChange("data3");
+//
+//        // Then
+//        var stats = notificationService.getNotificationStats();
+//        assertEquals(3L, stats.get("inspection"));
+//        assertEquals(1L, stats.get("oil-change"));
+//    }
 }

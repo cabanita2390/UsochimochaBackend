@@ -93,8 +93,6 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " hizo una inspeccion a la maquina " + machine.getName());
 
-        notificationService.notify("actions-updated");
-        notificationService.notify("inspections-updated");
 
         return inspectionResponse;
     }
@@ -215,7 +213,6 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado una inspeccion realizada a la maquina " + inspection.getMachine().getName() + " realizada el dia " + inspection.getDateStamp().toLocalDate());
 
-        notificationService.notify("actions-updated");
 
         return InspectionMapper.toDtoWithImagesAndOrders(inspection);
     }
@@ -242,7 +239,6 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
 
         if (SecurityContextHolder.getContext().getAuthentication().getPrincipal() instanceof UserPrincipal userPrincipal) {
             saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado todas las imagenes de la inspeccion realizada a la maquina " + inspection.getMachine().getName() + " realizada el dia " + inspection.getDateStamp().toLocalDate());
-            notificationService.notify("actions-updated");
         }
 
         return ImagesMapper.toDtoList(imageEntitiesList);
@@ -255,7 +251,6 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado todas las inspecciones el dia " + LocalDateTime.now());
 
-        notificationService.notify("actions-updated");
 
         return inspections.map(InspectionMapper::toDto);
     }

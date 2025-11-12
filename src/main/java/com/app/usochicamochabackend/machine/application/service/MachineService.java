@@ -45,8 +45,6 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             saveActionUseCase.save("Usuario anonymous ha creado la máquina " + savedMachine.getName());
         }
 
-        notificationService.notify("actions-updated");
-        notificationService.notify("machines-updated");
 
         return MachineMapper.toResponse(savedMachine);
     }
@@ -54,7 +52,6 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
     @Override
     public List<MachineResponse> findAllMachines() {
 
-        notificationService.notify("actions-updated");
 
         return machineRepository.findAll().stream()
                 .filter(MachineEntity::getStatus)
@@ -85,7 +82,6 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             saveActionUseCase.save("Usuario anonymous ha observado la maquina " + machine.getName());
         }
 
-        notificationService.notify("actions-updated");
 
         return MachineMapper.toResponse(machine);
     }
@@ -150,8 +146,6 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             saveActionUseCase.save(mensaje);
         }
 
-        notificationService.notify("actions-updated");
-        notificationService.notify("machines-updated");
 
         return MachineMapper.toResponse(savedMachine);
     }
@@ -174,7 +168,5 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
         saveActionUseCase.save("El usuario " + userPrincipal.username() +
                 " ha eliminado la máquina " + machine.getName());
 
-        notificationService.notify("actions-updated");
-        notificationService.notify("machines-updated");
     }
 }

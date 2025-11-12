@@ -105,7 +105,7 @@ class CurriculumServiceTest {
         verify(machineRepository).findById(machineId);
         verify(inspectionRepository).findByMachineId(machineId);
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
+
     }
 
     @Test
@@ -119,7 +119,7 @@ class CurriculumServiceTest {
         verify(machineRepository).findById(machineId);
         verify(inspectionRepository, never()).findByMachineId(anyLong());
         verify(saveActionUseCase, never()).save(anyString());
-        verify(notificationService, never()).notify(anyString());
+
     }
 
     @Test
@@ -137,6 +137,6 @@ class CurriculumServiceTest {
         verify(machineRepository).findById(machineId);
         verify(inspectionRepository).findByMachineId(machineId);
         verify(saveActionUseCase, never()).save(anyString());
-        verify(notificationService, never()).notify(anyString());
+
     }
 }

@@ -73,7 +73,7 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
             saveActionUseCase.save("Usuario anonymous ha observado el curriculum de la maquina " + machine.getName());
         }
 
-        notificationService.notify("actions-updated");
+        
 
         return new MachineCurriculumDTO(MachineMapper.toResponse(machine), resultDTOS);
     }
