@@ -53,8 +53,6 @@ public class UserService implements
         } else {
             saveActionUseCase.save("El usuario " + userSaved.getUsername() + " ha sido creado");
         }
-        notificationService.notify("users-updated");
-        notificationService.notify("actions-updated");
 
         return new CreateUserResponse(user.getId(), userSaved.getFullName(), userSaved.getUsername(), userSaved.getEmail(), userSaved.getRole(), userSaved.getStatus(), "User created successfully");
     }
@@ -70,8 +68,6 @@ public class UserService implements
         } else {
             saveActionUseCase.save("El usuario " + user.getUsername() + " ha sido eliminado");
         }
-        notificationService.notify("users-updated");
-        notificationService.notify("actions-updated");
 
         userRepository.save(user);
     }
@@ -83,7 +79,6 @@ public class UserService implements
                 .filter(UserEntity::getStatus)
                 .toList();
 
-        notificationService.notify("actions-updated");
 
         return UserMapper.toResponse(userEntities);
     }
@@ -92,7 +87,6 @@ public class UserService implements
     public UserResponse findUserById(Long id) {
          UserEntity user = userRepository.findById(id).orElseThrow(()-> new ResourceNotFoundException("User not found with id: " + id));
 
-        notificationService.notify("actions-updated");
 
          return UserMapper.toResponse(user);
     }
@@ -140,8 +134,6 @@ public class UserService implements
 
         saveActionUseCase.save(mensaje);
 
-        notificationService.notify("actions-updated");
-        notificationService.notify("users-updated");
 
         return UserMapper.toResponse(userUpdated);
     }
@@ -162,8 +154,6 @@ public class UserService implements
 
         saveActionUseCase.save("La contraseña del " + currentUser.getUsername() + " ha sido actualizada por " + performer);
 
-        notificationService.notify("actions-updated");
-        notificationService.notify("users-updated");
 
         return new ChangePasswordResponse(userUpdated, "Password was change successfully", true);
     }

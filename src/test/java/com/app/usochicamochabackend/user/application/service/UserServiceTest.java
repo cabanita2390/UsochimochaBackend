@@ -87,7 +87,6 @@ class UserServiceTest {
         verify(passwordEncoder).encode("password");
         verify(userRepository).save(any(UserEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService, times(2)).notify(anyString());
     }
 
     @Test
@@ -162,7 +161,6 @@ class UserServiceTest {
         verify(userRepository).getUserEntityById(1L);
         verify(userRepository).save(any(UserEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService, times(2)).notify(anyString());
     }
 
     @Test
@@ -177,7 +175,6 @@ class UserServiceTest {
         verify(userRepository).findById(1L);
         verify(userRepository).save(any(UserEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService, times(2)).notify(anyString());
     }
 
     @Test
@@ -198,8 +195,6 @@ class UserServiceTest {
         verify(passwordEncoder).encode("newpassword");
         verify(userRepository).save(any(UserEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
-        verify(notificationService).notify("users-updated");
     }
 
 

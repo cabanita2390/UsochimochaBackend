@@ -16,17 +16,6 @@ public class NotificationService {
     private final ConcurrentHashMap<String, Long> notificationStats = new ConcurrentHashMap<>();
 
     /**
-     * Send general notification via WebSocket
-     */
-    public void notify(String event) {
-        if (event != null) {
-            log.debug("Sending WebSocket notification: {}", event);
-            webSocketHandler.broadcastNotification(event);
-            recordNotificationStats(event);
-        }
-    }
-
-    /**
      * Send inspection-specific notification via WebSocket
      */
     public void notifyInspection(String inspectionData) {

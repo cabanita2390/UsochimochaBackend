@@ -46,14 +46,6 @@ public class NotificationWebSocketHandler {
     }
 
     /**
-     * Send generic notification to all connected clients
-     */
-    public void broadcastNotification(String notification) {
-        log.debug("Broadcasting notification: {}", notification);
-        messagingTemplate.convertAndSend("/topic/notifications/general", notification);
-    }
-
-    /**
      * Send inspection notification to all connected clients
      */
     public void broadcastInspection(String inspectionData) {

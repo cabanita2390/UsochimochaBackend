@@ -127,7 +127,7 @@ class BrandServiceTest {
         verify(brandRepository).findById(1L);
         verify(brandRepository).save(any(BrandEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService, times(2)).notify(anyString());
+
     }
 
     @Test
@@ -142,7 +142,6 @@ class BrandServiceTest {
         verify(brandRepository).findById(1L);
         verify(brandRepository).save(any(BrandEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService, times(2)).notify(anyString());
     }
 
     @Test

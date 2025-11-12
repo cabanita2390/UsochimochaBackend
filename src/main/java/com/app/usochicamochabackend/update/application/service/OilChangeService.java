@@ -52,7 +52,7 @@ public class OilChangeService implements
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de todas la maquinas");
-        notificationService.notify("actions-updated");
+        
 
         return machineRepository.findAll().stream()
                 .filter(MachineEntity::getStatus)
@@ -119,7 +119,7 @@ public class OilChangeService implements
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de la maquina " + machine.getName());
-        notificationService.notify("actions-updated");
+        
 
         return new ConsolidateHydraulicAndMotorOilDTO(
                 MachineMapper.toResponse(machine),
@@ -134,7 +134,7 @@ public class OilChangeService implements
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de todas las maquinas");
-        notificationService.notify("actions-updated");
+        
 
         return machineRepository.findAll().stream()
                 .map(machine -> getConsolidateHydraulicOilByIdMachine(machine.getId()))
@@ -186,7 +186,7 @@ public class OilChangeService implements
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de aceite hidraulico de la maquina " + machine.getName());
-        notificationService.notify("actions-updated");
+        
 
         return new ConsolidateHydraulicOilDTO(
                 currentData,
@@ -209,7 +209,7 @@ public class OilChangeService implements
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de aceite de motor de todas las maquinas");
-        notificationService.notify("actions-updated");
+        
 
         return machineRepository.findAll().stream()
                 .map(machine -> getConsolidateMotorOilByIdMachine(machine.getId()))
@@ -260,7 +260,7 @@ public class OilChangeService implements
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de aceite de motor de la maquina " + machine.getName());
-        notificationService.notify("actions-updated");
+        
 
         return new ConsolidateMotorOilDTO(
                 currentData,
@@ -296,8 +296,8 @@ public class OilChangeService implements
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha cambiado el aceite de motor de la maquina " + machine.getName());
-        notificationService.notify("actions-updated");
-        notificationService.notify("oil-changes-updated");
+        
+        
 
         return OilChangeMapper.motorOilEntityToResponse(oilChange);
     }
@@ -319,8 +319,8 @@ public class OilChangeService implements
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha cambiado el aceite hidraulico de la maquina " + machine.getName());
 
-        notificationService.notify("actions-updated");
-        notificationService.notify("oil-changes-updated");
+        
+        
 
         return OilChangeMapper.hydraulicOilEntityToResponse(oilChange);
     }

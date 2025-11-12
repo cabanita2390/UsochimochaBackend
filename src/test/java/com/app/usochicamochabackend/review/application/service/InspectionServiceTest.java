@@ -8,7 +8,7 @@ import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntit
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.review.infrastructure.repository.ImageRepository;
-import com.app.usochicamochabackend.review.web.InspectionStreamController;
+
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
@@ -44,8 +44,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class InspectionServiceTest {
 
-    @Mock
-    private InspectionStreamController inspectionStreamController;
+
 
 
     @Mock
@@ -137,8 +136,7 @@ class InspectionServiceTest {
         verify(machineRepository).findById(1L);
         verify(inspectionRepository).save(any(InspectionEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("inspections-updated");
-        verify(notificationService).notify("actions-updated");
+
     }
 
     @Test
@@ -192,7 +190,7 @@ class InspectionServiceTest {
         assertNotNull(response.orders());
         verify(inspectionRepository).findById(1L);
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
+
     }
 
     @Test
@@ -248,6 +246,6 @@ class InspectionServiceTest {
         assertEquals("test-uuid-789", responses.getContent().get(1).UUID());
         verify(inspectionRepository).findAll(pageable);
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
+
     }
 }

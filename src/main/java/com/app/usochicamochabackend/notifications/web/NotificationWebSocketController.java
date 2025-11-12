@@ -52,18 +52,6 @@ public class NotificationWebSocketController {
     /**
      * WebSocket notification endpoints
      */
-    @PostMapping("/notify")
-    public ResponseEntity<String> sendNotification(@RequestParam(defaultValue = "") String event) {
-        if (event.isBlank()) {
-            event = "new-data";
-        }
-        
-        log.debug("Sending WebSocket notification: {}", event);
-        notificationService.notify(event);
-        
-        return ResponseEntity.ok("WebSocket notification sent: " + event);
-    }
-
     @PostMapping("/inspection")
     public ResponseEntity<String> sendInspection(@RequestBody String inspectionData) {
         log.debug("Sending WebSocket inspection: {}", inspectionData);

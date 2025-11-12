@@ -98,7 +98,7 @@ class ActionsServiceTest {
         verify(userRepositoryJpa, times(2)).getUserEntityById(userId);
         verify(actionRepository).findByUserId(userId, pageable);
         verify(actionRepository).save(any(ActionEntity.class)); // Action logging
-        verify(notificationService).notify("actions-updated");
+
     }
 
     @Test
@@ -120,6 +120,6 @@ class ActionsServiceTest {
         assertEquals(2, result.getContent().size());
         verify(actionRepository).findAll(pageable);
         verify(actionRepository).save(any(ActionEntity.class)); // Action logging
-        verify(notificationService).notify("actions-updated");
+
     }
 }

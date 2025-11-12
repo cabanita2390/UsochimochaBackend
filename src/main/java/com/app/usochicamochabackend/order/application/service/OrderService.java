@@ -65,8 +65,6 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
         saveActionUseCase.save("El usuario " + assignerUser.getUsername() +
                 " ha asignado una orden de trabajo a la inspección realizada a la maquina " + inspectionEntity.getMachine().getName() + " el dia " + orderEntity.getInspection().getDateStamp());
 
-        notificationService.notify("actions-updated");
-        notificationService.notify("orders-updated");
 
         return OrderMapper.toDto(orderEntity);
     }
@@ -84,14 +82,12 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
         saveActionUseCase.save("El usuario " + userPrincipal.username() +
                 " ha observado todas la ordenes de trabajo asigandas a la inspeccion que se le realizo a la maquina " + inspectionEntity.getMachine().getName() + " el dia " + inspectionEntity.getDateStamp().toLocalDate());
 
-        notificationService.notify("actions-updated");
 
         return new GetAllOrdersByInspectionIdResponse(InspectionMapper.toDto(inspectionEntity), orders.stream().map(OrderMapper::toDto).toList());
     }
 
     @Override
     public OrderResponse getOrderById(Long orderId) {
-        notificationService.notify("actions-updated");
 
         return OrderMapper.toDto(orderRepository.findById(orderId).orElseThrow(()->new ResourceNotFoundException("Order not found with ID: " + orderId)));
     }
@@ -108,7 +104,6 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
         saveActionUseCase.save("El usuario " + userPrincipal.username() +
                 " ha observado todas la ordenes de trabajo asigandas");
 
-        notificationService.notify("actions-updated");
 
         return orders.map(order -> {
                     OrderWithoutInspectionResponse orderDTO = OrderMapper.toDtoWithoutInspection(order);
@@ -135,7 +130,6 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
         saveActionUseCase.save("El usuario " + userPrincipal.username() +
                 " ha observado todas la ordenes de trabajo asigandas a la maquina " + machineEntity.getName());
 
-        notificationService.notify("actions-updated");
 
         return new GetAllOrdersByMachineId(MachineMapper.toResponse(machineEntity), OrderMapper.toDtoListWithoutInspection(orders));
     }

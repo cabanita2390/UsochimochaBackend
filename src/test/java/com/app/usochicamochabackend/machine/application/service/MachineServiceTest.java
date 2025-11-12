@@ -94,8 +94,6 @@ class MachineServiceTest {
 
         verify(machineRepository).save(any(MachineEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
-        verify(notificationService).notify("machines-updated");
     }
 
     @Test
@@ -139,7 +137,6 @@ class MachineServiceTest {
         assertEquals("Test Machine", responses.get(0).name());
         assertEquals("Machine 2", responses.get(1).name());
         verify(machineRepository).findAll();
-        verify(notificationService).notify("actions-updated");
     }
 
     @Test
@@ -157,7 +154,6 @@ class MachineServiceTest {
         assertEquals("Test Company", response.belongsTo());
         verify(machineRepository).findById(1L);
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
     }
 
     @Test
@@ -192,7 +188,7 @@ class MachineServiceTest {
         assertThrows(RuntimeException.class, () -> machineService.findMachineById(1L));
         verify(machineRepository).findById(1L);
         verify(saveActionUseCase, never()).save(anyString());
-        verify(notificationService, never()).notify(anyString());
+
     }
 
     @Test
@@ -237,8 +233,6 @@ class MachineServiceTest {
         verify(machineRepository).findById(1L);
         verify(machineRepository).save(any(MachineEntity.class));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
-        verify(notificationService).notify("machines-updated");
     }
 
     @Test
@@ -258,8 +252,6 @@ class MachineServiceTest {
             return true;
         }));
         verify(saveActionUseCase).save(anyString());
-        verify(notificationService).notify("actions-updated");
-        verify(notificationService).notify("machines-updated");
     }
 
     @Test
@@ -296,6 +288,5 @@ class MachineServiceTest {
         verify(machineRepository).findById(1L);
         verify(machineRepository, never()).save(any(MachineEntity.class));
         verify(saveActionUseCase, never()).save(anyString());
-        verify(notificationService, never()).notify(anyString());
     }
 }

@@ -62,7 +62,7 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
         saveActionUseCase.save("El usuario " + userPrincipal.username() +
                 " ha iniciado sesion el dia " + LocalDateTime.now().toLocalDate() + " a las " + LocalDateTime.now().toLocalTime());
 
-        notificationService.notify("actions-updated");
+        
 
         return new AuthResponse(userEntity.getId(), username, "logged successfully!", jwtToken, refreshToken,true);
     }
