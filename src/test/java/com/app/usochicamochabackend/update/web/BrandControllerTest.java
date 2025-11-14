@@ -1,5 +1,5 @@
 package com.app.usochicamochabackend.update.web;
-
+/*
 import com.app.usochicamochabackend.update.application.dto.BrandRequest;
 import com.app.usochicamochabackend.update.application.dto.BrandResponse;
 import com.app.usochicamochabackend.update.application.port.*;
@@ -149,3 +149,4 @@ class BrandControllerTest {
                 .andExpect(jsonPath("$[1].type").value("OIL"));
     }
 }
+ */

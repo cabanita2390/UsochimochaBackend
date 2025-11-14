@@ -28,7 +28,7 @@ public class OilChangeEntity {
     @JoinColumn(name = "brand")
     private BrandEntity brand;
 
-    private Integer quantity;
+    private Double quantity;
     private Double hourMeter;
     private Integer averageHoursChange;
 

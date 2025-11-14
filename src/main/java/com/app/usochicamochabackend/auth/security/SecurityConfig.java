@@ -51,7 +51,7 @@ public class SecurityConfig  {
                             "/v3/api-docs/**",
                             "/v3/api-docs.yaml"
                     ).permitAll();
-                   /*http.requestMatchers("/api/v1/auth/**").permitAll();
+                    http.requestMatchers("/api/v1/auth/**").permitAll();
                     http.requestMatchers(HttpMethod.POST,"/api/oil-changes/motor").hasAnyRole( "MECANIC", "ADMIN");
                     http.requestMatchers(HttpMethod.POST,"/api/oil-changes/hydraulic").hasAnyRole( "MECANIC", "ADMIN");
                     http.requestMatchers(HttpMethod.POST,"/api/v1/user/{id}/change-password").hasAnyRole(  "ADMIN");
@@ -71,8 +71,8 @@ public class SecurityConfig  {
                     http.requestMatchers("/api/oil-changes/**").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.GET,"/api/v1/oil/brand/**").hasAnyRole("MECANIC", "ADMIN");
                     http.requestMatchers("/api/v1/oil/brand/**").hasRole("ADMIN");
-                    http.requestMatchers("/oil_change/notifications/**").hasRole("ADMIN"); */
-                    http.anyRequest().permitAll();
+                    http.requestMatchers("/oil_change/notifications/**").hasRole("ADMIN");
+                    http.anyRequest().hasRole("ADMIN");
                 })
                 .exceptionHandling(ex -> ex.accessDeniedHandler(accessDeniedHandler()));
 
@@ -87,10 +87,11 @@ public class SecurityConfig  {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOriginPattern("*");
+        configuration.addAllowedOrigin("http://localhost:8080");
+        configuration.addAllowedOrigin("https://usochimochabackend.onrender.com");
         configuration.addAllowedHeader("*");
         configuration.addAllowedMethod("*");
-        configuration.setAllowCredentials(false);
+        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
