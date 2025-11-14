@@ -9,7 +9,7 @@ public record ConsolidateMotorOilDTO(
         Long id,
         String type,
         BrandEntity brand,
-        Integer quantity,
+        Double quantity,
         Integer averageChangeHours,
         LocalDate dateLastUpdate,
         Double hourMeterLastUpdate,

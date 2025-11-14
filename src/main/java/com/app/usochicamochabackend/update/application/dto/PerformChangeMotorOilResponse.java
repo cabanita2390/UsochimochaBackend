@@ -11,7 +11,7 @@ public record PerformChangeMotorOilResponse(
         MachineResponse machine,
         LocalDateTime timestamp,
         BrandEntity brand,
-        Integer quantity,
+        Double quantity,
         Double currentHourMeter,
         Integer averageHoursChange
 ) {}

@@ -35,6 +35,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -51,6 +52,12 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
         InspectionEntity entity = InspectionMapper.toEntityWithoutOrdersAndImages(
                 request, userRepository, machineRepository);
+
+        // First, check if an inspection with the same UUID already exists
+        Optional<InspectionEntity> existingByUUID = inspectionRepository.findByUUID(entity.getUUID());
+        if (existingByUUID.isPresent()) {
+            return InspectionMapper.toDto(existingByUUID.get());
+        }
 
         // Check for identical inspection in the last 12 hours
         LocalDateTime twelveHoursAgo = LocalDateTime.now().minusHours(12);

@@ -46,15 +46,12 @@ public class SecurityConfig  {
                     http.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
                     http.requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll();
                     http.requestMatchers(HttpMethod.GET, "/uploads/**").permitAll();
-                    // WebSocket endpoints
-                    http.requestMatchers("/ws/**").permitAll();
-                    http.requestMatchers("/ws-direct/**").permitAll();
                     http.requestMatchers(
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
                             "/v3/api-docs.yaml"
                     ).permitAll();
-                   /*http.requestMatchers("/api/v1/auth/**").permitAll();
+                    http.requestMatchers("/api/v1/auth/**").permitAll();
                     http.requestMatchers(HttpMethod.POST,"/api/oil-changes/motor").hasAnyRole( "MECANIC", "ADMIN");
                     http.requestMatchers(HttpMethod.POST,"/api/oil-changes/hydraulic").hasAnyRole( "MECANIC", "ADMIN");
                     http.requestMatchers(HttpMethod.POST,"/api/v1/user/{id}/change-password").hasAnyRole(  "ADMIN");
@@ -74,8 +71,8 @@ public class SecurityConfig  {
                     http.requestMatchers("/api/oil-changes/**").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.GET,"/api/v1/oil/brand/**").hasAnyRole("MECANIC", "ADMIN");
                     http.requestMatchers("/api/v1/oil/brand/**").hasRole("ADMIN");
-                    http.requestMatchers("/oil_change/notifications/**").hasRole("ADMIN"); */
-                    http.anyRequest().permitAll();
+                    http.requestMatchers("/oil_change/notifications/**").hasRole("ADMIN");
+                    http.anyRequest().hasRole("ADMIN");
                 })
                 .exceptionHandling(ex -> ex.accessDeniedHandler(accessDeniedHandler()));
 
@@ -90,22 +87,11 @@ public class SecurityConfig  {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Permitir orígenes específicos para desarrollo
-        configuration.addAllowedOriginPattern("http://localhost:5173");
-        configuration.addAllowedOriginPattern("http://localhost:3000");
-        configuration.addAllowedOriginPattern("http://localhost:4173");
-        // Permitir el frontend de Vercel
-        configuration.addAllowedOriginPattern("https://web-app-uso-chicamocha-l6wrsywic.vercel.app");
-        // Permitir otros posibles dominios de Vercel
-        configuration.addAllowedOriginPattern("https://*.vercel.app");
-        // Permitir todos los headers necesarios para WebSocket
+        configuration.addAllowedOrigin("http://localhost:8080");
+        configuration.addAllowedOrigin("https://usochimochabackend.onrender.com");
         configuration.addAllowedHeader("*");
-        // Permitir todos los métodos
         configuration.addAllowedMethod("*");
-        // IMPORTANTE: Permitir credenciales para WebSocket con autenticación
         configuration.setAllowCredentials(true);
-        // Permitir headers específicos para WebSocket
-        configuration.setExposedHeaders(List.of("Content-Type", "Authorization"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

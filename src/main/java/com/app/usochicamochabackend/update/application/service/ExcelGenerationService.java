@@ -201,7 +201,7 @@ public class ExcelGenerationService {
 
                 // Second table: Results
                 Row resultsHeaderRow = sheet.createRow(rowNum++);
-                String[] resultsHeaders = {"Fecha", "Horometro", "Descripcion", "REF", "Nombre", "Cantidad", "Valor", "Mecanico de planta", "Contratista", "Tiempo empleado", "Valor", "Valor total"};
+                String[] resultsHeaders = {"Fecha", "Horometro", "Descripcion", "REF", "Nombre", "Cantidad", "Valor", "Mecanico de planta", "Contratista", "Tiempo empleado", "Valor", "Valor total", "Descripcion mano de obre"};
                 for (int i = 0; i < resultsHeaders.length; i++) {
                     Cell cell = resultsHeaderRow.createCell(i);
                     cell.setCellValue(resultsHeaders[i]);
@@ -247,6 +247,8 @@ public class ExcelGenerationService {
 
                     // Valor total
                     row.createCell(colNum++).setCellValue(result.totalPrice().toString());
+
+                    row.createCell(colNum++).setCellValue(result.labor() != null ? result.labor().observations() : "");
 
                     for (int i = 0; i < resultsHeaders.length; i++) {
                         row.getCell(i).setCellStyle(dataStyle);
