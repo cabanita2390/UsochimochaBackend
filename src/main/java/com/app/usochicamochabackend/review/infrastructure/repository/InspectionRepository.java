@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface InspectionRepository extends JpaRepository<InspectionEntity, Long> {
@@ -20,6 +21,8 @@ public interface InspectionRepository extends JpaRepository<InspectionEntity, Lo
     InspectionEntity getLastInspection(@Param("machineId") Long machineId);
 
     List<InspectionEntity> findByMachineIdAndUserIdAndDateStampAfter(Long machineId, Long userId, LocalDateTime dateStamp);
+
+    Optional<InspectionEntity> findByUUID(String uuid);
 
     @Query("SELECT i FROM InspectionEntity i JOIN FETCH i.machine JOIN FETCH i.user")
     List<InspectionEntity> findAllWithMachineAndUser();

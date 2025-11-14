@@ -9,7 +9,7 @@ public record PerformChangeMotorOilRequest(
         Long machineId,
         LocalDateTime dateTime,
         Long brandId,
-        Integer quantity,
+        Double quantity,
         Double currentHourMeter,
         Integer averageHoursChange
 ) {}
