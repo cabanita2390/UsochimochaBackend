@@ -8,6 +8,6 @@ public record PerformChangeHydraulicOilResponse(
         MachineResponse machine,
         BrandEntity brand,
         Double currentHourMeter,
-        Integer quantity,
+        Double quantity,
         Integer averageHoursChange
 ) {}
