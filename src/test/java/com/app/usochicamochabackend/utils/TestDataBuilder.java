@@ -143,7 +143,7 @@ public class TestDataBuilder {
                 .hydraulicOil(true)
                 .motorOil(false)
                 .brand(brand)
-                .quantity(5)
+                .quantity(5.0)
                 .hourMeter(100.0)
                 .averageHoursChange(250)
                 .machine(machine)
