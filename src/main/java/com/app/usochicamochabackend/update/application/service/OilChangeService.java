@@ -37,8 +37,7 @@ public class OilChangeService implements
         GetConsolidateMotorOilAllMachinesUseCase,
         GetConsolidateHydraulicOilAllMachines,
         GetConsolidateHydraulicAndMotorOilByIdMachineUseCase,
-        GetConsolidateHydraulicAndMotorOilAllMachinesUseCase
-{
+        GetConsolidateHydraulicAndMotorOilAllMachinesUseCase {
 
     private final MachineRepository machineRepository;
     private final BrandRepository brandRepository;
@@ -50,9 +49,10 @@ public class OilChangeService implements
     @Override
     public List<ConsolidateHydraulicAndMotorOilDTO> getConsolidateHydraulicAndMotorOilAllMachines() {
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de todas la maquinas");
-        
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication()
+                .getPrincipal();
+        saveActionUseCase
+                .save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de todas la maquinas");
 
         return machineRepository.findAll().stream()
                 .filter(MachineEntity::getStatus)
@@ -61,7 +61,6 @@ public class OilChangeService implements
                 .toList();
     }
 
-
     @Override
     public ConsolidateHydraulicAndMotorOilDTO getConsolidateHydraulicAndMotorOilById(Long machineId) {
         MachineEntity machine = machineRepository.findById(machineId)
@@ -69,14 +68,14 @@ public class OilChangeService implements
 
         InspectionEntity lastInspection = inspectionRepository.getLastInspection(machineId);
 
-        if (lastInspection == null) return null;
+        if (lastInspection == null)
+            return null;
 
         CurrentData currentData = new CurrentData(
                 machine.getBelongsTo(),
                 machine.getName(),
                 lastInspection.getHourMeter(),
-                lastInspection.getDateStamp()
-        );
+                lastInspection.getDateStamp());
 
         ConsolidateMotorOilDTO motorOil = getConsolidateMotorOilByIdMachine(machineId);
         ConsolidateMotorOilDTO cleanMotorOil = null;
@@ -93,8 +92,7 @@ public class OilChangeService implements
                     motorOil.hourMeterNextUpdate(),
                     motorOil.timeLastUpdateMouths(),
                     motorOil.remainingHoursNextUpdateMouths(),
-                    motorOil.status()
-            );
+                    motorOil.status());
         }
 
         // Hydraulic Oil
@@ -113,28 +111,28 @@ public class OilChangeService implements
                     hydraulicOil.hourMeterNextUpdate(),
                     hydraulicOil.timeLastUpdateMouths(),
                     hydraulicOil.remainingHoursNextUpdateMouths(),
-                    hydraulicOil.status()
-            );
+                    hydraulicOil.status());
         }
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de la maquina " + machine.getName());
-        
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication()
+                .getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de la maquina "
+                + machine.getName());
 
         return new ConsolidateHydraulicAndMotorOilDTO(
                 MachineMapper.toResponse(machine),
                 currentData,
                 cleanMotorOil,
-                cleanHydraulicOil
-        );
+                cleanHydraulicOil);
     }
 
     @Override
     public List<ConsolidateHydraulicOilDTO> getConsolidateHydraulicOilAllMachines() {
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de todas las maquinas");
-        
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication()
+                .getPrincipal();
+        saveActionUseCase
+                .save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de todas las maquinas");
 
         return machineRepository.findAll().stream()
                 .map(machine -> getConsolidateHydraulicOilByIdMachine(machine.getId()))
@@ -148,18 +146,19 @@ public class OilChangeService implements
 
         InspectionEntity lastInspection = inspectionRepository.getLastInspection(machineId);
 
-        if (lastInspection == null) return null;
+        if (lastInspection == null)
+            return null;
 
         CurrentData currentData = new CurrentData(
                 machine.getBelongsTo(),
                 machine.getName(),
                 lastInspection.getHourMeter(),
-                lastInspection.getDateStamp()
-        );
+                lastInspection.getDateStamp());
 
         OilChangeEntity oilLastChange = oilChangeRepository.getLastHydraulicOilChangeByMachineId(machineId);
 
-        if (oilLastChange == null) return null;
+        if (oilLastChange == null)
+            return null;
 
         int averageChangeHours = oilLastChange.getAverageHoursChange();
         double hourMeterLastUpdate = oilLastChange.getHourMeter();
@@ -167,8 +166,7 @@ public class OilChangeService implements
 
         double timeLastUpdateMouths = Math.round((ChronoUnit.DAYS.between(
                 oilLastChange.getDateStamp(),
-                LocalDateTime.now()
-        ) / 30.0) * 10.0) / 10.0;
+                LocalDateTime.now()) / 30.0) * 10.0) / 10.0;
 
         double remainingHoursNextUpdateMouths = hourMeterNextUpdate - currentData.currentHourMeter();
 
@@ -184,9 +182,10 @@ public class OilChangeService implements
             notificationService.notifyOilChange("Cambio de aceite requerido: " + machine.getName());
         }
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de aceite hidraulico de la maquina " + machine.getName());
-        
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication()
+                .getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username()
+                + " ha obtenido el consolidado de aceite hidraulico de la maquina " + machine.getName());
 
         return new ConsolidateHydraulicOilDTO(
                 currentData,
@@ -200,16 +199,16 @@ public class OilChangeService implements
                 hourMeterNextUpdate,
                 timeLastUpdateMouths,
                 remainingHoursNextUpdateMouths,
-                status
-        );
+                status);
     }
 
     @Override
     public List<ConsolidateMotorOilDTO> getConsolidateMotorOilAll() {
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de aceite de motor de todas las maquinas");
-        
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication()
+                .getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username()
+                + " ha obtenido el consolidado de aceite de motor de todas las maquinas");
 
         return machineRepository.findAll().stream()
                 .map(machine -> getConsolidateMotorOilByIdMachine(machine.getId()))
@@ -226,23 +225,22 @@ public class OilChangeService implements
                 machine.getBelongsTo(),
                 machine.getName(),
                 lastInspection.getHourMeter(),
-                lastInspection.getDateStamp()
-        );
+                lastInspection.getDateStamp());
 
         OilChangeEntity oilLastChange = oilChangeRepository.getLastMotorOilChangeByMachineId(machineId);
 
-        if (oilLastChange == null) return null;
+        if (oilLastChange == null)
+            return null;
 
         int averageChangeHours = oilLastChange.getAverageHoursChange();
-        
+
         double hourMeterLastUpdate = oilLastChange.getHourMeter();
-        
+
         double hourMeterNextUpdate = hourMeterLastUpdate + averageChangeHours;
 
         double timeLastUpdateMouths = Math.round((ChronoUnit.DAYS.between(
                 oilLastChange.getDateStamp(),
-                LocalDateTime.now()
-        ) / 30.0) * 10.0) / 10.0;
+                LocalDateTime.now()) / 30.0) * 10.0) / 10.0;
 
         double remainingHoursNextUpdateMouths = hourMeterNextUpdate - currentData.currentHourMeter();
 
@@ -258,9 +256,10 @@ public class OilChangeService implements
             notificationService.notifyOilChange("Cambio de aceite requerido: " + machine.getName());
         }
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha obtenido el consolidado de aceite de motor de la maquina " + machine.getName());
-        
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication()
+                .getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username()
+                + " ha obtenido el consolidado de aceite de motor de la maquina " + machine.getName());
 
         return new ConsolidateMotorOilDTO(
                 currentData,
@@ -274,53 +273,61 @@ public class OilChangeService implements
                 hourMeterNextUpdate,
                 timeLastUpdateMouths,
                 remainingHoursNextUpdateMouths,
-                status
-        );
+                status);
     }
-
-
 
     @Override
     public PerformChangeMotorOilResponse performMotorOilChange(PerformChangeMotorOilRequest request) {
-        OilChangeEntity oilChange = OilChangeMapper.motorOilRequestToEntity(request, machineRepository, brandRepository);
+        OilChangeEntity oilChange = OilChangeMapper.motorOilRequestToEntity(request, machineRepository,
+                brandRepository);
 
-        MachineEntity machine = machineRepository.findById(request.machineId()).orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
+        MachineEntity machine = machineRepository.findById(request.machineId())
+                .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
 
         InspectionEntity lastInspection = inspectionRepository.getLastInspection(request.machineId());
 
         if (request.currentHourMeter() < lastInspection.getHourMeter()) {
-            throw new BadRequestException("The stated hour meter cannot be less than the last inspection hour meter");
+            throw new BadRequestException(
+                    "El horometro ingresado es menor a registrado en la ultima inspeccion de la maquina \n" +
+                            "Horometro ingresado: " + request.currentHourMeter() + "\n" +
+                            "Ultimo horometro: " + lastInspection.getHourMeter() + "\n" +
+                            "Revise el horometro y editelo o comunique el problema");
         }
 
         oilChangeRepository.save(oilChange);
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha cambiado el aceite de motor de la maquina " + machine.getName());
-        
-        
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication()
+                .getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username()
+                + " ha cambiado el aceite de motor de la maquina " + machine.getName());
 
         return OilChangeMapper.motorOilEntityToResponse(oilChange);
     }
 
     @Override
     public PerformChangeHydraulicOilResponse performChangeHydraulicOil(PerformChangeHydraulicOilRequest request) {
-        OilChangeEntity oilChange = OilChangeMapper.hydraulicOilRequestToEntity(request, machineRepository, brandRepository);
+        OilChangeEntity oilChange = OilChangeMapper.hydraulicOilRequestToEntity(request, machineRepository,
+                brandRepository);
 
-        MachineEntity machine = machineRepository.findById(request.machineId()).orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
+        MachineEntity machine = machineRepository.findById(request.machineId())
+                .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
 
         InspectionEntity lastInspection = inspectionRepository.getLastInspection(request.machineId());
 
         if (request.currentHourMeter() < lastInspection.getHourMeter()) {
-            throw new BadRequestException("The stated hour meter cannot be less than the last inspection hour meter");
+            throw new BadRequestException(
+                    "El horometro ingresado es menor a registrado en la ultima inspeccion de la maquina \n" +
+                            "horometro ingresado: " + request.currentHourMeter() + "\n" +
+                            "ultimo horometro: " + lastInspection.getHourMeter() + "\n" +
+                            "Revise el horometro y editelo o comunique el problema");
         }
 
         oilChangeRepository.save(oilChange);
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha cambiado el aceite hidraulico de la maquina " + machine.getName());
-
-        
-        
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication()
+                .getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username()
+                + " ha cambiado el aceite hidraulico de la maquina " + machine.getName());
 
         return OilChangeMapper.hydraulicOilEntityToResponse(oilChange);
     }
