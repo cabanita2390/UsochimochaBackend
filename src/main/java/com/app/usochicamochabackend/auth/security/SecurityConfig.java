@@ -94,6 +94,10 @@ public class SecurityConfig  {
         configuration.addAllowedOriginPattern("http://localhost:5173");
         configuration.addAllowedOriginPattern("http://localhost:3000");
         configuration.addAllowedOriginPattern("http://localhost:4173");
+        // Permitir el frontend de Vercel
+        configuration.addAllowedOriginPattern("https://web-app-uso-chicamocha-l6wrsywic.vercel.app");
+        // Permitir otros posibles dominios de Vercel
+        configuration.addAllowedOriginPattern("https://*.vercel.app");
         // Permitir todos los headers necesarios para WebSocket
         configuration.addAllowedHeader("*");
         // Permitir todos los métodos
