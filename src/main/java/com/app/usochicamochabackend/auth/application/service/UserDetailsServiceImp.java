@@ -30,7 +30,8 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
-public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase, SearchUsernameUseCase, RefreshTokenUseCase, UserDetailsService {
+public class UserDetailsServiceImp
+        implements LoginUseCase, AuthenticateUseCase, SearchUsernameUseCase, RefreshTokenUseCase, UserDetailsService {
 
     private final UserRepositoryJpa userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -58,13 +59,14 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
         String jwtToken = jwtUtils.createToken(authentication);
         String refreshToken = jwtUtils.createRefreshToken(authentication);
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication()
+                .getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() +
-                " ha iniciado sesion el dia " + LocalDateTime.now().toLocalDate() + " a las " + LocalDateTime.now().toLocalTime());
+                " ha iniciado sesion el dia " + LocalDateTime.now().toLocalDate() + " a las "
+                + LocalDateTime.now().toLocalTime());
 
-        
-
-        return new AuthResponse(userEntity.getId(), username, "logged successfully!", jwtToken, refreshToken,true);
+        return new AuthResponse(userEntity.getId(), username, userEntity.getFullName(), userEntity.getRole(),
+                "logged successfully!", jwtToken, refreshToken, true);
     }
 
     @Override
@@ -84,7 +86,8 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
 
     @Override
     public UserDetails searchUserDetails(String username) {
-        UserEntity userEntity = userRepository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException("user not found"));
+        UserEntity userEntity = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("user not found"));
 
         GrantedAuthority role = new SimpleGrantedAuthority("ROLE_".concat(userEntity.getRole()));
 
@@ -108,8 +111,7 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
 
             UserPrincipal userPrincipal = new UserPrincipal(userEntity.getId(), username);
             Authentication authentication = new UsernamePasswordAuthenticationToken(
-                    userPrincipal, null, Set.of(role)
-            );
+                    userPrincipal, null, Set.of(role));
 
             String newAccessToken = jwtUtils.createToken(authentication);
 
@@ -122,6 +124,6 @@ public class UserDetailsServiceImp implements LoginUseCase, AuthenticateUseCase,
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-            return null;
+        return this.searchUserDetails(username);
     }
 }

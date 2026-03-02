@@ -31,12 +31,12 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
-public class SecurityConfig  {
+public class SecurityConfig {
 
     private final JwtUtils jwtUtils;
 
     @Bean
-    SecurityFilterChain securityFilterChain (HttpSecurity httpSecurity) throws Exception {
+    SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
@@ -49,27 +49,29 @@ public class SecurityConfig  {
                     http.requestMatchers(
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
-                            "/v3/api-docs.yaml"
-                    ).permitAll();
+                            "/v3/api-docs.yaml").permitAll();
                     http.requestMatchers("/api/v1/auth/**").permitAll();
-                    http.requestMatchers(HttpMethod.POST,"/api/oil-changes/motor").hasAnyRole( "MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST,"/api/oil-changes/hydraulic").hasAnyRole( "MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST,"/api/v1/user/{id}/change-password").hasAnyRole(  "ADMIN");
-                    http.requestMatchers(HttpMethod.POST,"/api/v1/inspection/**").hasAnyRole( "MECANIC", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/oil-changes/motor").hasAnyRole("MECANIC", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/oil-changes/hydraulic").hasAnyRole("MECANIC", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/user/{id}/change-password").hasAnyRole("ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/inspection/**").hasAnyRole("MECANIC", "ADMIN");
                     http.requestMatchers("/new-data/notifications/**").hasRole("ADMIN");
                     http.requestMatchers("/api/actions/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/results/**").hasRole("ADMIN");
-                    http.requestMatchers(HttpMethod.POST,"/api/v1/inspection/**").hasRole( "MECANIC");
-                    http.requestMatchers("/api/v1/inspection/**").hasRole( "ADMIN");
-                    http.requestMatchers(HttpMethod.GET,"/api/v1/machine/**").hasAnyRole( "MECANIC", "ADMIN");
-                    http.requestMatchers("/api/v1/machine/**").hasRole( "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/inspection/**").hasRole("MECANIC");
+                    http.requestMatchers("/api/v1/inspection/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/machine/**").hasAnyRole("MECANIC", "ADMIN");
+                    http.requestMatchers("/api/v1/machine/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/moto/**").hasAnyRole("MECANIC", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/moto/**").hasAnyRole("MECANIC", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/user").permitAll();
                     http.requestMatchers("/api/v1/user/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/order/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/curriculum/**").hasRole("ADMIN");
-                    http.requestMatchers(HttpMethod.GET,"/api/oil-changes/**").hasRole("ADMIN");
-                    http.requestMatchers(HttpMethod.POST,"/api/oil-changes/**").hasRole("MECANIC");
+                    http.requestMatchers(HttpMethod.GET, "/api/oil-changes/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/oil-changes/**").hasRole("MECANIC");
                     http.requestMatchers("/api/oil-changes/**").hasRole("ADMIN");
-                    http.requestMatchers(HttpMethod.GET,"/api/v1/oil/brand/**").hasAnyRole("MECANIC", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/oil/brand/**").hasAnyRole("MECANIC", "ADMIN");
                     http.requestMatchers("/api/v1/oil/brand/**").hasRole("ADMIN");
                     http.requestMatchers("/oil_change/notifications/**").hasRole("ADMIN");
                     http.anyRequest().hasRole("ADMIN");
@@ -80,7 +82,8 @@ public class SecurityConfig  {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)
+            throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
     }
 
@@ -89,6 +92,8 @@ public class SecurityConfig  {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.addAllowedOrigin("http://localhost:8080");
         configuration.addAllowedOrigin("https://usochimochabackend.onrender.com");
+        configuration.addAllowedOrigin("http://localhost:5173");
+        configuration.addAllowedOrigin("http://localhost:5174");
         configuration.addAllowedHeader("*");
         configuration.addAllowedMethod("*");
         configuration.setAllowCredentials(true);
@@ -99,7 +104,7 @@ public class SecurityConfig  {
     }
 
     @Bean
-    public AuthenticationProvider authenticationProvider(UserDetailsServiceImp userDetailsService){
+    public AuthenticationProvider authenticationProvider(UserDetailsServiceImp userDetailsService) {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider(userDetailsService);
         provider.setPasswordEncoder(passwordEncoder());
         return provider;
