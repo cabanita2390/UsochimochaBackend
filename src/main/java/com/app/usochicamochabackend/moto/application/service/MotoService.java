@@ -6,24 +6,24 @@ import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.moto.infrastructure.entity.*;
 import com.app.usochicamochabackend.moto.infrastructure.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MotoService {
 
         private final VehiculoRepository vehiculoRepository;
         private final UbicacionRepository ubicacionRepository;
-        private final DocumentacionRepository documentacionRepository;
         private final MotoInspeccionRepository inspeccionRepository;
         private final InspDetalleDocumentosRepository detalleDocumentosRepository;
-        private final TipoVehiculoRepository tipoVehiculoRepository;
+        private final DocumentacionRepository documentacionRepository;
 
         /** Retorna las motocicletas activas (tipo = MOTOCICLETA) */
         public List<MotoPlacaResponse> getMotocicletas() {
@@ -31,44 +31,6 @@ public class MotoService {
                                 .stream()
                                 .map(v -> new MotoPlacaResponse(v.getId(), v.getPlaca()))
                                 .toList();
-        }
-
-        /** Crea una nueva motocicleta con valores predeterminados simplificados */
-        @Transactional
-        public MotoPlacaResponse registrarNuevaPlaca(String placa) {
-                // Limpia el input (elimina posibles comillas del payload JSON en texto plano)
-                String plateClean = (placa != null) ? placa.replace("\"", "").trim().toUpperCase() : "";
-
-                if (plateClean.isBlank()) {
-                        throw new RuntimeException("La placa no puede estar vacía");
-                }
-
-                // Verifica si ya existe (activa)
-                var existing = vehiculoRepository.findByPlacaAndActivoTrue(plateClean);
-                if (existing.isPresent()) {
-                        VehiculoEntity v = existing.get();
-                        return new MotoPlacaResponse(v.getId(), v.getPlaca());
-                }
-
-                TipoVehiculoEntity tipoMoto = tipoVehiculoRepository.findByNombreTipo("MOTOCICLETA")
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "Tipo Motocicleta no configurado en BD"));
-
-                UbicacionEntity ubicacionDefault = ubicacionRepository.findById(1) // Generalmente la primera ubicación
-                                .orElse(null);
-
-                VehiculoEntity nuevo = VehiculoEntity.builder()
-                                .placa(plateClean)
-                                .tipoVehiculo(tipoMoto)
-                                .ubicacion(ubicacionDefault)
-                                .activo(true)
-                                .estadoVehiculo("Operativo")
-                                .kilometrajeActual(0)
-                                .loginUser("admin") // Usuario del sistema / inicial
-                                .build();
-
-                VehiculoEntity guardado = vehiculoRepository.save(nuevo);
-                return new MotoPlacaResponse(guardado.getId(), guardado.getPlaca());
         }
 
         /** Retorna todas las ubicaciones activas */
@@ -80,46 +42,65 @@ public class MotoService {
         }
 
         /**
-         * Retorna la documentación existente de una motocicleta según su placa.
-         * Usada para el pre-llenado automático en la app.
+         * Pre-llenado de la app: retorna el estado de los 3 documentos de la moto
+         * - Fecha/Imagen: De la TABLA MAESTRA documentacion_y_elementos.
+         * - Estado: De la ÚLTIMA INSPECCIÓN (insp_detalle_documentos).
+         * - Fallback: Si no hay inspección previa, calcula el estado en tiempo real.
          */
         public List<DocumentoExistenteResponse> getDocumentosByPlaca(String placa) {
                 VehiculoEntity vehiculo = vehiculoRepository.findByPlacaAndActivoTrue(placa)
                                 .orElseThrow(() -> new ResourceNotFoundException(
-                                                "Motocicleta no encontrada: " + placa));
+                                                "Vehículo no encontrado: " + placa));
 
-                return documentacionRepository.findByIdVehiculoAndActivoTrue(vehiculo.getId())
-                                .stream()
-                                .map(d -> {
-                                        // Rescate global para la vista previa de la App: si activo es null, busca en el
-                                        // historial completo
-                                        String finalUrl = d.getImagenUrl();
-                                        if (finalUrl == null || finalUrl.isBlank()) {
-                                                finalUrl = documentacionRepository
-                                                                .findFirstByIdVehiculoAndTipoDocumentoAndImagenUrlIsNotNullOrderByIdDesc(
-                                                                                vehiculo.getId(), d.getTipoDocumento())
-                                                                .map(DocumentacionEntity::getImagenUrl)
-                                                                .orElse(null);
+                // Definir los tipos que la APP espera y mapearlos a la Base de Datos
+                return java.util.List.of("SOAT", "REVISION_TECNO", "LICENCIA").stream()
+                                .map(tipoApp -> {
+                                        // Mapeo: App -> DB
+                                        String tipoDb = switch (tipoApp) {
+                                                case "REVISION_TECNO" -> "TECNOMECANICA";
+                                                case "LICENCIA" -> "LICENCIA DE CONDUCCION";
+                                                default -> tipoApp;
+                                        };
+
+                                        // Buscar datos maestros (fecha, imagen)
+                                        var docOpt = documentacionRepository.findLatestByVehiculoAndTipo(
+                                                        vehiculo.getId(), tipoDb);
+
+                                        java.time.LocalDate fechaVenc = null;
+                                        String fullImagenUrl = null;
+                                        String mesyear = null;
+
+                                        if (docOpt.isPresent()) {
+                                                DocumentacionEntity doc = docOpt.get();
+                                                fechaVenc = doc.getFechaVencimiento();
+
+                                                if (doc.getImagenUrl() != null && !doc.getImagenUrl().isBlank()) {
+                                                        fullImagenUrl = "/api/v1/moto/documento/imagen/"
+                                                                        + doc.getImagenUrl();
+                                                }
+
+                                                if (fechaVenc != null) {
+                                                        mesyear = fechaVenc.getYear() + "-"
+                                                                        + String.format("%02d",
+                                                                                        fechaVenc.getMonthValue());
+                                                }
                                         }
 
+                                        // Lógica IGUAL A VEHÍCULOS: Calcular estado siempre desde la fecha maestra
+                                        String estado = calcularEstado(fechaVenc);
+
                                         return new DocumentoExistenteResponse(
-                                                        d.getId(),
-                                                        d.getTipoDocumento(),
-                                                        d.getFechaVencimiento(),
-                                                        d.getMesyear() != null
-                                                                        ? String.format("%04d-%02d",
-                                                                                        d.getMesyear().getYear(),
-                                                                                        d.getMesyear().getMonthValue())
-                                                                        : null,
-                                                        finalUrl);
+                                                        null, tipoApp, fechaVenc, mesyear, fullImagenUrl,
+                                                        vehiculo.getKilometrajeActual(),
+                                                        estado);
                                 })
                                 .toList();
         }
 
-        /** Guarda la inspección pre-operativa completa de la motocicleta */
         @Transactional
         public Long saveInspeccion(InspeccionMotoRequest req) {
-                // Obtiene el usuario autenticado desde el JWT
+                log.info("📥 [MotoService] Iniciando guardado de inspección para vehículo ID: {}", req.idVehiculo());
+
                 UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
                                 .getAuthentication()
                                 .getPrincipal();
@@ -129,149 +110,49 @@ public class MotoService {
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Vehículo no encontrado: " + req.idVehiculo()));
 
-                // Actualiza el vehículo existente (Snapshot)
-                // Siempre se actualiza para evitar el error 500 por duplicado de placa
-                UbicacionEntity ubicacion = ubicacionRepository.findById(req.idUbicacion())
-                                .orElseThrow(() -> new ResourceNotFoundException("Ubicación no encontrada"));
-
-                vehiculo.setUbicacion(ubicacion);
                 vehiculo.setKilometrajeActual(req.kilometrajeReportado());
-                vehiculo.setEstadoVehiculo(req.estadoGeneral());
-                vehiculo.setLoginUser(responsable);
-                vehiculo.setFechaUltimoReporte(LocalDateTime.now());
-                vehiculo = vehiculoRepository.save(vehiculo);
+                vehiculoRepository.save(vehiculo);
 
-                // Truco de historial: se antepone la ubicación a las observaciones ya que no se
-                // puede cambiar el esquema de BD
-                String observacionesConHistorial = String.format("[Ubicación: %s] | %s",
-                                ubicacion.getNombreUbicacion(),
-                                req.observacionesFinales());
-
-                // Guarda el registro principal de inspección vinculado al vehículo
                 InspeccionEntity inspeccion = InspeccionEntity.builder()
                                 .vehiculo(vehiculo)
                                 .fechaRegistro(LocalDateTime.now())
-                                .responsableInspeccion(responsable)
                                 .kilometrajeReportado(req.kilometrajeReportado())
-                                .aprobadoRuta(null)
-                                .observacionesFinales(observacionesConHistorial)
+                                .estadoVehiculo(req.estadoVehiculo())
+                                .idUbicacion(req.idUbicacion())
+                                .observacionesFinales(req.observacionesFinales())
+                                .loginUser(responsable)
                                 .build();
 
                 inspeccionRepository.saveAndFlush(inspeccion);
 
-                // Inserta o actualiza documentos (SOAT, REVISION_TECNO, LICENCIA)
-                // Los documentos se guardan primero para tener las fechas calculadas en BD
-                saveOrUpdateDocumento(vehiculo.getId(), "SOAT", req.vigenciaSoat(), req.imagenSoat());
-                saveOrUpdateDocumento(vehiculo.getId(), "REVISION_TECNO", req.vigenciaRevision(),
-                                req.imagenRevision());
-                saveOrUpdateDocumento(vehiculo.getId(), "LICENCIA", req.vigenciaLicencia(),
-                                req.imagenLicencia());
-
-                // Recalcula los estados para los detalles de inspección (ignora el input del
-                // frontend por seguridad/consistencia)
-                String estadoSoat = calcularEstadoActual(vehiculo.getId(), "SOAT");
-                String estadoTecno = calcularEstadoActual(vehiculo.getId(), "REVISION_TECNO");
-                String estadoLicencia = calcularEstadoActual(vehiculo.getId(), "LICENCIA");
-
-                // Guarda los estados de verificación de documentos en insp_detalle_documentos
+                // 2. Guarda Detalle de Documentos (Solo los estados directos)
                 InspDetalleDocumentosEntity detalleDoc = InspDetalleDocumentosEntity.builder()
                                 .idInspeccion(inspeccion.getId())
-                                .checkSoat(estadoSoat)
-                                .checkTecno(estadoTecno)
-                                .checkLicencia(estadoLicencia)
+                                .checkSoat(req.checkSoat())
+                                .checkTecno(req.checkTecno())
+                                .checkLicencia(req.checkLicencia())
+                                .checkExtintor(req.checkExtintor())
                                 .build();
                 detalleDocumentosRepository.save(detalleDoc);
 
                 return inspeccion.getId();
         }
 
-        private void saveOrUpdateDocumento(Integer idVehiculo, String tipo, String vigencia, String imagenUrl) {
-                if (vigencia == null || vigencia.isBlank()) {
-                        return;
-                }
+        private String calcularEstado(java.time.LocalDate fechaVencimiento) {
+                if (fechaVencimiento == null)
+                        return "Sin Información";
 
-                // Obtiene el registro activo existente para rescatar la fecha de vencimiento
-                // actual
-                DocumentacionEntity existingActive = documentacionRepository.findByIdVehiculoAndActivoTrue(idVehiculo)
-                                .stream()
-                                .filter(d -> tipo.equals(d.getTipoDocumento()))
-                                .findFirst()
-                                .orElse(null);
+                java.time.YearMonth mesVencimiento = java.time.YearMonth.from(fechaVencimiento);
+                java.time.YearMonth mesActual = java.time.YearMonth.now();
 
-                // Parsea la fecha (soporta formato YYYY-MM o YYYY-MM-DD)
-                String[] parts = vigencia.split("-");
-                LocalDate finalDate;
-
-                if (parts.length == 3) {
-                        // Fecha completa recibida desde campo bloqueado de la App → se conserva exacta
-                        finalDate = LocalDate.parse(vigencia);
-                } else if (parts.length == 2) {
-                        // Año-Mes aproximado (inicial, renovación o próximo a vencer)
-                        int targetYear = Integer.parseInt(parts[0]);
-                        int targetMonth = Integer.parseInt(parts[1]);
-
-                        // Requerimiento: siempre usar el día 1
-                        finalDate = LocalDate.of(targetYear, targetMonth, 1);
+                // LITERALMENTE LA MISMA LÓGICA QUE VEHÍCULOS:
+                if (mesVencimiento.isBefore(mesActual)) {
+                        return "Vencido";
+                } else if (mesVencimiento.equals(mesActual)
+                                || mesVencimiento.equals(mesActual.plusMonths(1))) {
+                        return "Próximo a Vencer";
                 } else {
-                        return;
+                        return "Vigente";
                 }
-
-                // Desactiva los registros activos actuales (usando la lista ya obtenida si es
-                // posible)
-                if (existingActive != null) {
-                        existingActive.setActivo(false);
-                        documentacionRepository.save(existingActive);
-                }
-
-                // Busca la URL de imagen existente en el historial completo (rescate robusto)
-                String existingImageUrl = documentacionRepository
-                                .findFirstByIdVehiculoAndTipoDocumentoAndImagenUrlIsNotNullOrderByIdDesc(idVehiculo,
-                                                tipo)
-                                .map(DocumentacionEntity::getImagenUrl)
-                                .orElse(null);
-
-                // URL de imagen final
-                String finalImageUrl = (imagenUrl != null && !imagenUrl.isBlank()) ? imagenUrl : existingImageUrl;
-
-                // Siempre inserta un registro nuevo fresco
-                DocumentacionEntity nuevo = DocumentacionEntity.builder()
-                                .idVehiculo(idVehiculo)
-                                .tipoDocumento(tipo)
-                                .mesyear(finalDate)
-                                .fechaVencimiento(finalDate)
-                                .imagenUrl(finalImageUrl)
-                                .activo(true)
-                                .build();
-                documentacionRepository.save(nuevo);
-        }
-
-        /**
-         * Calcula si un documento está "Vigente", "Próximo a vencer" (dentro de 1 mes)
-         * o
-         * "Vencido"
-         */
-        private String calcularEstadoActual(Integer idVehiculo, String tipo) {
-                return documentacionRepository.findByIdVehiculoAndActivoTrue(idVehiculo)
-                                .stream()
-                                .filter(d -> tipo.equals(d.getTipoDocumento()))
-                                .findFirst()
-                                .map(d -> {
-                                        LocalDate vencimiento = d.getFechaVencimiento();
-                                        if (vencimiento == null)
-                                                return "Sin registro";
-
-                                        LocalDate hoy = LocalDate.now();
-                                        LocalDate proximoVencer = hoy.plusMonths(1);
-
-                                        if (vencimiento.isBefore(hoy)) {
-                                                return "Vencido";
-                                        } else if (!vencimiento.isAfter(proximoVencer)) {
-                                                // hoy <= vencimiento <= proximoVencer
-                                                return "Próximo a vencer";
-                                        } else {
-                                                return "Vigente";
-                                        }
-                                })
-                                .orElse("Vencido"); // Por defecto si no se encuentra registro
         }
 }

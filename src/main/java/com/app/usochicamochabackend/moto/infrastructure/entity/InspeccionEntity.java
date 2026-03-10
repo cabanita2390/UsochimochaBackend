@@ -24,9 +24,6 @@ public class InspeccionEntity {
     @JoinColumn(name = "id_vehiculo")
     private VehiculoEntity vehiculo;
 
-    @Column(name = "responsable_inspeccion")
-    private String responsableInspeccion;
-
     @Column(name = "kilometraje_reportado")
     private Integer kilometrajeReportado;
 
@@ -35,4 +32,13 @@ public class InspeccionEntity {
 
     @Column(name = "observaciones_finales")
     private String observacionesFinales;
+
+    @Column(name = "estado_vehiculo")
+    private String estadoVehiculo;
+
+    @Column(name = "login_user")
+    private String loginUser;
+
+    @Column(name = "id_ubicacion")
+    private Integer idUbicacion;
 }

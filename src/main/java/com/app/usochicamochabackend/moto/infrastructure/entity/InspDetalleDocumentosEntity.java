@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Data
-@Entity
+@Entity(name = "MotoInspDetalleDocumentosEntity")
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,4 +26,7 @@ public class InspDetalleDocumentosEntity {
 
     @Column(name = "check_licencia")
     private String checkLicencia;
+
+    @Column(name = "check_extintor")
+    private String checkExtintor;
 }

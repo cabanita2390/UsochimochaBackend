@@ -23,20 +23,10 @@ public class VehiculoEntity {
 
     private String placa;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_ubicacion")
-    private UbicacionEntity ubicacion;
-
     @Column(name = "kilometraje_actual")
     private Integer kilometrajeActual;
 
-    @Column(name = "estado_vehiculo")
-    private String estadoVehiculo;
-
     private Boolean activo;
-
-    @Column(name = "login_user")
-    private String loginUser;
 
     @Column(name = "fecha_ultimo_reporte")
     private LocalDateTime fechaUltimoReporte;

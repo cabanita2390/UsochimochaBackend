@@ -12,7 +12,7 @@ import java.util.Optional;
 @Repository
 public interface VehiculoRepository extends JpaRepository<VehiculoEntity, Integer> {
 
-    @Query("SELECT v FROM VehiculoEntity v WHERE v.activo = true AND v.tipoVehiculo.nombreTipo = :tipo")
+    @Query("SELECT v FROM VehiculoEntity v WHERE v.activo = true AND UPPER(v.tipoVehiculo.nombreTipo) = UPPER(:tipo)")
     List<VehiculoEntity> findActivosByTipo(@Param("tipo") String tipo);
 
     Optional<VehiculoEntity> findByPlacaAndActivoTrue(String placa);

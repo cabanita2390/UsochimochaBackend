@@ -46,6 +46,10 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
                     http.requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll();
                     http.requestMatchers(HttpMethod.GET, "/uploads/**").permitAll();
+                    // TODO: quitar esto cuando el token esté listo — solo para pruebas locales
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle").permitAll();
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/vehicle-inspection").permitAll();
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle-inspection/documentos/**").permitAll();
                     http.requestMatchers(
                             "/swagger-ui/**",
                             "/v3/api-docs/**",

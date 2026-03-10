@@ -7,6 +7,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.MediaType;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import java.util.List;
 
@@ -30,14 +35,8 @@ public class MotoController {
         return ResponseEntity.ok(motoService.getUbicaciones());
     }
 
-    @PostMapping("/placas")
-    @Operation(summary = "Registrar nueva placa", description = "Crea un registro de vehículo mínimo para una nueva motocicleta")
-    public ResponseEntity<MotoPlacaResponse> registrarPlaca(@RequestBody String placa) {
-        return ResponseEntity.ok(motoService.registrarNuevaPlaca(placa));
-    }
-
     @GetMapping("/{placa}/documentos")
-    @Operation(summary = "Documentos existentes de una moto", description = "Pre-fill: devuelve los documentos ya registrados para la placa indicada")
+    @Operation(summary = "Documentos existentes de una moto", description = "Devuelve documentos + estado de última inspección para el pre-llenado")
     public ResponseEntity<List<DocumentoExistenteResponse>> getDocumentos(@PathVariable String placa) {
         return ResponseEntity.ok(motoService.getDocumentosByPlaca(placa));
     }
@@ -47,5 +46,22 @@ public class MotoController {
     public ResponseEntity<Long> saveInspeccion(@RequestBody InspeccionMotoRequest request) {
         Long id = motoService.saveInspeccion(request);
         return ResponseEntity.ok(id);
+    }
+
+    @GetMapping("/documento/imagen/{fileName}")
+    @Operation(summary = "Obtener imagen de documento", description = "Retorna el flujo de bytes de la imagen del documento")
+    public ResponseEntity<Resource> getDocumentoImagen(@PathVariable String fileName) {
+        try {
+            Path path = Paths.get("uploads/documents").resolve(fileName);
+            Resource resource = new UrlResource(path.toUri());
+            if (resource.exists() || resource.isReadable()) {
+                return ResponseEntity.ok()
+                        .contentType(MediaType.IMAGE_JPEG)
+                        .body(resource);
+            }
+        } catch (Exception e) {
+            // Log error
+        }
+        return ResponseEntity.notFound().build();
     }
 }
