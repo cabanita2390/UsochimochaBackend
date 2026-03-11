@@ -36,9 +36,6 @@ public class InspPreOperativaEntity {
     @Column(name = "login_user", nullable = false, length = 100)
     private String loginUser;
 
-    @Column(name = "responsable_inspeccion", nullable = false, length = 100)
-    private String responsableInspeccion;
-
     @Column(name = "kilometraje_reportado", nullable = false)
     private Integer kilometrajeReportado;
 

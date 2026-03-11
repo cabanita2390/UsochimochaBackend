@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
  * (Vigente / Próximo a Vencer / Vencido)
  */
 @Data
-@Entity
+@Entity(name = "VehicleInspDetalleDocumentosEntity")
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

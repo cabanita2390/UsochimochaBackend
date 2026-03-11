@@ -59,8 +59,6 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.POST, "/api/oil-changes/hydraulic").hasAnyRole("MECANIC", "ADMIN");
                     http.requestMatchers(HttpMethod.POST, "/api/v1/user/{id}/change-password").hasAnyRole("ADMIN");
                     http.requestMatchers(HttpMethod.POST, "/api/v1/inspection/**").hasAnyRole("MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/vehicle-inspection").authenticated();
-
                     http.requestMatchers("/new-data/notifications/**").hasRole("ADMIN");
                     http.requestMatchers("/api/actions/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/results/**").hasRole("ADMIN");
@@ -68,6 +66,9 @@ public class SecurityConfig {
                     http.requestMatchers("/api/v1/inspection/**").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/machine/**").hasAnyRole("MECANIC", "ADMIN");
                     http.requestMatchers("/api/v1/machine/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/moto/**").hasAnyRole("MECANIC", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/moto/**").hasAnyRole("MECANIC", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/user").permitAll();
                     http.requestMatchers("/api/v1/user/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/order/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/curriculum/**").hasRole("ADMIN");
@@ -95,6 +96,8 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.addAllowedOrigin("http://localhost:8080");
         configuration.addAllowedOrigin("https://usochimochabackend.onrender.com");
+        configuration.addAllowedOrigin("http://localhost:5173");
+        configuration.addAllowedOrigin("http://localhost:5174");
         configuration.addAllowedHeader("*");
         configuration.addAllowedMethod("*");
         configuration.setAllowCredentials(true);

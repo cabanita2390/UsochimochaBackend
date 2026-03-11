@@ -8,4 +8,6 @@ public interface VehicleProjection {
     String getMarca();
 
     String getTipoVehiculo();
+
+    Integer getKilometrajeActual();
 }

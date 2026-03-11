@@ -43,7 +43,7 @@ public class DocumentacionYElementosEntity {
     private String imagenUrl;
 
     /** Estado del documento: Vigente / Próximo a Vencer / Vencido */
-    @Column(name = "estado_datos", length = 255)
+    @Column(name = "estadodatos", length = 255)
     private String estadoDatos;
 
     /**
@@ -57,6 +57,6 @@ public class DocumentacionYElementosEntity {
     private Boolean activo;
 
     /** Mes/año adicional (usado para extintor) */
-    @Column(name = "mes_anio")
-    private LocalDate mesAño;
+    @Column(name = "mesyear")
+    private LocalDate mesyear;
 }

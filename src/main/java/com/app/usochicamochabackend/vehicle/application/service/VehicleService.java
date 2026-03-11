@@ -17,14 +17,16 @@ public class VehicleService implements FindAllVehiclesUseCase {
     @Override
     public List<VehicleResponse> findAllVehicles() {
         return vehicleRepository.findAllActiveVehicles().stream()
-                .map(v -> new VehicleResponse(v.getId(), v.getPlaca(), v.getMarca(), v.getTipoVehiculo()))
+                .map(v -> new VehicleResponse(v.getId(), v.getPlaca(), v.getMarca(), v.getTipoVehiculo(),
+                        v.getKilometrajeActual()))
                 .toList();
     }
 
     @Override
     public VehicleResponse findByPlaca(String placa) {
         return vehicleRepository.findVehicleDetailByPlaca(placa)
-                .map(v -> new VehicleResponse(v.getId(), v.getPlaca(), v.getMarca(), v.getTipoVehiculo()))
+                .map(v -> new VehicleResponse(v.getId(), v.getPlaca(), v.getMarca(), v.getTipoVehiculo(),
+                        v.getKilometrajeActual()))
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Vehículo no encontrado con placa: " + placa));
     }

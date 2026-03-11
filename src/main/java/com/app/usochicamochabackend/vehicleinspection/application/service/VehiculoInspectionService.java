@@ -20,6 +20,7 @@ import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspDetalleSaludRepository;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspPreOperativaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,6 +34,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
 
     private final InspPreOperativaRepository inspPreOperativaRepository;
     private final InspDetalleMecanicoRepository detalleMecanicoRepository;
+    @Qualifier("vehicleInspDetalleDocumentosRepository")
     private final InspDetalleDocumentosRepository detalleDocumentosRepository;
     private final InspDetalleElementosRepository detalleElementosRepository;
     private final InspDetalleSaludRepository detalleSaludRepository;
@@ -59,7 +61,6 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 .fechaRegistro(LocalDateTime.now())
                 .idVehiculo(idVehiculo)
                 .loginUser(inspector.username()) // username del usuario autenticado
-                .responsableInspeccion(inspector.username()) // duplicado para cumplir con la BD
                 .kilometrajeReportado(req.kilometrajeReportado() != null ? req.kilometrajeReportado() : 0)
                 .aprobadoRuta(req.aprobadoRuta())
                 .observacionesFinales(req.observacionesFinales())
