@@ -145,13 +145,16 @@ public class MotoService {
                 java.time.YearMonth mesVencimiento = java.time.YearMonth.from(fechaVencimiento);
                 java.time.YearMonth mesActual = java.time.YearMonth.now();
 
-                // LITERALMENTE LA MISMA LÓGICA QUE VEHÍCULOS:
-                if (mesVencimiento.isBefore(mesActual)) {
+                // 1. Si el mes ya pasó o es el mes actual -> Vencido
+                if (!mesVencimiento.isAfter(mesActual)) {
                         return "Vencido";
-                } else if (mesVencimiento.equals(mesActual)
-                                || mesVencimiento.equals(mesActual.plusMonths(1))) {
+                }
+                // 2. Si el mes de vencimiento es el SIGUIENTE -> Próximo a Vencer
+                else if (mesVencimiento.equals(mesActual.plusMonths(1))) {
                         return "Próximo a Vencer";
-                } else {
+                }
+                // 3. Si es el futuro -> Vigente
+                else {
                         return "Vigente";
                 }
         }

@@ -213,20 +213,25 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
      * con el MES actual.
      */
     private String calcularEstado(LocalDate fechaVencimiento) {
-        if (fechaVencimiento == null)
-            return null;
+        if (fechaVencimiento == null) return null;
+        
+        YearMonth mesVenc = YearMonth.from(fechaVencimiento);
+        YearMonth mesHoy  = YearMonth.now();
 
-        YearMonth mesVencimiento = YearMonth.from(fechaVencimiento);
-        YearMonth mesActual = YearMonth.now();
-
-        if (mesVencimiento.isBefore(mesActual)) {
+        // 1. Si el mes ya pasó o es el mes actual -> Vencido
+        if (!mesVenc.isAfter(mesHoy)) {
             return "Vencido";
-        } else if (mesVencimiento.equals(mesActual)
-                || mesVencimiento.equals(mesActual.plusMonths(1))) {
-            return "Próximo a Vencer";
-        } else {
-            return "Vigente";
         }
+
+        // 2. Si el mes de vencimiento es el SIGUIENTE -> Próximo a Vencer
+        if (mesVenc.equals(mesHoy.plusMonths(1))) {
+            return "Próximo a Vencer";
+        }
+
+        // 4. Si es después del mes siguiente (o el mismo mes que hoy pero reportado diferente en app)
+        // El backend usualmente se usa para la carga inicial, así que aquí
+        // "Vigente" es lo correcto para meses futuros.
+        return "Vigente";
     }
 
     private String booleanToSiNo(Boolean value) {
