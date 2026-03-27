@@ -1,0 +1,103 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------< com.app:UsochicamochaBacken >---------------------
+[INFO] Building UsochicamochaBackend 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.5.4:run (default-cli) > test-compile @ UsochicamochaBacken >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ UsochicamochaBacken ---
+[INFO] Copying 4 resources from src\main\resources to target\classes
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.14.0:compile (default-compile) @ UsochicamochaBacken ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 162 source files with javac [debug parameters release 17] to target\classes
+[WARNING] /C:/Users/perez/Downloads/UsuschicamochaBackend/UsochimochaBackend/src/main/java/com/app/usochicamochabackend/auth/infrastructure/entity/UserEntity.java:[24,21] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ UsochicamochaBacken ---
+[INFO] Copying 1 resource from src\test\resources to target\test-classes
+[INFO] 
+[INFO] --- compiler:3.14.0:testCompile (default-testCompile) @ UsochicamochaBacken ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 1 source file with javac [debug parameters release 17] to target\test-classes
+[INFO] 
+[INFO] <<< spring-boot:3.5.4:run (default-cli) < test-compile @ UsochicamochaBacken <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.5.4:run (default-cli) @ UsochicamochaBacken ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.5.4)
+
+2026-02-23T10:44:34.715-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] c.a.u.UsochicamochaBackendApplication    : Starting UsochicamochaBackendApplication using Java 21.0.1 with PID 26152 (C:\Users\perez\Downloads\UsuschicamochaBackend\UsochimochaBackend\target\classes started by perez in C:\Users\perez\Downloads\UsuschicamochaBackend\UsochimochaBackend)
+2026-02-23T10:44:34.719-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] c.a.u.UsochicamochaBackendApplication    : The following 1 profile is active: "local"
+2026-02-23T10:44:36.166-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-02-23T10:44:36.341-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 164 ms. Found 10 JPA repository interfaces.
+2026-02-23T10:44:37.206-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-02-23T10:44:37.230-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-02-23T10:44:37.231-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.43]
+2026-02-23T10:44:37.363-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-02-23T10:44:37.365-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2557 ms
+2026-02-23T10:44:37.704-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-02-23T10:44:37.876-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.22.Final
+2026-02-23T10:44:37.977-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-02-23T10:44:38.520-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-02-23T10:44:38.567-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-02-23T10:44:38.936-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@36871e98
+2026-02-23T10:44:38.940-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-02-23T10:44:39.008-05:00  WARN 26152 --- [UsochicamochaBackend] [           main] org.hibernate.orm.deprecation            : HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-02-23T10:44:39.033-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 18.1
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-02-23T10:44:40.893-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-02-23T10:44:40.898-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-02-23T10:44:41.572-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-02-23T10:44:42.686-05:00  WARN 26152 --- [UsochicamochaBackend] [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-02-23T10:44:42.948-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
+2026-02-23T10:44:43.172-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] eAuthenticationProviderManagerConfigurer : Global AuthenticationManager configured with AuthenticationProvider bean with name authenticationProvider
+2026-02-23T10:44:43.174-05:00  WARN 26152 --- [UsochicamochaBackend] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with an AuthenticationProvider bean. UserDetailsService beans will not be used by Spring Security for automatically configuring username/password login. Consider removing the AuthenticationProvider bean. Alternatively, consider using the UserDetailsService in a manually instantiated DaoAuthenticationProvider. If the current configuration is intentional, to turn off this warning, increase the logging level of 'org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer' to ERROR
+2026-02-23T10:44:43.824-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : Starting...
+2026-02-23T10:44:43.825-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@69bf351e]]
+2026-02-23T10:44:43.826-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : Started.
+2026-02-23T10:44:43.884-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-02-23T10:44:43.895-05:00  INFO 26152 --- [UsochicamochaBackend] [           main] c.a.u.UsochicamochaBackendApplication    : Started UsochicamochaBackendApplication in 9.733 seconds (process running for 10.354)
+2026-02-23T10:45:43.836-05:00  INFO 26152 --- [UsochicamochaBackend] [MessageBroker-1] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 0 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(0)-CONNECTED(0)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], sockJsScheduler[pool size = 1, active threads = 1, queued tasks = 0, completed tasks = 0]
+2026-02-23T10:47:20.406-05:00  INFO 26152 --- [UsochicamochaBackend] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-02-23T10:47:20.408-05:00  INFO 26152 --- [UsochicamochaBackend] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-02-23T10:47:20.413-05:00  INFO 26152 --- [UsochicamochaBackend] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 5 ms
+Hibernate: SELECT
+    v.id_vehiculo       AS "id",
+    v.placa             AS "placa",
+    m.descripcion       AS "marca",
+    t.nombre_tipo       AS "tipoVehiculo"
+FROM vehiculos v
+JOIN cat_marcas_modelos  m ON v.id_marca          = m.id_marca
+JOIN cat_tipos_vehiculo  t ON v.id_tipo_vehiculo  = t.id_tipo_vehiculo
+WHERE v.activo = TRUE
+ORDER BY v.placa
+
+Hibernate: SELECT
+    v.id_vehiculo       AS "id",
+    v.placa             AS "placa",
+    m.descripcion       AS "marca",
+    t.nombre_tipo       AS "tipoVehiculo"
+FROM vehiculos v
+JOIN cat_marcas_modelos  m ON v.id_marca          = m.id_marca
+JOIN cat_tipos_vehiculo  t ON v.id_tipo_vehiculo  = t.id_tipo_vehiculo
+WHERE v.activo = TRUE
+ORDER BY v.placa
+
