@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inspections Notifications</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        #notifications {
+            width: 90%;
+            max-width: 600px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .notification {
+            background-color: #eaf6ff;
+            border-left: 5px solid #007BFF;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <h1>Live Inspections Notifications</h1>
+    <div id="notifications">
+        <p><em>Waiting for new inspections...</em></p>
+    </div>
+
+    <h2>Images for Inspection 1</h2>
+    <div id="images"></div>
+
+    <script>
+        const notificationsDiv = document.getElementById("notifications");
+        notificationsDiv.innerHTML = "";
+
+        const eventSource = new EventSource("http://localhost:8080/inspections/stream");
+
+        eventSource.onmessage = (event) => {
+            const inspection = JSON.parse(event.data);
+
+            const div = document.createElement("div");
+            div.className = "notification";
+            div.textContent = `Inspection ID: ${inspection.id} - Description: ${inspection.observations ?? 'No description'}`;
+
+            notificationsDiv.prepend(div);
+        };
+
+        eventSource.onerror = () => {
+            const div = document.createElement("div");
+            div.className = "notification";
+            div.style.backgroundColor = "#ffdddd";
+            div.style.borderLeft = "5px solid #FF0000";
+            div.textContent = "Connection lost, trying to reconnect...";
+            notificationsDiv.prepend(div);
+        };
+
+        // Fetch and display images for inspection 1
+        const imagesDiv = document.getElementById("images");
+        fetch("http://localhost:8080/api/v1/inspection/1/images")
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("HTTP " + response.status + ": " + response.statusText);
+                }
+                return response.json();
+            })
+            .then(images => {
+                if (images.length === 0) {
+                    imagesDiv.innerHTML = "<p>No images found for inspection 3.</p>";
+                } else {
+                    images.forEach(image => {
+                        const img = document.createElement("img");
+                        img.src = "http://localhost:8080/" + image.url;
+                        img.style.maxWidth = "300px";
+                        img.style.margin = "10px";
+                        imagesDiv.appendChild(img);
+                    });
+                }
+            })
+            .catch(error => {
+                imagesDiv.innerHTML = "<p>Error loading images: " + error.message + "</p>";
+            });
+    </script>
+</body>
+</html>

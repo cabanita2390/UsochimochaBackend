@@ -1,0 +1,13 @@
+package com.app.usochicamochabackend.order.application.dto;
+
+import com.app.usochicamochabackend.user.application.dto.UserResponse;
+
+import java.time.LocalDateTime;
+
+public record OrderWithoutInspectionResponse(
+        Long id,
+        String status,
+        LocalDateTime date,
+        String description,
+        UserResponse assignerUser
+) {}
