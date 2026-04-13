@@ -22,6 +22,7 @@ import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -174,28 +175,28 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         if (soat.isPresent()) {
             fechaSoat = soat.get().getFechaVencimiento().toString();
             estadoSoat = calcularEstado(soat.get().getFechaVencimiento());
-            urlSoat = soat.get().getImagenUrl();
+            urlSoat = resolveUrl(soat.get().getImagenUrl());
         }
 
         var tecno = documentacionRepository.findLatestByVehiculoAndTipo(idVehiculo, "TECNOMECANICA");
         if (tecno.isPresent()) {
             fechaTecno = tecno.get().getFechaVencimiento().toString();
             estadoTecno = calcularEstado(tecno.get().getFechaVencimiento());
-            urlTecno = tecno.get().getImagenUrl();
+            urlTecno = resolveUrl(tecno.get().getImagenUrl());
         }
 
         var licencia = documentacionRepository.findLatestByVehiculoAndTipo(idVehiculo, "LICENCIA DE CONDUCCION");
         if (licencia.isPresent()) {
             fechaLicencia = licencia.get().getFechaVencimiento().toString();
             estadoLicencia = calcularEstado(licencia.get().getFechaVencimiento());
-            urlLicencia = licencia.get().getImagenUrl();
+            urlLicencia = resolveUrl(licencia.get().getImagenUrl());
         }
 
         var extintor = documentacionRepository.findLatestByVehiculoAndTipo(idVehiculo, "EXTINTOR");
         if (extintor.isPresent()) {
             fechaExtintor = extintor.get().getFechaVencimiento().toString();
             estadoExtintor = calcularEstado(extintor.get().getFechaVencimiento());
-            urlExtintor = extintor.get().getImagenUrl();
+            urlExtintor = resolveUrl(extintor.get().getImagenUrl());
         }
 
         return new DocumentoVehiculoResponse(
@@ -204,6 +205,24 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 fechaTecno, estadoTecno, urlTecno,
                 fechaLicencia, estadoLicencia, urlLicencia,
                 fechaExtintor, estadoExtintor, urlExtintor);
+    }
+
+    /**
+     * Resuelve una URL de imagen: si es relativa, le concatena el host actual.
+     */
+    private String resolveUrl(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) return null;
+        if (rawUrl.toLowerCase().startsWith("http")) return rawUrl;
+        
+        String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
+        // Limpiamos barras invertidas de Windows si existen en la BD
+        String cleanPath = rawUrl.replace("\\", "/");
+        // Nos aseguramos que no empiece con slash para evitar dobles slashes al concatenar
+        if (cleanPath.startsWith("/")) cleanPath = cleanPath.substring(1);
+        
+        // Las imágenes de vehículos se sirven por el ResourceHandler "/uploads/**" (ver WebConfig.java)
+        // Por lo tanto, no necesitan el prefijo /api
+        return baseUrl + "/" + cleanPath;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

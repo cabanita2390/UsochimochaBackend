@@ -51,7 +51,8 @@ public class SecurityConfig {
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
                             "/v3/api-docs.yaml",
-                            "/api/v1/auth/**").permitAll();
+                            "/api/v1/auth/**",
+                            "/api/v1/moto/documento/imagen/**").permitAll();
 
                     // 2. Consulta de Catálogos (Mecánico + Admin)
                     http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle/**").hasAnyRole("MECANIC", "ADMIN");

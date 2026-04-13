@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -76,8 +77,15 @@ public class MotoService {
                                                 fechaVenc = doc.getFechaVencimiento();
 
                                                 if (doc.getImagenUrl() != null && !doc.getImagenUrl().isBlank()) {
-                                                        fullImagenUrl = "/api/v1/moto/documento/imagen/"
-                                                                        + doc.getImagenUrl();
+                                                        String rawUrl = doc.getImagenUrl().trim();
+                                                        if (rawUrl.toLowerCase().startsWith("http")) {
+                                                                fullImagenUrl = rawUrl;
+                                                        } else {
+                                                                // Generar URL completa dinámica incluyendo el prefijo /api que Spring espera
+                                                                String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
+                                                                // Forzamos el /api ya que no está en el context path pero sí en el RequestMapping del Controller
+                                                                fullImagenUrl = baseUrl + "/api/v1/moto/documento/imagen/" + rawUrl;
+                                                        }
                                                 }
 
                                                 if (fechaVenc != null) {

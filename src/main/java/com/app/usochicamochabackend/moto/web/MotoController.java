@@ -48,7 +48,7 @@ public class MotoController {
         return ResponseEntity.ok(id);
     }
 
-    @GetMapping("/documento/imagen/{fileName}")
+    @GetMapping("/documento/imagen/{fileName:.+}")
     @Operation(summary = "Obtener imagen de documento", description = "Retorna el flujo de bytes de la imagen del documento")
     public ResponseEntity<Resource> getDocumentoImagen(@PathVariable String fileName) {
         try {
