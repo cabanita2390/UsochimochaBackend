@@ -215,14 +215,16 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         if (rawUrl.toLowerCase().startsWith("http")) return rawUrl;
         
         String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
-        // Limpiamos barras invertidas de Windows si existen en la BD
         String cleanPath = rawUrl.replace("\\", "/");
-        // Nos aseguramos que no empiece con slash para evitar dobles slashes al concatenar
         if (cleanPath.startsWith("/")) cleanPath = cleanPath.substring(1);
         
-        // Las imágenes de vehículos se sirven por el ResourceHandler "/uploads/**" (ver WebConfig.java)
-        // Por lo tanto, no necesitan el prefijo /api
-        return baseUrl + "/" + cleanPath;
+        // Lógica Universal: Si ya trae la ruta (ej: uploads/ID/foto.jpg) la usamos,
+        // si es solo el nombre, asumimos que está en la carpeta de documentos.
+        if (cleanPath.toLowerCase().startsWith("uploads/")) {
+            return baseUrl + "/" + cleanPath;
+        } else {
+            return baseUrl + "/uploads/documents/" + cleanPath;
+        }
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

@@ -81,10 +81,18 @@ public class MotoService {
                                                         if (rawUrl.toLowerCase().startsWith("http")) {
                                                                 fullImagenUrl = rawUrl;
                                                         } else {
-                                                                // Generar URL completa dinámica incluyendo el prefijo /api que Spring espera
+                                                                // Lógica Universal: Soporta rutas completas (Web) y nombres de archivo (Manual)
                                                                 String baseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
-                                                                // Forzamos el /api ya que no está en el context path pero sí en el RequestMapping del Controller
-                                                                fullImagenUrl = baseUrl + "/api/v1/moto/documento/imagen/" + rawUrl;
+                                                                String cleanPath = rawUrl.replace("\\", "/");
+                                                                if (cleanPath.startsWith("/")) cleanPath = cleanPath.substring(1);
+
+                                                                if (cleanPath.toLowerCase().startsWith("uploads/")) {
+                                                                        // Ya trae la ruta (subido desde la Web)
+                                                                        fullImagenUrl = baseUrl + "/" + cleanPath;
+                                                                } else {
+                                                                        // Es solo el nombre (subido manual a carpeta documents)
+                                                                        fullImagenUrl = baseUrl + "/uploads/documents/" + cleanPath;
+                                                                }
                                                         }
                                                 }
 
