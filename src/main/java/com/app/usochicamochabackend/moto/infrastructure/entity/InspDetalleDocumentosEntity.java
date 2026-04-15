@@ -18,6 +18,10 @@ public class InspDetalleDocumentosEntity {
     @Column(name = "id_inspeccion")
     private Long idInspeccion;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_inspeccion", insertable = false, updatable = false)
+    private InspeccionEntity inspeccion;
+
     @Column(name = "check_soat")
     private String checkSoat;
 

@@ -27,6 +27,10 @@ public class InspDetalleDocumentosEntity {
     @Column(name = "id_inspeccion")
     private Long idInspeccion;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_inspeccion", insertable = false, updatable = false)
+    private InspPreOperativaEntity inspeccion;
+
     @Column(name = "check_soat", length = 20)
     private String checkSoat;
 

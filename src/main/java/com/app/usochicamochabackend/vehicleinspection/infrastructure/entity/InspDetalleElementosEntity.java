@@ -26,6 +26,10 @@ public class InspDetalleElementosEntity {
     @Column(name = "id_inspeccion")
     private Long idInspeccion;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_inspeccion", insertable = false, updatable = false)
+    private InspPreOperativaEntity inspeccion;
+
     @Column(name = "tiene_botiquin")
     private Boolean tieneBotiquin;
 

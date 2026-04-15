@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.vehicleinspection.infrastructure.entity;
 
+import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -29,6 +30,10 @@ public class DocumentacionYElementosEntity {
 
     @Column(name = "id_vehiculo")
     private Integer idVehiculo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_vehiculo", insertable = false, updatable = false)
+    private VehicleEntity vehiculo;
 
     /** Valores esperados: 'SOAT', 'TECNO', 'LICENCIA', 'EXTINTOR' */
     @Column(name = "tipo_documento", length = 50)

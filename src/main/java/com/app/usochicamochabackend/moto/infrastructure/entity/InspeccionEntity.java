@@ -41,4 +41,8 @@ public class InspeccionEntity {
 
     @Column(name = "id_ubicacion")
     private Integer idUbicacion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_ubicacion", insertable = false, updatable = false)
+    private UbicacionEntity ubicacion;
 }

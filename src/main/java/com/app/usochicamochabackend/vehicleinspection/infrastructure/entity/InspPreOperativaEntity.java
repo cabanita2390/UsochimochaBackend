@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.vehicleinspection.infrastructure.entity;
 
+import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,6 +33,10 @@ public class InspPreOperativaEntity {
 
     @Column(name = "id_vehiculo")
     private Integer idVehiculo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_vehiculo", insertable = false, updatable = false)
+    private VehicleEntity vehiculo;
 
     @Column(name = "login_user", nullable = false, length = 100)
     private String loginUser;

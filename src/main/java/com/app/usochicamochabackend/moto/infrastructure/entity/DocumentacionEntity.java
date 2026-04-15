@@ -20,6 +20,10 @@ public class DocumentacionEntity {
     @Column(name = "id_vehiculo")
     private Integer idVehiculo;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_vehiculo", insertable = false, updatable = false)
+    private VehiculoEntity vehiculo;
+
     @Column(name = "tipo_documento", insertable = true, updatable = true)
     private String tipoDocumento;
 

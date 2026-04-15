@@ -27,6 +27,10 @@ public class InspDetalleSaludEntity {
     @Column(name = "id_inspeccion")
     private Long idInspeccion;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_inspeccion", insertable = false, updatable = false)
+    private InspPreOperativaEntity inspeccion;
+
     @Column(name = "salud_fisica")
     private Boolean saludFisica;
 

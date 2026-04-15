@@ -26,6 +26,10 @@ public class InspDetalleMecanicoEntity {
     @Column(name = "id_inspeccion")
     private Long idInspeccion;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_inspeccion", insertable = false, updatable = false)
+    private InspPreOperativaEntity inspeccion;
+
     @Column(name = "nivel_aceite", length = 20)
     private String nivelAceite;
 
