@@ -3,10 +3,12 @@ package com.app.usochicamochabackend.auth.security;
 import com.app.usochicamochabackend.auth.application.service.UserDetailsServiceImp;
 import com.app.usochicamochabackend.auth.security.filter.JwtTokenValidator;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -23,9 +25,7 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.http.MediaType;
 
-import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 @Configuration
@@ -107,12 +107,13 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOrigin("http://localhost:8080");
-        configuration.addAllowedOrigin("https://usochimochabackend.onrender.com");
+        configuration.addAllowedOrigin("https://usochicamocha.co");
+        configuration.addAllowedOrigin("https://web.usochicamocha.co");
         configuration.addAllowedOrigin("http://localhost:5173");
         configuration.addAllowedOrigin("http://localhost:5174");
+        configuration.addAllowedOrigin("http://localhost:3000");
         configuration.addAllowedHeader("*");
-        configuration.addAllowedMethod("*");
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
