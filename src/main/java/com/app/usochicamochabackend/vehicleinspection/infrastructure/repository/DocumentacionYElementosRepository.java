@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -26,4 +27,8 @@ public interface DocumentacionYElementosRepository extends JpaRepository<Documen
     Optional<DocumentacionYElementosEntity> findLatestByVehiculoAndTipo(
             @Param("idVehiculo") Integer idVehiculo,
             @Param("tipoDocumento") String tipoDocumento);
+
+    List<DocumentacionYElementosEntity> findByIdVehiculoAndActivoTrueOrderByTipoDocumento(Integer idVehiculo);
+
+    List<DocumentacionYElementosEntity> findByActivoTrueOrderByIdVehiculoAscTipoDocumentoAsc();
 }

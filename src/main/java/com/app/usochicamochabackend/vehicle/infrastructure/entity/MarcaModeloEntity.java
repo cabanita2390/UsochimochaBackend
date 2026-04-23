@@ -15,9 +15,12 @@ import lombok.NoArgsConstructor;
 public class MarcaModeloEntity {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_marca")
     private Integer idMarca;
 
     @Column(name = "descripcion")
     private String descripcion;
+
+    private Boolean activo;
 }

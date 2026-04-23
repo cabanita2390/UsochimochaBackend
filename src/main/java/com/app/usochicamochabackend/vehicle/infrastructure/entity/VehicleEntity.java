@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 public class VehicleEntity {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_vehiculo")
     private Integer idVehiculo;
 
