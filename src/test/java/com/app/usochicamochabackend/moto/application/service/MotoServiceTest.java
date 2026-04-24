@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.moto.application.service;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.moto.infrastructure.entity.*;
+import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.moto.infrastructure.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,12 +37,12 @@ class MotoServiceTest {
     @InjectMocks
     private MotoService motoService;
 
-    private VehiculoEntity mockVehiculo;
+    private VehicleEntity mockVehiculo;
 
     @BeforeEach
     void setUp() {
-        mockVehiculo = new VehiculoEntity();
-        mockVehiculo.setId(1);
+        mockVehiculo = new VehicleEntity();
+        mockVehiculo.setIdVehiculo(1);
         mockVehiculo.setPlaca("MOTO123");
         mockVehiculo.setKilometrajeActual(1000);
         mockVehiculo.setActivo(true);

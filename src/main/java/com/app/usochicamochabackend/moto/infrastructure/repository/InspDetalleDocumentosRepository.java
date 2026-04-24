@@ -16,8 +16,8 @@ public interface InspDetalleDocumentosRepository extends JpaRepository<InspDetal
     @Query("""
                 SELECT d FROM MotoInspDetalleDocumentosEntity d
                 WHERE d.idInspeccion = (
-                    SELECT MAX(i.id) FROM InspeccionEntity i
-                    WHERE i.vehiculo.id = :idVehiculo
+                    SELECT MAX(i.idInspeccion) FROM InspPreOperativaEntity i
+                    WHERE i.idVehiculo = :idVehiculo
                 )
             """)
     Optional<InspDetalleDocumentosEntity> findLatestByVehiculoId(@Param("idVehiculo") Integer idVehiculo);

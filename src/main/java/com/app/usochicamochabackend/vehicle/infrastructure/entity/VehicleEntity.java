@@ -7,6 +7,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @Entity
 @Builder
@@ -16,6 +18,7 @@ import lombok.NoArgsConstructor;
 public class VehicleEntity {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_vehiculo")
     private Integer idVehiculo;
 
@@ -39,4 +42,7 @@ public class VehicleEntity {
 
     @Column(name = "kilometraje_actual")
     private Integer kilometrajeActual;
+
+    @Column(name = "fecha_ultimo_reporte")
+    private LocalDateTime fechaUltimoReporte;
 }

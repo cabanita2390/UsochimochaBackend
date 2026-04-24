@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.moto.infrastructure.entity;
 
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -20,7 +21,7 @@ public class InspDetalleDocumentosEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_inspeccion", insertable = false, updatable = false)
-    private InspeccionEntity inspeccion;
+    private InspPreOperativaEntity inspeccion;
 
     @Column(name = "check_soat")
     private String checkSoat;
