@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.moto.infrastructure.entity;
 
+import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,7 +23,7 @@ public class DocumentacionEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_vehiculo", insertable = false, updatable = false)
-    private VehiculoEntity vehiculo;
+    private VehicleEntity vehiculo;
 
     @Column(name = "tipo_documento", insertable = true, updatable = true)
     private String tipoDocumento;

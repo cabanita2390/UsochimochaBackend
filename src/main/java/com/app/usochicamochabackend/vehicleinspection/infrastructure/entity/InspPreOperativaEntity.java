@@ -49,4 +49,10 @@ public class InspPreOperativaEntity {
 
     @Column(name = "observaciones_finales")
     private String observacionesFinales;
+
+    @Column(name = "estado_vehiculo")
+    private String estadoVehiculo;
+
+    @Column(name = "id_ubicacion")
+    private Integer idUbicacion;
 }

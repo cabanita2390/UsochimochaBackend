@@ -4,6 +4,8 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.moto.infrastructure.entity.*;
+import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
 import com.app.usochicamochabackend.moto.infrastructure.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +33,7 @@ public class MotoService {
         public List<MotoPlacaResponse> getMotocicletas() {
                 return vehiculoRepository.findActivosByTipo("MOTOCICLETA")
                                 .stream()
-                                .map(v -> new MotoPlacaResponse(v.getId(), v.getPlaca()))
+                                .map(v -> new MotoPlacaResponse(v.getIdVehiculo(), v.getPlaca()))
                                 .toList();
         }
 
@@ -50,7 +52,7 @@ public class MotoService {
          * - Fallback: Si no hay inspección previa, calcula el estado en tiempo real.
          */
         public List<DocumentoExistenteResponse> getDocumentosByPlaca(String placa) {
-                VehiculoEntity vehiculo = vehiculoRepository.findByPlacaAndActivoTrue(placa)
+                VehicleEntity vehiculo = vehiculoRepository.findByPlacaAndActivoTrue(placa)
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Vehículo no encontrado: " + placa));
 
@@ -66,7 +68,7 @@ public class MotoService {
 
                                         // Buscar datos maestros (fecha, imagen)
                                         var docOpt = documentacionRepository.findLatestByVehiculoAndTipo(
-                                                        vehiculo.getId(), tipoDb);
+                                                        vehiculo.getIdVehiculo(), tipoDb);
 
                                         java.time.LocalDate fechaVenc = null;
                                         String fullImagenUrl = null;
@@ -123,16 +125,16 @@ public class MotoService {
                                 .getPrincipal();
                 String responsable = userPrincipal.username();
 
-                VehiculoEntity vehiculo = vehiculoRepository.findById(req.idVehiculo())
+                VehicleEntity vehiculo = vehiculoRepository.findById(req.idVehiculo())
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Vehículo no encontrado: " + req.idVehiculo()));
 
                 if (req.kilometrajeReportado() != null && req.kilometrajeReportado() > 0) {
-                        vehiculoRepository.updateKilometraje(vehiculo.getId(), req.kilometrajeReportado(), LocalDateTime.now());
+                        vehiculoRepository.updateKilometraje(vehiculo.getIdVehiculo(), req.kilometrajeReportado(), LocalDateTime.now());
                 }
 
-                InspeccionEntity inspeccion = InspeccionEntity.builder()
-                                .vehiculo(vehiculo)
+                InspPreOperativaEntity inspeccion = InspPreOperativaEntity.builder()
+                                .idVehiculo(vehiculo.getIdVehiculo())
                                 .fechaRegistro(LocalDateTime.now())
                                 .kilometrajeReportado(req.kilometrajeReportado())
                                 .estadoVehiculo(req.estadoVehiculo())
@@ -146,7 +148,7 @@ public class MotoService {
                 // ── 2: insp_detalle_mecanico (Estado Visual + Campos nuevos) ─────────
                 detalleMecanicoRepository.save(
                                 InspDetalleMecanicoEntity.builder()
-                                                .idInspeccion(inspeccion.getId())
+                                                .idInspeccion(inspeccion.getIdInspeccion())
                                                 .nivelAceite(req.checkNivelAceite())
                                                 .estadoLlantas(req.checkEstadoLlantas())
                                                 .lucesGeneral(req.checkEstadoLuces())
@@ -155,7 +157,7 @@ public class MotoService {
 
                 // ── 3: insp_detalle_documentos ────────────────────────────────────────
                 InspDetalleDocumentosEntity detalleDoc = InspDetalleDocumentosEntity.builder()
-                                .idInspeccion(inspeccion.getId())
+                                .idInspeccion(inspeccion.getIdInspeccion())
                                 .checkSoat(req.checkSoat())
                                 .checkTecno(req.checkTecno())
                                 .checkLicencia(req.checkLicencia())
@@ -163,7 +165,7 @@ public class MotoService {
                                 .build();
                 detalleDocumentosRepository.save(detalleDoc);
 
-                return inspeccion.getId();
+                return inspeccion.getIdInspeccion();
         }
 
         private String calcularEstado(java.time.LocalDate fechaVencimiento) {

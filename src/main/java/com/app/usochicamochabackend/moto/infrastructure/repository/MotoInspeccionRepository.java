@@ -1,9 +1,9 @@
 package com.app.usochicamochabackend.moto.infrastructure.repository;
 
-import com.app.usochicamochabackend.moto.infrastructure.entity.InspeccionEntity;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface MotoInspeccionRepository extends JpaRepository<InspeccionEntity, Long> {
+public interface MotoInspeccionRepository extends JpaRepository<InspPreOperativaEntity, Long> {
 }
