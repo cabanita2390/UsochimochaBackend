@@ -18,7 +18,8 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Long> {
                 v.placa             AS "placa",
                 m.descripcion       AS "marca",
                 t.nombre_tipo       AS "tipoVehiculo",
-                v.kilometraje_actual AS "kilometrajeActual"
+                v.kilometraje_actual AS "kilometrajeActual",
+                v.belongs_to         AS "belongsTo"
             FROM vehiculos v
             JOIN cat_marcas_modelos  m ON v.id_marca          = m.id_marca
             JOIN cat_tipos_vehiculo  t ON v.id_tipo_vehiculo  = t.id_tipo_vehiculo
@@ -48,7 +49,8 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Long> {
                 v.placa             AS "placa",
                 m.descripcion       AS "marca",
                 t.nombre_tipo       AS "tipoVehiculo",
-                v.kilometraje_actual AS "kilometrajeActual"
+                v.kilometraje_actual AS "kilometrajeActual",
+                v.belongs_to         AS "belongsTo"
             FROM vehiculos v
             JOIN cat_marcas_modelos  m ON v.id_marca         = m.id_marca
             JOIN cat_tipos_vehiculo  t ON v.id_tipo_vehiculo = t.id_tipo_vehiculo

@@ -1,46 +1,40 @@
 package com.app.usochicamochabackend.vehicle.application.service;
 
+import com.app.usochicamochabackend.mapper.VehicleMapper;
+import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
-import com.app.usochicamochabackend.vehicle.application.port.FindAllVehiclesUseCase;
+import com.app.usochicamochabackend.vehicle.application.port.VehicleUseCase;
+import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
-import com.app.usochicamochabackend.vehicle.application.dto.VehicleCreateRequest;
-import com.app.usochicamochabackend.vehicle.application.dto.VehicleUpdateRequest;
-import com.app.usochicamochabackend.vehicle.application.port.CreateVehicleUseCase;
-import com.app.usochicamochabackend.vehicle.application.port.DeleteVehicleUseCase;
-import com.app.usochicamochabackend.vehicle.application.port.UpdateVehicleUseCase;
-import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
-
 @Service
 @RequiredArgsConstructor
-public class VehicleService implements FindAllVehiclesUseCase, CreateVehicleUseCase, UpdateVehicleUseCase, DeleteVehicleUseCase {
+public class VehicleService implements VehicleUseCase {
 
     private final VehicleRepository vehicleRepository;
 
     @Override
     public List<VehicleResponse> findAllVehicles() {
         return vehicleRepository.findAllActiveVehicles().stream()
-                .map(v -> new VehicleResponse(v.getId(), v.getPlaca(), v.getMarca(), v.getTipoVehiculo(),
-                        v.getKilometrajeActual()))
+                .map(VehicleMapper::toResponse)
                 .toList();
     }
 
     @Override
     public VehicleResponse findByPlaca(String placa) {
         return vehicleRepository.findVehicleDetailByPlaca(placa)
-                .map(v -> new VehicleResponse(v.getId(), v.getPlaca(), v.getMarca(), v.getTipoVehiculo(),
-                        v.getKilometrajeActual()))
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Vehículo no encontrado con placa: " + placa));
+                .map(VehicleMapper::toResponse)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehículo no encontrado con placa: " + placa));
     }
+
     @Override
-    public VehicleResponse createVehicle(VehicleCreateRequest request) {
+    public VehicleResponse createVehicle(VehicleRequest request) {
         if (vehicleRepository.findByPlaca(request.placa()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ya existe un vehículo con esta placa");
         }
@@ -50,6 +44,7 @@ public class VehicleService implements FindAllVehiclesUseCase, CreateVehicleUseC
                 .idMarca(request.idMarca())
                 .idTipoVehiculo(request.idTipoVehiculo())
                 .kilometrajeActual(request.kilometrajeActual())
+                .belongsTo(request.belongsTo())
                 .activo(true)
                 .build();
 
@@ -58,7 +53,7 @@ public class VehicleService implements FindAllVehiclesUseCase, CreateVehicleUseC
     }
 
     @Override
-    public VehicleResponse updateVehicle(Integer id, VehicleUpdateRequest request) {
+    public VehicleResponse updateVehicle(Integer id, VehicleRequest request) {
         VehicleEntity entity = vehicleRepository.findById(Long.valueOf(id))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehículo no encontrado"));
 
@@ -70,7 +65,8 @@ public class VehicleService implements FindAllVehiclesUseCase, CreateVehicleUseC
         entity.setIdMarca(request.idMarca());
         entity.setIdTipoVehiculo(request.idTipoVehiculo());
         entity.setKilometrajeActual(request.kilometrajeActual());
-        entity.setActivo(request.activo());
+        entity.setBelongsTo(request.belongsTo());
+        entity.setActivo(request.activo() != null ? request.activo() : entity.getActivo());
 
         vehicleRepository.save(entity);
         return findByPlaca(entity.getPlaca());

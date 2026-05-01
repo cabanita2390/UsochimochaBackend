@@ -45,4 +45,7 @@ public class VehicleEntity {
 
     @Column(name = "fecha_ultimo_reporte")
     private LocalDateTime fechaUltimoReporte;
+
+    @Column(name = "belongs_to")
+    private String belongsTo;
 }
