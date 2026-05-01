@@ -65,4 +65,10 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer>
 
     @Query("SELECT v FROM VehicleEntity v JOIN v.tipoVehiculo t WHERE t.nombreTipo <> :tipoName AND v.activo = TRUE")
     List<VehicleEntity> findAllByTipoNameNot(@Param("tipoName") String tipoName);
+
+    java.util.Optional<VehicleEntity> findByPlacaAndActivoTrue(String placa);
+
+    @Modifying
+    @Query("UPDATE VehicleEntity v SET v.kilometrajeActual = :km, v.fechaUltimoReporte = :fecha WHERE v.idVehiculo = :id")
+    void updateKilometrajeWithDate(@Param("id") Integer id, @Param("km") Integer km, @Param("fecha") java.time.LocalDateTime fecha);
 }

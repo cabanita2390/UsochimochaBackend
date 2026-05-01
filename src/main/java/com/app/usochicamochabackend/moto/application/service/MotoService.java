@@ -3,22 +3,28 @@ package com.app.usochicamochabackend.moto.application.service;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntity;
+import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
 import com.app.usochicamochabackend.mapper.VehicleMapper;
 import com.app.usochicamochabackend.moto.application.dto.*;
-import com.app.usochicamochabackend.moto.infrastructure.entity.*;
+import com.app.usochicamochabackend.moto.application.port.MotoCRUDUseCase;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
+import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.DocumentacionYElementosEntity;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspDetalleDocumentosEntity;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspDetalleMecanicoEntity;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
-import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
-import com.app.usochicamochabackend.moto.infrastructure.repository.*;
-import com.app.usochicamochabackend.moto.application.port.MotoCRUDUseCase;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.DocumentacionYElementosRepository;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspDetalleDocumentosRepository;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspDetalleMecanicoRepository;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspPreOperativaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -28,16 +34,16 @@ import java.util.List;
 @Slf4j
 public class MotoService implements MotoCRUDUseCase {
 
-        private final VehiculoRepository vehiculoRepository;
-        private final UbicacionRepository ubicacionRepository;
-        private final MotoInspeccionRepository inspeccionRepository;
-        private final InspDetalleDocumentosRepository detalleDocumentosRepository;
-        private final InspDetalleMecanicoRepository detalleMecanicoRepository;
-        private final DocumentacionRepository documentacionRepository;
+    private final VehicleRepository vehicleRepository;
+    private final UbicacionRepository ubicacionRepository;
+    private final InspPreOperativaRepository inspeccionRepository;
+    private final InspDetalleDocumentosRepository detalleDocumentosRepository;
+    private final InspDetalleMecanicoRepository detalleMecanicoRepository;
+    private final DocumentacionYElementosRepository documentacionRepository;
 
         /** Retorna las motocicletas activas (tipo = MOTOCICLETA) */
         public List<MotoPlacaResponse> getMotocicletas() {
-                return vehiculoRepository.findActivosByTipo("MOTOCICLETA")
+                return vehicleRepository.findAllByTipoName("MOTOCICLETA")
                                 .stream()
                                 .map(v -> new MotoPlacaResponse(v.getIdVehiculo(), v.getPlaca()))
                                 .toList();
@@ -58,7 +64,7 @@ public class MotoService implements MotoCRUDUseCase {
          * - Fallback: Si no hay inspección previa, calcula el estado en tiempo real.
          */
         public List<DocumentoExistenteResponse> getDocumentosByPlaca(String placa) {
-                VehicleEntity vehiculo = vehiculoRepository.findByPlacaAndActivoTrue(placa)
+                VehicleEntity vehiculo = vehicleRepository.findByPlacaAndActivoTrue(placa)
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Vehículo no encontrado: " + placa));
 
@@ -81,7 +87,7 @@ public class MotoService implements MotoCRUDUseCase {
                                         String mesyear = null;
 
                                         if (docOpt.isPresent()) {
-                                                DocumentacionEntity doc = docOpt.get();
+                                                DocumentacionYElementosEntity doc = docOpt.get();
                                                 fechaVenc = doc.getFechaVencimiento();
 
                                                 if (doc.getImagenUrl() != null && !doc.getImagenUrl().isBlank()) {
@@ -131,12 +137,12 @@ public class MotoService implements MotoCRUDUseCase {
                                 .getPrincipal();
                 String responsable = userPrincipal.username();
 
-                VehicleEntity vehiculo = vehiculoRepository.findById(req.idVehiculo())
+                VehicleEntity vehiculo = vehicleRepository.findById(req.idVehiculo())
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Vehículo no encontrado: " + req.idVehiculo()));
 
                 if (req.kilometrajeReportado() != null && req.kilometrajeReportado() > 0) {
-                        vehiculoRepository.updateKilometraje(vehiculo.getIdVehiculo(), req.kilometrajeReportado(), LocalDateTime.now());
+                        vehicleRepository.updateKilometrajeWithDate(vehiculo.getIdVehiculo(), req.kilometrajeReportado(), LocalDateTime.now());
                 }
 
                 InspPreOperativaEntity inspeccion = InspPreOperativaEntity.builder()
@@ -203,7 +209,7 @@ public class MotoService implements MotoCRUDUseCase {
 
     @Override
     public List<VehicleResponse> findAllMotos() {
-        return vehiculoRepository.findActivosByTipo("MOTOCICLETA").stream()
+        return vehicleRepository.findAllByTipoName("MOTOCICLETA").stream()
                 .map(VehicleMapper::toResponse)
                 .toList();
     }
@@ -220,25 +226,25 @@ public class MotoService implements MotoCRUDUseCase {
                 .belongsTo(request.belongsTo())
                 .activo(true)
                 .build();
-        vehiculoRepository.save(entity);
+        vehicleRepository.save(entity);
         return VehicleMapper.toResponse(entity);
     }
 
     @Override
     public VehicleResponse updateMoto(Integer id, VehicleRequest request) {
-        VehicleEntity entity = vehiculoRepository.findById(id)
+        VehicleEntity entity = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Moto no encontrada"));
         entity.setPlaca(request.placa());
         entity.setIdMarca(request.idMarca());
         entity.setKilometrajeActual(request.kilometrajeActual());
         entity.setBelongsTo(request.belongsTo());
         entity.setActivo(request.activo());
-        vehiculoRepository.save(entity);
+        vehicleRepository.save(entity);
         return VehicleMapper.toResponse(entity);
     }
 
     @Override
     public void deleteMoto(Integer id) {
-        vehiculoRepository.deleteById(id);
+        vehicleRepository.deleteById(id);
     }
 }
