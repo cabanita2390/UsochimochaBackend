@@ -70,6 +70,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 .kilometrajeReportado(req.kilometrajeReportado() != null ? req.kilometrajeReportado() : 0)
                 .aprobadoRuta(req.aprobadoRuta())
                 .observacionesFinales(req.observacionesFinales())
+                .idUbicacion(req.idUbicacion())
                 .build();
 
         InspPreOperativaEntity saved = inspPreOperativaRepository.save(cabecera);
@@ -133,12 +134,22 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     @Override
     public List<VehicleInspectionReportDTO> getInspectionsByType(Integer typeId) {
         List<InspPreOperativaEntity> inspections = inspPreOperativaRepository.findAllByVehicleType(typeId);
+        return mapToReportDTO(inspections);
+    }
+
+    @Override
+    public List<VehicleInspectionReportDTO> getMotoInspections() {
+        List<InspPreOperativaEntity> inspections = inspPreOperativaRepository.findAllByVehicleTypeName("MOTOCICLETA");
+        return mapToReportDTO(inspections);
+    }
+
+    private List<VehicleInspectionReportDTO> mapToReportDTO(List<InspPreOperativaEntity> inspections) {
         List<VehicleInspectionReportDTO> reportList = new java.util.ArrayList<>();
 
         for (InspPreOperativaEntity inspection : inspections) {
             Long id = inspection.getIdInspeccion();
             var mecanico = detalleMecanicoRepository.findByIdInspeccion(id).orElse(new InspDetalleMecanicoEntity());
-            var docs = detalleDocumentosRepository.findByIdInspeccion(id).orElse(new InspDetalleDocumentosEntity());
+            var documentos = detalleDocumentosRepository.findByIdInspeccion(id).orElse(new InspDetalleDocumentosEntity());
             var elementos = detalleElementosRepository.findByIdInspeccion(id).orElse(new InspDetalleElementosEntity());
             var salud = detalleSaludRepository.findByIdInspeccion(id).orElse(new InspDetalleSaludEntity());
             var vehicle = inspection.getVehiculo();
@@ -146,7 +157,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
             reportList.add(new VehicleInspectionReportDTO(
                 id,
                 inspection.getFechaRegistro(),
-                vehicle != null ? vehicle.getPlaca() : null,
+                (vehicle != null) ? vehicle.getPlaca() : "N/A",
                 (vehicle != null && vehicle.getMarca() != null) ? vehicle.getMarca().getDescripcion() : null,
                 (vehicle != null && vehicle.getTipoVehiculo() != null) ? vehicle.getTipoVehiculo().getNombreTipo() : null,
                 inspection.getLoginUser(),
@@ -163,10 +174,10 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 mecanico.getEstadoVisual(),
                 mecanico.getLimpiezaGeneral(),
                 
-                docs.getCheckSoat(),
-                docs.getCheckTecno(),
-                docs.getCheckLicencia(),
-                docs.getCheckExtintor(),
+                documentos.getCheckSoat(),
+                documentos.getCheckTecno(),
+                documentos.getCheckLicencia(),
+                documentos.getCheckExtintor(),
                 
                 elementos.getTieneBotiquin(),
                 elementos.getTieneSeñalizacion(),

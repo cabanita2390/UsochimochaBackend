@@ -9,5 +9,6 @@ public record VehicleOilChangeRequest(
     Long brandId,
     Double quantity,
     Integer kmAtChange,
-    Integer intervalKm
+    Integer intervalKm,
+    Boolean airFilterChanged
 ) {}

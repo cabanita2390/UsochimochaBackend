@@ -40,4 +40,7 @@ public class VehicleOilChangeEntity {
     @ManyToOne
     @JoinColumn(name = "vehicle_id")
     private VehicleEntity vehicle;
+
+    @Column(name = "air_filter_changed")
+    private Boolean airFilterChanged;
 }

@@ -30,7 +30,7 @@ public class VehicleMonitoringService implements VehicleMonitoringUseCase {
 
     @Override
     public List<VehicleMonitoringDTO> getConsolidatedMonitoring() {
-        List<VehicleEntity> vehicles = vehicleRepository.findAll();
+        List<VehicleEntity> vehicles = vehicleRepository.findAllByTipoNameNot("MOTOCICLETA");
         List<VehicleMonitoringDTO> result = new ArrayList<>();
 
         for (VehicleEntity vehicle : vehicles) {

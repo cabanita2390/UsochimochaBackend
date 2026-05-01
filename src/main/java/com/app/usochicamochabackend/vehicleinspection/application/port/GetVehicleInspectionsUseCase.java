@@ -5,4 +5,5 @@ import java.util.List;
 
 public interface GetVehicleInspectionsUseCase {
     List<VehicleInspectionReportDTO> getInspectionsByType(Integer typeId);
+    List<VehicleInspectionReportDTO> getMotoInspections();
 }

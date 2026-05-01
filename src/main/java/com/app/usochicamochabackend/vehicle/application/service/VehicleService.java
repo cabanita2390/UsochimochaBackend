@@ -54,7 +54,7 @@ public class VehicleService implements VehicleUseCase {
 
     @Override
     public VehicleResponse updateVehicle(Integer id, VehicleRequest request) {
-        VehicleEntity entity = vehicleRepository.findById(Long.valueOf(id))
+        VehicleEntity entity = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehículo no encontrado"));
 
         if (!entity.getPlaca().equals(request.placa()) && vehicleRepository.findByPlaca(request.placa()).isPresent()) {
@@ -74,9 +74,9 @@ public class VehicleService implements VehicleUseCase {
 
     @Override
     public void deleteVehicle(Integer id) {
-        if (!vehicleRepository.existsById(Long.valueOf(id))) {
+        if (!vehicleRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehículo no encontrado");
         }
-        vehicleRepository.deleteById(Long.valueOf(id));
+        vehicleRepository.deleteById(id);
     }
 }

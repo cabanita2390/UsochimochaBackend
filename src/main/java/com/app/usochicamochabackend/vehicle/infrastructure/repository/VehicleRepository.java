@@ -10,7 +10,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface VehicleRepository extends JpaRepository<VehicleEntity, Long> {
+public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer> {
 
     @Query(nativeQuery = true, value = """
             SELECT
@@ -59,4 +59,10 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Long> {
             LIMIT 1
             """)
     java.util.Optional<VehicleProjection> findVehicleDetailByPlaca(@Param("placa") String placa);
+
+    @Query("SELECT v FROM VehicleEntity v JOIN v.tipoVehiculo t WHERE t.nombreTipo = :tipoName AND v.activo = TRUE")
+    List<VehicleEntity> findAllByTipoName(@Param("tipoName") String tipoName);
+
+    @Query("SELECT v FROM VehicleEntity v JOIN v.tipoVehiculo t WHERE t.nombreTipo <> :tipoName AND v.activo = TRUE")
+    List<VehicleEntity> findAllByTipoNameNot(@Param("tipoName") String tipoName);
 }

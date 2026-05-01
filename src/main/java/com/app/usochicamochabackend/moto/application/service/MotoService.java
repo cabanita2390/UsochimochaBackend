@@ -3,12 +3,16 @@ package com.app.usochicamochabackend.moto.application.service;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntity;
+import com.app.usochicamochabackend.mapper.VehicleMapper;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.moto.infrastructure.entity.*;
+import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
+import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
 import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
 import com.app.usochicamochabackend.moto.infrastructure.repository.*;
+import com.app.usochicamochabackend.moto.application.port.MotoCRUDUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,7 +26,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class MotoService {
+public class MotoService implements MotoCRUDUseCase {
 
         private final VehiculoRepository vehiculoRepository;
         private final UbicacionRepository ubicacionRepository;
@@ -195,4 +199,46 @@ public class MotoService {
                 // 4. Si es en el futuro
                 return "Vigente";
         }
+    // --- CRUD Motocicletas ---
+
+    @Override
+    public List<VehicleResponse> findAllMotos() {
+        return vehiculoRepository.findActivosByTipo("MOTOCICLETA").stream()
+                .map(VehicleMapper::toResponse)
+                .toList();
+    }
+
+    @Override
+    public VehicleResponse createMoto(VehicleRequest request) {
+        // Asegurar que siempre sea tipo MOTOCICLETA (ej: ID 2 o buscar por nombre)
+        // Por simplicidad usaremos el ID que venga en el request, pero podemos forzarlo.
+        VehicleEntity entity = VehicleEntity.builder()
+                .placa(request.placa())
+                .idMarca(request.idMarca())
+                .idTipoVehiculo(request.idTipoVehiculo()) // Aquí debería ser el ID de Moto
+                .kilometrajeActual(request.kilometrajeActual())
+                .belongsTo(request.belongsTo())
+                .activo(true)
+                .build();
+        vehiculoRepository.save(entity);
+        return VehicleMapper.toResponse(entity);
+    }
+
+    @Override
+    public VehicleResponse updateMoto(Integer id, VehicleRequest request) {
+        VehicleEntity entity = vehiculoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Moto no encontrada"));
+        entity.setPlaca(request.placa());
+        entity.setIdMarca(request.idMarca());
+        entity.setKilometrajeActual(request.kilometrajeActual());
+        entity.setBelongsTo(request.belongsTo());
+        entity.setActivo(request.activo());
+        vehiculoRepository.save(entity);
+        return VehicleMapper.toResponse(entity);
+    }
+
+    @Override
+    public void deleteMoto(Integer id) {
+        vehiculoRepository.deleteById(id);
+    }
 }

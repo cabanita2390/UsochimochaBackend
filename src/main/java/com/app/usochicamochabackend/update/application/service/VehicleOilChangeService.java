@@ -38,6 +38,7 @@ public class VehicleOilChangeService {
                 .quantity(request.quantity())
                 .kmAtChange(request.kmAtChange())
                 .intervalKm(request.intervalKm())
+                .airFilterChanged(request.airFilterChanged())
                 .build();
 
         vehicleOilChangeRepository.save(entity);

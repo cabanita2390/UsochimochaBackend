@@ -45,5 +45,6 @@ public record VehiculoInspectionRequest(
         Boolean sobrio,
         Boolean medicamentos,
         Boolean conscienteResponsabilidad,
-        Boolean condicionParaConducir) {
+        Boolean condicionParaConducir,
+        Integer idUbicacion) {
 }

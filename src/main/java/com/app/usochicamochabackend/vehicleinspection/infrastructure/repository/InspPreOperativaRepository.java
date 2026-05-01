@@ -17,4 +17,7 @@ public interface InspPreOperativaRepository extends JpaRepository<InspPreOperati
 
     @Query("SELECT i FROM InspPreOperativaEntity i JOIN i.vehiculo v WHERE v.idTipoVehiculo = :typeId ORDER BY i.fechaRegistro DESC")
     List<InspPreOperativaEntity> findAllByVehicleType(@Param("typeId") Integer typeId);
+
+    @Query("SELECT i FROM InspPreOperativaEntity i JOIN i.vehiculo v JOIN v.tipoVehiculo t WHERE UPPER(t.nombreTipo) = UPPER(:typeName) ORDER BY i.fechaRegistro DESC")
+    List<InspPreOperativaEntity> findAllByVehicleTypeName(@Param("typeName") String typeName);
 }
