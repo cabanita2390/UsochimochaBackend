@@ -1,6 +1,6 @@
-package com.app.usochicamochabackend.moto.infrastructure.repository;
+package com.app.usochicamochabackend.catalog.infrastructure.repository;
 
-import com.app.usochicamochabackend.moto.infrastructure.entity.TipoVehiculoEntity;
+import com.app.usochicamochabackend.catalog.infrastructure.entity.TipoVehiculoEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

@@ -1,13 +1,17 @@
 package com.app.usochicamochabackend.vehicleinspection.application.service;
 
+import java.util.List;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.DocumentoVehiculoResponse;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.KilometrajeValidacionResponse;
+import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoInspectionRequest;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoInspectionResponse;
 import com.app.usochicamochabackend.vehicleinspection.application.port.CreateVehiculoInspectionUseCase;
+import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspDetalleDocumentosEntity;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspDetalleElementosEntity;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspDetalleMecanicoEntity;
@@ -31,7 +35,7 @@ import java.time.YearMonth;
 
 @Service
 @RequiredArgsConstructor
-public class VehiculoInspectionService implements CreateVehiculoInspectionUseCase {
+public class VehiculoInspectionService implements CreateVehiculoInspectionUseCase, GetVehicleInspectionsUseCase {
 
     private final InspPreOperativaRepository inspPreOperativaRepository;
     private final InspDetalleMecanicoRepository detalleMecanicoRepository;
@@ -40,6 +44,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     private final InspDetalleElementosRepository detalleElementosRepository;
     private final InspDetalleSaludRepository detalleSaludRepository;
     private final DocumentacionYElementosRepository documentacionRepository;
+    private final UbicacionRepository ubicacionRepository;
     private final VehicleRepository vehicleRepository;
 
     /**
@@ -123,6 +128,61 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         }
 
         return new VehiculoInspectionResponse(idInspeccion, "Inspección guardada exitosamente");
+    }
+
+    @Override
+    public List<VehicleInspectionReportDTO> getInspectionsByType(Integer typeId) {
+        List<InspPreOperativaEntity> inspections = inspPreOperativaRepository.findAllByVehicleType(typeId);
+        List<VehicleInspectionReportDTO> reportList = new java.util.ArrayList<>();
+
+        for (InspPreOperativaEntity inspection : inspections) {
+            Long id = inspection.getIdInspeccion();
+            var mecanico = detalleMecanicoRepository.findByIdInspeccion(id).orElse(new InspDetalleMecanicoEntity());
+            var docs = detalleDocumentosRepository.findByIdInspeccion(id).orElse(new InspDetalleDocumentosEntity());
+            var elementos = detalleElementosRepository.findByIdInspeccion(id).orElse(new InspDetalleElementosEntity());
+            var salud = detalleSaludRepository.findByIdInspeccion(id).orElse(new InspDetalleSaludEntity());
+            var vehicle = inspection.getVehiculo();
+
+            reportList.add(new VehicleInspectionReportDTO(
+                id,
+                inspection.getFechaRegistro(),
+                vehicle != null ? vehicle.getPlaca() : null,
+                (vehicle != null && vehicle.getMarca() != null) ? vehicle.getMarca().getDescripcion() : null,
+                (vehicle != null && vehicle.getTipoVehiculo() != null) ? vehicle.getTipoVehiculo().getNombreTipo() : null,
+                inspection.getLoginUser(),
+                ubicacionRepository.findById(inspection.getIdUbicacion()).map(u -> u.getNombreUbicacion()).orElse("N/A"),
+                inspection.getKilometrajeReportado(),
+                inspection.getAprobadoRuta(),
+                inspection.getObservacionesFinales(),
+                
+                mecanico.getNivelAceite(),
+                mecanico.getNivelRefrigerante(),
+                mecanico.getNivelFrenos(),
+                mecanico.getEstadoLlantas(),
+                mecanico.getLucesGeneral(),
+                mecanico.getEstadoVisual(),
+                mecanico.getLimpiezaGeneral(),
+                
+                docs.getCheckSoat(),
+                docs.getCheckTecno(),
+                docs.getCheckLicencia(),
+                docs.getCheckExtintor(),
+                
+                elementos.getTieneBotiquin(),
+                elementos.getTieneSeñalizacion(),
+                elementos.getTieneLineasEmergencia(),
+                elementos.getTieneLlantaRepuesto(),
+                elementos.getTieneGatoHidraulico(),
+                
+                salud.getSaludFisica(),
+                salud.getSaludMental(),
+                salud.getSobrio(),
+                salud.getMedicamentos(),
+                salud.getCondicionParaConducir(),
+                salud.getConscienteResponsabilidad()
+            ));
+        }
+        return reportList;
     }
 
     /**

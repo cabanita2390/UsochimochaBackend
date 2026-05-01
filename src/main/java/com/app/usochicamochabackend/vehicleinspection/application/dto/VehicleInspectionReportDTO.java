@@ -9,6 +9,7 @@ public record VehicleInspectionReportDTO(
     String marca,
     String tipoVehiculo,
     String responsable,
+    String ubicacion,
     Integer kilometraje,
     Boolean aprobadoRuta,
     String observacionesFinales,
@@ -36,10 +37,10 @@ public record VehicleInspectionReportDTO(
     String tieneGatoHidraulico,
     
     // Detalle Salud
-    String saludFisica,
-    String saludMental,
-    String sobrio,
-    String medicamentos,
-    String condicionParaConducir,
+    Boolean saludFisica,
+    Boolean saludMental,
+    Boolean sobrio,
+    Boolean medicamentos,
+    Boolean condicionParaConducir,
     Boolean conscienteResponsabilidad
 ) {}

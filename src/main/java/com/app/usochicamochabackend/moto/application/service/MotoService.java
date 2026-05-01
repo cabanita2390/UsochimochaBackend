@@ -2,10 +2,12 @@ package com.app.usochicamochabackend.moto.application.service;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
+import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntity;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.moto.infrastructure.entity.*;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
+import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
 import com.app.usochicamochabackend.moto.infrastructure.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

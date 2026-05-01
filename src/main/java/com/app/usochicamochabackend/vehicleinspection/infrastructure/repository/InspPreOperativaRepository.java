@@ -7,10 +7,14 @@ import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.util.Optional;
+import java.util.List;
 
 @Repository
 public interface InspPreOperativaRepository extends JpaRepository<InspPreOperativaEntity, Long> {
     
     @Query("SELECT i FROM InspPreOperativaEntity i WHERE i.idVehiculo = :vehicleId ORDER BY i.fechaRegistro DESC LIMIT 1")
     Optional<InspPreOperativaEntity> findLatestByVehicleId(@Param("vehicleId") Integer vehicleId);
+
+    @Query("SELECT i FROM InspPreOperativaEntity i JOIN i.vehiculo v WHERE v.idTipoVehiculo = :typeId ORDER BY i.fechaRegistro DESC")
+    List<InspPreOperativaEntity> findAllByVehicleType(@Param("typeId") Integer typeId);
 }

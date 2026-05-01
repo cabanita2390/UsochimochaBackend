@@ -3,9 +3,11 @@ package com.app.usochicamochabackend.vehicleinspection.web;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.DocumentoVehiculoResponse;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.KilometrajeValidacionResponse;
+import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoInspectionRequest;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoInspectionResponse;
 import com.app.usochicamochabackend.vehicleinspection.application.port.CreateVehiculoInspectionUseCase;
+import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.service.VehiculoInspectionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -27,6 +29,7 @@ import java.net.URISyntaxException;
 public class VehiculoInspectionController {
 
         private final CreateVehiculoInspectionUseCase createVehiculoInspectionUseCase;
+        private final GetVehicleInspectionsUseCase getVehicleInspectionsUseCase;
         private final VehiculoInspectionService vehiculoInspectionService;
 
         @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -73,5 +76,11 @@ public class VehiculoInspectionController {
                         @RequestParam String placa,
                         @RequestParam Integer kilometraje) {
                 return ResponseEntity.ok(vehiculoInspectionService.validarKilometraje(placa, kilometraje));
+        }
+
+        @GetMapping("/reports/{typeId}")
+        @Operation(summary = "Obtener reportes de inspección por tipo", description = "Retorna el listado completo de inspecciones detalladas para un tipo de vehículo (1=Carro, 2=Moto)")
+        public ResponseEntity<java.util.List<VehicleInspectionReportDTO>> getReportsByType(@PathVariable Integer typeId) {
+                return ResponseEntity.ok(getVehicleInspectionsUseCase.getInspectionsByType(typeId));
         }
 }

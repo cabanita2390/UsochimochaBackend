@@ -1,9 +1,9 @@
 package com.app.usochicamochabackend.moto.application.service;
 
+import com.app.usochicamochabackend.catalog.infrastructure.entity.TipoVehiculoEntity;
+import com.app.usochicamochabackend.catalog.infrastructure.repository.TipoVehiculoRepository;
 import com.app.usochicamochabackend.moto.application.dto.TipoVehiculoResponse;
 import com.app.usochicamochabackend.moto.application.port.FindAllTiposVehiculoUseCase;
-import com.app.usochicamochabackend.moto.infrastructure.entity.TipoVehiculoEntity;
-import com.app.usochicamochabackend.moto.infrastructure.repository.TipoVehiculoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

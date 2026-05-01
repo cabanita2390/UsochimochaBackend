@@ -1,4 +1,4 @@
-package com.app.usochicamochabackend.moto.infrastructure.entity;
+package com.app.usochicamochabackend.catalog.infrastructure.entity;
 
 import jakarta.persistence.*;
 import lombok.*;

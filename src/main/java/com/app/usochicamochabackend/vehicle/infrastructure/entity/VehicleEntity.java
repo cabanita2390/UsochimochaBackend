@@ -1,6 +1,6 @@
 package com.app.usochicamochabackend.vehicle.infrastructure.entity;
 
-import com.app.usochicamochabackend.moto.infrastructure.entity.TipoVehiculoEntity;
+import com.app.usochicamochabackend.catalog.infrastructure.entity.TipoVehiculoEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
