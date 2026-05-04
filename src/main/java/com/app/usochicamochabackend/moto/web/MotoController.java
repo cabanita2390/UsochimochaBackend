@@ -61,10 +61,16 @@ public class MotoController {
         return ResponseEntity.ok(monitoringUseCase.getConsolidatedMonitoring());
     }
 
+    @GetMapping("/inspections/reports/history")
+    @Operation(summary = "Historial completo de inspecciones de motos", description = "Todas las inspecciones diarias (más recientes primero).")
+    public ResponseEntity<List<VehicleInspectionReportDTO>> getMotoInspectionsHistory() {
+        return ResponseEntity.ok(getInspectionsUseCase.getMotoInspectionsHistory());
+    }
+
     @GetMapping("/inspections/reports")
-    @Operation(summary = "Obtener reportes de inspección de motos", description = "Historial de inspecciones diarias de motocicletas.")
-    public ResponseEntity<List<VehicleInspectionReportDTO>> getMotoInspections() {
-        return ResponseEntity.ok(getInspectionsUseCase.getMotoInspections());
+    @Operation(summary = "Último reporte por placa", description = "Una fila por placa: inspección más reciente (incluso si hay varios registros de vehículo para la misma moto).")
+    public ResponseEntity<List<VehicleInspectionReportDTO>> getMotoInspectionsLatest() {
+        return ResponseEntity.ok(getInspectionsUseCase.getMotoInspectionsLatestPerVehicle());
     }
 
     // --- CRUD ---

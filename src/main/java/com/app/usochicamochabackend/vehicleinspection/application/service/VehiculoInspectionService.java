@@ -5,18 +5,10 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
-import com.app.usochicamochabackend.vehicleinspection.application.dto.DocumentoVehiculoResponse;
-import com.app.usochicamochabackend.vehicleinspection.application.dto.KilometrajeValidacionResponse;
-import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
-import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoInspectionRequest;
-import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoInspectionResponse;
+import com.app.usochicamochabackend.vehicleinspection.application.dto.*;
 import com.app.usochicamochabackend.vehicleinspection.application.port.CreateVehiculoInspectionUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
-import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspDetalleDocumentosEntity;
-import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspDetalleElementosEntity;
-import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspDetalleMecanicoEntity;
-import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspDetalleSaludEntity;
-import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.*;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.DocumentacionYElementosRepository;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspDetalleDocumentosRepository;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspDetalleElementosRepository;
@@ -31,7 +23,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.YearMonth;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,8 +47,8 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     private final VehicleRepository vehicleRepository;
 
     /**
-     * POST — Guarda la inspección pre-operativa en las 5 tablas de inspección.
-     * NO escribe en documentacion_y_elementos (eso lo administra la web/admin).
+     * POST — Guarda la inspección pre-operativa en las 5 tablas de inspección
+     * y, si el cliente envía fechas/URLs, fusiona en {@code documentacion_y_elementos}.
      */
     @Override
     @Transactional
@@ -123,12 +122,85 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                         .conscienteResponsabilidad(req.conscienteResponsabilidad())
                         .build());
 
-        // ── Actualizar kilometraje del vehículo ───────────────────────────────
+        mergeDocumentsFromInspectionRequest(idVehiculo, req);
+
+        // ── Actualizar kilometraje y fecha de último reporte (monitoreo) ───────
         if (req.kilometrajeReportado() != null && req.kilometrajeReportado() > 0) {
-            vehicleRepository.updateKilometraje(idVehiculo, req.kilometrajeReportado());
+            vehicleRepository.updateKilometrajeWithDate(
+                    idVehiculo,
+                    req.kilometrajeReportado(),
+                    LocalDateTime.now());
         }
 
         return new VehiculoInspectionResponse(idInspeccion, "Inspección guardada exitosamente");
+    }
+
+    /**
+     * Persiste fechas/URLs opcionales en documentacion_y_elementos (misma semántica que
+     * {@link #saveDocument(VehicleDocumentRequest)} / GET documentos).
+     */
+    private void mergeDocumentsFromInspectionRequest(Integer idVehiculo, VehiculoInspectionRequest req) {
+        upsertDocumentIfPresent(idVehiculo, "SOAT", req.fechaVencSoat(), blankToNull(req.urlImagenSoat()));
+        upsertDocumentIfPresent(idVehiculo, "TECNOMECANICA", req.fechaVencTecno(), blankToNull(req.urlImagenTecno()));
+        upsertDocumentIfPresent(idVehiculo, "LICENCIA DE CONDUCCION", req.fechaVencLicencia(), blankToNull(req.urlImagenLicencia()));
+
+        LocalDate extintorFecha = parseExtintorMonth(req.vigenciaExtintor());
+        if (extintorFecha != null) {
+            saveDocument(new VehicleDocumentRequest(
+                    idVehiculo,
+                    "EXTINTOR",
+                    extintorFecha,
+                    blankToNull(req.urlImagenExtintor())));
+        }
+    }
+
+    private void upsertDocumentIfPresent(Integer idVehiculo, String tipoBd, String fechaRaw, String imagenUrl) {
+        LocalDate fecha = parseFlexibleDate(fechaRaw);
+        if (fecha == null) {
+            return;
+        }
+        saveDocument(new VehicleDocumentRequest(idVehiculo, tipoBd, fecha, imagenUrl));
+    }
+
+    private static String blankToNull(String s) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        return s.trim();
+    }
+
+    /**
+     * Acepta {@code yyyy-MM-dd} o el prefijo de un instante ISO (toma los primeros 10 caracteres).
+     */
+    private static LocalDate parseFlexibleDate(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String s = raw.trim();
+        if (s.length() >= 10) {
+            s = s.substring(0, 10);
+        }
+        try {
+            return LocalDate.parse(s, DateTimeFormatter.ISO_LOCAL_DATE);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    /** Vigencia extintor en {@code yyyy-MM} → último día del mes. */
+    private static LocalDate parseExtintorMonth(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String s = raw.trim();
+        if (s.length() >= 7) {
+            s = s.substring(0, 7);
+        }
+        try {
+            return YearMonth.parse(s, DateTimeFormatter.ofPattern("yyyy-MM")).atEndOfMonth();
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     @Override
@@ -137,10 +209,38 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         return mapToReportDTO(inspections);
     }
 
+    private List<InspPreOperativaEntity> listMotoInspectionEntitiesNewestFirst() {
+        return inspPreOperativaRepository.findAllByVehicleTypeName("MOTOCICLETA");
+    }
+
     @Override
-    public List<VehicleInspectionReportDTO> getMotoInspections() {
-        List<InspPreOperativaEntity> inspections = inspPreOperativaRepository.findAllByVehicleTypeName("MOTOCICLETA");
-        return mapToReportDTO(inspections);
+    public List<VehicleInspectionReportDTO> getMotoInspectionsHistory() {
+        return mapToReportDTO(listMotoInspectionEntitiesNewestFirst());
+    }
+
+    @Override
+    public List<VehicleInspectionReportDTO> getMotoInspectionsLatestPerVehicle() {
+        List<InspPreOperativaEntity> ordered = listMotoInspectionEntitiesNewestFirst();
+        // Una fila por placa: si existen varios id_vehiculo duplicados para la misma moto,
+        // la lista ordenada DESC + putIfAbsent por placa deja solo la inspección más reciente.
+        Map<String, InspPreOperativaEntity> latestByKey = new LinkedHashMap<>();
+        for (InspPreOperativaEntity row : ordered) {
+            latestByKey.putIfAbsent(dedupeKeyMotoReport(row), row);
+        }
+        var latestRows = latestByKey.values().stream()
+                .sorted(Comparator.comparing(InspPreOperativaEntity::getFechaRegistro).reversed())
+                .toList();
+        return mapToReportDTO(latestRows);
+    }
+
+    private static String dedupeKeyMotoReport(InspPreOperativaEntity row) {
+        if (row.getVehiculo() != null && row.getVehiculo().getPlaca() != null) {
+            String p = row.getVehiculo().getPlaca().trim();
+            if (!p.isEmpty()) {
+                return "p:" + p.toUpperCase(Locale.ROOT);
+            }
+        }
+        return "v:" + (row.getIdVehiculo() != null ? row.getIdVehiculo() : 0);
     }
 
     private List<VehicleInspectionReportDTO> mapToReportDTO(List<InspPreOperativaEntity> inspections) {
@@ -160,8 +260,13 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 (vehicle != null) ? vehicle.getPlaca() : "N/A",
                 (vehicle != null && vehicle.getMarca() != null) ? vehicle.getMarca().getDescripcion() : null,
                 (vehicle != null && vehicle.getTipoVehiculo() != null) ? vehicle.getTipoVehiculo().getNombreTipo() : null,
+                (vehicle != null && vehicle.getBelongsTo() != null && !vehicle.getBelongsTo().isBlank())
+                        ? vehicle.getBelongsTo()
+                        : "N/A",
+                (inspection.getIdUbicacion() != null)
+                    ? ubicacionRepository.findById(inspection.getIdUbicacion()).map(u -> u.getNombreUbicacion()).orElse("N/A")
+                    : "N/A",
                 inspection.getLoginUser(),
-                ubicacionRepository.findById(inspection.getIdUbicacion()).map(u -> u.getNombreUbicacion()).orElse("N/A"),
                 inspection.getKilometrajeReportado(),
                 inspection.getAprobadoRuta(),
                 inspection.getObservacionesFinales(),
@@ -276,6 +381,34 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 fechaTecno, estadoTecno, urlTecno,
                 fechaLicencia, estadoLicencia, urlLicencia,
                 fechaExtintor, estadoExtintor, urlExtintor);
+    }
+
+    /**
+     * Guarda o actualiza un documento maestro del vehículo.
+     */
+    @Transactional
+    public void saveDocument(VehicleDocumentRequest req) {
+        // Buscar si ya existe uno de ese tipo para actualizarlo, o crear uno nuevo
+        Optional<DocumentacionYElementosEntity> existing = documentacionRepository
+                .findLatestByVehiculoAndTipo(req.idVehiculo(), req.tipoDocumento());
+
+        DocumentacionYElementosEntity doc;
+        if (existing.isPresent()) {
+            doc = existing.get();
+            doc.setFechaVencimiento(req.fechaVencimiento());
+            if (req.imagenUrl() != null) doc.setImagenUrl(req.imagenUrl());
+            doc.setEstadoDatos(calcularEstado(req.fechaVencimiento()));
+        } else {
+            doc = DocumentacionYElementosEntity.builder()
+                    .idVehiculo(req.idVehiculo())
+                    .tipoDocumento(req.tipoDocumento())
+                    .fechaVencimiento(req.fechaVencimiento())
+                    .imagenUrl(req.imagenUrl())
+                    .estadoDatos(calcularEstado(req.fechaVencimiento()))
+                    .activo(true)
+                    .build();
+        }
+        documentacionRepository.save(doc);
     }
 
     /**

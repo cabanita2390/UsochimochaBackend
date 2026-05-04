@@ -42,10 +42,11 @@ public class VehicleOilChangeService {
                 .build();
 
         vehicleOilChangeRepository.save(entity);
-        
-        // Optionally update vehicle's current Km if the change happened at a higher Km
-        if (request.kmAtChange() > (vehicle.getKilometrajeActual() != null ? vehicle.getKilometrajeActual() : 0)) {
-            vehicle.setKilometrajeActual(request.kmAtChange());
+
+        // Opcional: alinear km del vehículo si el cambio se registró a un km mayor
+        Integer kmChange = request.kmAtChange();
+        if (kmChange != null && kmChange > (vehicle.getKilometrajeActual() != null ? vehicle.getKilometrajeActual() : 0)) {
+            vehicle.setKilometrajeActual(kmChange);
             vehicleRepository.save(vehicle);
         }
     }

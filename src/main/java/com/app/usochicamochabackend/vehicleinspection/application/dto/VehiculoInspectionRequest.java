@@ -1,13 +1,16 @@
 package com.app.usochicamochabackend.vehicleinspection.application.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 /**
  * DTO de la inspección pre-operativa de vehículo enviada desde el móvil.
- *
- * IMPORTANTE: Las fechas de vencimiento y fotos de documentos NO van aquí.
- * Esos datos los administra la web/admin en la tabla documentacion_y_elementos.
- * El móvil solo envía los checks visuales del inspector
- * (Vigente/Próximo/Vencido).
+ * <p>
+ * Los checks de documentación van a {@code insp_detalle_documentos}.
+ * Si el cliente envía fechas / URLs opcionales, se fusionan en
+ * {@code documentacion_y_elementos} (misma lógica que el alta desde web/admin).
+ * Campos desconocidos (p. ej. marca informativa) se ignoran en JSON.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record VehiculoInspectionRequest(
 
         // ── inspeccion_pre_operativa ──────────────────────────────────────────
@@ -31,6 +34,20 @@ public record VehiculoInspectionRequest(
         String checkTecno,
         String checkLicencia,
         String checkExtintor,
+
+        // ── documentacion_y_elementos (opcional, desde móvil) ─────────────────
+        /** Fecha vencimiento SOAT (ISO yyyy-MM-dd o prefijo de ISO-8601). */
+        String fechaVencSoat,
+        /** Fecha vencimiento tecnomecánica. */
+        String fechaVencTecno,
+        /** Fecha vencimiento licencia. */
+        String fechaVencLicencia,
+        /** Vigencia extintor en formato {@code yyyy-MM}. */
+        String vigenciaExtintor,
+        String urlImagenSoat,
+        String urlImagenTecno,
+        String urlImagenLicencia,
+        String urlImagenExtintor,
 
         // ── insp_detalle_elementos ────────────────────────────────────────────
         Boolean tieneBotiquin,

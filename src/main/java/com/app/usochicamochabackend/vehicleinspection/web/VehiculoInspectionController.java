@@ -64,6 +64,13 @@ public class VehiculoInspectionController {
                 return ResponseEntity.ok(vehiculoInspectionService.getDocumentos(idVehiculo));
         }
 
+        @PostMapping("/documentos")
+        @Operation(summary = "Actualizar documentos de un vehículo", description = "Permite al administrador subir o actualizar la fecha de vencimiento de SOAT, Tecno, etc.")
+        public ResponseEntity<Void> updateDocumento(@RequestBody com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleDocumentRequest request) {
+                vehiculoInspectionService.saveDocument(request);
+                return ResponseEntity.ok().build();
+        }
+
         @GetMapping("/validar-kilometraje")
         @Operation(summary = "Validar kilometraje del inspector", description = "Compara el kilometraje ingresado por el inspector con el último registrado. "
                         +

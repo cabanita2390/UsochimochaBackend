@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.vehicle.infrastructure.entity;
 
 import com.app.usochicamochabackend.catalog.infrastructure.entity.TipoVehiculoEntity;
+import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -48,4 +49,9 @@ public class VehicleEntity {
 
     @Column(name = "belongs_to")
     private String belongsTo;
+
+    /** Ubicación operativa por defecto (catálogo); la de cada inspección sigue en inspeccion_pre_operativa.id_ubicacion. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_ubicacion_base")
+    private UbicacionEntity ubicacionBase;
 }

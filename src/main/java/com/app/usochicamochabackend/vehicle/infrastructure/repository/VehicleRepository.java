@@ -19,14 +19,38 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer>
                 m.descripcion       AS "marca",
                 t.nombre_tipo       AS "tipoVehiculo",
                 v.kilometraje_actual AS "kilometrajeActual",
-                v.belongs_to         AS "belongsTo"
+                v.belongs_to         AS "belongsTo",
+                v.id_ubicacion_base  AS "idUbicacionBase",
+                ub.nombre_ubicacion  AS "ubicacionBase"
             FROM vehiculos v
             JOIN cat_marcas_modelos  m ON v.id_marca          = m.id_marca
             JOIN cat_tipos_vehiculo  t ON v.id_tipo_vehiculo  = t.id_tipo_vehiculo
+            LEFT JOIN cat_ubicaciones ub ON v.id_ubicacion_base = ub.id_ubicacion
             WHERE v.activo = TRUE
             ORDER BY v.placa
             """)
     List<VehicleProjection> findAllActiveVehicles();
+
+    /** Listado activo filtrado por nombre de tipo (p. ej. MOTOCICLETA) — JOIN de ubicación base como {@link #findAllActiveVehicles()}. */
+    @Query(nativeQuery = true, value = """
+            SELECT
+                v.id_vehiculo       AS "id",
+                v.placa             AS "placa",
+                m.descripcion       AS "marca",
+                t.nombre_tipo       AS "tipoVehiculo",
+                v.kilometraje_actual AS "kilometrajeActual",
+                v.belongs_to         AS "belongsTo",
+                v.id_ubicacion_base  AS "idUbicacionBase",
+                ub.nombre_ubicacion  AS "ubicacionBase"
+            FROM vehiculos v
+            JOIN cat_marcas_modelos  m ON v.id_marca          = m.id_marca
+            JOIN cat_tipos_vehiculo  t ON v.id_tipo_vehiculo  = t.id_tipo_vehiculo
+            LEFT JOIN cat_ubicaciones ub ON v.id_ubicacion_base = ub.id_ubicacion
+            WHERE v.activo = TRUE
+              AND UPPER(TRIM(t.nombre_tipo)) = UPPER(TRIM(:tipoName))
+            ORDER BY v.placa
+            """)
+    List<VehicleProjection> findAllActiveVehiclesByTipoName(@Param("tipoName") String tipoName);
 
     /**
      * Actualiza el kilometraje del vehículo al guardar una inspección
@@ -50,10 +74,13 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer>
                 m.descripcion       AS "marca",
                 t.nombre_tipo       AS "tipoVehiculo",
                 v.kilometraje_actual AS "kilometrajeActual",
-                v.belongs_to         AS "belongsTo"
+                v.belongs_to         AS "belongsTo",
+                v.id_ubicacion_base  AS "idUbicacionBase",
+                ub.nombre_ubicacion  AS "ubicacionBase"
             FROM vehiculos v
             JOIN cat_marcas_modelos  m ON v.id_marca         = m.id_marca
             JOIN cat_tipos_vehiculo  t ON v.id_tipo_vehiculo = t.id_tipo_vehiculo
+            LEFT JOIN cat_ubicaciones ub ON v.id_ubicacion_base = ub.id_ubicacion
             WHERE v.placa = :placa
               AND v.activo = TRUE
             LIMIT 1

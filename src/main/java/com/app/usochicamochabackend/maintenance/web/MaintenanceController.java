@@ -16,7 +16,6 @@ import java.util.List;
 @RequestMapping("/api/v1/maintenance")
 @RequiredArgsConstructor
 @Tag(name = "Maintenance", description = "Gestión de mantenimientos preventivos y correctivos")
-@CrossOrigin(origins = "*")
 public class MaintenanceController {
 
     private final MaintenanceUseCase maintenanceUseCase;

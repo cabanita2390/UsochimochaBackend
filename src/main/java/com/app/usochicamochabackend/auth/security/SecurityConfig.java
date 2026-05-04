@@ -85,6 +85,11 @@ public class SecurityConfig {
                     http.requestMatchers("/api/actions/**").hasRole("ADMIN");
                     http.requestMatchers("/new-data/notifications/**").hasRole("ADMIN");
                     
+                    // Gestión administrativa de documentos de vehículos
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/admin/documents").hasRole("ADMIN");
+                    // Cambio de aceite vehicular
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/vehicle/oil-change").hasAnyRole("MECANIC", "ADMIN");
+                    
                     // Asegurar el resto de configuraciones previas
                     http.requestMatchers(HttpMethod.GET, "/api/oil-changes/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/oil/brand/**").hasAnyRole("MECANIC", "ADMIN"); // GET público interno
@@ -107,11 +112,12 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOrigin("https://usochicamocha.co");
-        configuration.addAllowedOrigin("https://web.usochicamocha.co");
-        configuration.addAllowedOrigin("http://localhost:5173");
-        configuration.addAllowedOrigin("http://localhost:5174");
-        configuration.addAllowedOrigin("http://localhost:3000");
+        configuration.setAllowedOriginPatterns(List.of(
+                "https://usochicamocha.co",
+                "https://web.usochicamocha.co",
+                "http://localhost:[*]",
+                "http://127.0.0.1:[*]"
+        ));
         configuration.addAllowedHeader("*");
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowCredentials(true);

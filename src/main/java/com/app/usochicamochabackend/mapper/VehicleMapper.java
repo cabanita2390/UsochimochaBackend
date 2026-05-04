@@ -8,13 +8,17 @@ public class VehicleMapper {
 
     public static VehicleResponse toResponse(VehicleEntity entity) {
         if (entity == null) return null;
+        Integer ubiId = entity.getUbicacionBase() != null ? entity.getUbicacionBase().getId() : null;
+        String ubiNombre = entity.getUbicacionBase() != null ? entity.getUbicacionBase().getNombreUbicacion() : null;
         return new VehicleResponse(
                 entity.getIdVehiculo(),
                 entity.getPlaca(),
                 entity.getMarca() != null ? entity.getMarca().getDescripcion() : null,
                 entity.getTipoVehiculo() != null ? entity.getTipoVehiculo().getNombreTipo() : null,
                 entity.getKilometrajeActual(),
-                entity.getBelongsTo()
+                entity.getBelongsTo(),
+                ubiId,
+                ubiNombre
         );
     }
 
@@ -26,7 +30,9 @@ public class VehicleMapper {
                 projection.getMarca(),
                 projection.getTipoVehiculo(),
                 projection.getKilometrajeActual(),
-                projection.getBelongsTo()
+                projection.getBelongsTo(),
+                projection.getIdUbicacionBase(),
+                projection.getUbicacionBase()
         );
     }
 }

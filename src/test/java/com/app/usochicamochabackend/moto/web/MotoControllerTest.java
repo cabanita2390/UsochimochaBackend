@@ -2,7 +2,9 @@ package com.app.usochicamochabackend.moto.web;
 
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.moto.application.dto.*;
+import com.app.usochicamochabackend.moto.application.port.MotoMonitoringUseCase;
 import com.app.usochicamochabackend.moto.application.service.MotoService;
+import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +36,12 @@ class MotoControllerTest {
     private MotoService motoService;
 
     @MockBean
+    private MotoMonitoringUseCase motoMonitoringUseCase;
+
+    @MockBean
+    private GetVehicleInspectionsUseCase getVehicleInspectionsUseCase;
+
+    @MockBean
     private JwtUtils jwtUtils;
 
     @Autowired
@@ -61,6 +69,24 @@ class MotoControllerTest {
 
     @Test
     @WithMockUser
+    void getMotoInspectionsLatest_ShouldReturnOk() throws Exception {
+        when(getVehicleInspectionsUseCase.getMotoInspectionsLatestPerVehicle()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/moto/inspections/reports"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser
+    void getMotoInspectionsHistory_ShouldReturnOk() throws Exception {
+        when(getVehicleInspectionsUseCase.getMotoInspectionsHistory()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/moto/inspections/reports/history"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser
     void saveInspeccion_ShouldReturnId() throws Exception {
         InspeccionMotoRequest request = new InspeccionMotoRequest(
                 1, 5000, "BUENO", "Todo ok",
@@ -74,7 +100,7 @@ class MotoControllerTest {
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$").value(100L));
     }
 }

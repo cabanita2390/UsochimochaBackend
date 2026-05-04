@@ -19,7 +19,10 @@ public record VehicleRequest(
         Integer kilometrajeActual,
 
         String belongsTo,
-        
+
+        /** Catálogo {@code cat_ubicaciones}; opcional (p. ej. Unidad Pantano). */
+        Integer idUbicacionBase,
+
         Boolean activo
 ) {
 }

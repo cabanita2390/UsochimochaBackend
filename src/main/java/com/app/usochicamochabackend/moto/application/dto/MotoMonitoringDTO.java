@@ -5,6 +5,12 @@ import java.time.LocalDateTime;
 
 public record MotoMonitoringDTO(
     String departamento,
+    /** Ubicación por defecto del vehículo (catálogo {@code id_ubicacion_base}). */
+    String ubicacionBase,
+    /**
+     * Unidad/sitio de la última inspección (nombre de {@code cat_ubicaciones} vía {@code insp_pre_operativa.id_ubicacion}).
+     * El nombre del campo en JSON se mantiene por compatibilidad con clientes existentes.
+     */
     String responsable,
     String placa,
     Integer kmActual,

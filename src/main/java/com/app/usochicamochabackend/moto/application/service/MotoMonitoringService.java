@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.moto.application.service;
 
+import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntity;
+import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
 import com.app.usochicamochabackend.moto.application.dto.MotoMonitoringDTO;
 import com.app.usochicamochabackend.moto.application.port.MotoMonitoringUseCase;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
@@ -12,6 +14,7 @@ import com.app.usochicamochabackend.update.infrastructure.entity.VehicleOilChang
 import com.app.usochicamochabackend.update.infrastructure.repository.VehicleOilChangeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -28,6 +31,7 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
     private final InspPreOperativaRepository inspectionRepository;
     private final DocumentacionYElementosRepository documentRepository;
     private final VehicleOilChangeRepository oilChangeRepository;
+    private final UbicacionRepository ubicacionRepository;
 
     @Override
     public List<MotoMonitoringDTO> getConsolidatedMonitoring() {
@@ -48,6 +52,8 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
         LocalDateTime lastReportDate = null;
         String estadoMoto = "Óptimo";
         String novedad = "Ninguna";
+        /** Excel «Responsable / unidad»: nombre de estación donde se reportó la última inspección (app móvil envía idUbicacion). */
+        String unidadUltimoReporte = null;
 
         if (lastInsp.isPresent()) {
             InspPreOperativaEntity insp = lastInsp.get();
@@ -56,11 +62,23 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
             estadoMoto = insp.getEstadoVehiculo() != null ? insp.getEstadoVehiculo() : "Regular";
             novedad = (insp.getObservacionesFinales() != null && !insp.getObservacionesFinales().isBlank()) 
                       ? insp.getObservacionesFinales() : "Ninguna";
+            Integer idUb = insp.getIdUbicacion();
+            if (idUb != null) {
+                unidadUltimoReporte = ubicacionRepository.findById(idUb)
+                        .map(UbicacionEntity::getNombreUbicacion)
+                        .orElse(null);
+            }
+        }
+
+        String ubicacionCatalogo = null;
+        if (moto.getUbicacionBase() != null) {
+            ubicacionCatalogo = moto.getUbicacionBase().getNombreUbicacion();
         }
 
         return new MotoMonitoringDTO(
             moto.getBelongsTo(),
-            null, // Responsable (puedes ajustarlo si tienes un campo de asignación)
+            ubicacionCatalogo,
+            unidadUltimoReporte,
             moto.getPlaca(),
             moto.getKilometrajeActual(),
             getDocumentStatus(moto.getIdVehiculo(), "SOAT"),
@@ -94,7 +112,10 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
         Integer kmActual = moto.getKilometrajeActual() != null ? moto.getKilometrajeActual() : 0;
         Integer kmRemaining = nextChangeKm - kmActual;
 
-        String estado = (kmRemaining > 500) ? "OK" : (kmRemaining >= 0 ? "Próximo a Cambio" : "Cambio de Aceite");
+        // Motos: intervalos cortos; “próximo” cuando quedan ≤ ~20 % del intervalo (mín. 100 km).
+        int interval = change.getIntervalKm() != null && change.getIntervalKm() > 0 ? change.getIntervalKm() : 3000;
+        int umbralProximo = Math.max(100, interval / 5);
+        String estado = (kmRemaining > umbralProximo) ? "OK" : (kmRemaining >= 0 ? "Próximo a Cambio" : "Cambio de Aceite");
 
         return new MotoMonitoringDTO.OilStatus(
             change.getDateStamp().toLocalDate(),
