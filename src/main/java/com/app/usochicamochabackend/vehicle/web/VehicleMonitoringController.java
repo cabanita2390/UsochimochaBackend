@@ -15,13 +15,19 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/vehicle/monitoring")
 @RequiredArgsConstructor
-@Tag(name = "Vehicle Monitoring", description = "Endpoints para el seguimiento y control consolidado de vehículos")
+@Tag(
+                name = "Vehicle Monitoring",
+                description = "Tablero consolidado (documentación SOAT/Tecno, aceite, última inspección) para la flota **no moto**: "
+                                + "excluye filas cuyo tipo es MOTOCICLETA. Las motos usan `/api/v1/moto/monitoring/consolidated`.")
 public class VehicleMonitoringController {
 
     private final VehicleMonitoringUseCase vehicleMonitoringUseCase;
 
     @GetMapping("/consolidated")
-    @Operation(summary = "Obtener monitoreo consolidado", description = "Retorna el estado de documentos y mantenimiento de todos los vehículos")
+    @Operation(
+                    summary = "Monitoreo consolidado (flota vehicular)",
+                    description = "Una fila por vehículo no moto: vigencias de documentos, estado de aceite y datos derivados de última inspección. "
+                                    + "Requiere rol MECANIC o ADMIN para GET.")
     public ResponseEntity<List<VehicleMonitoringDTO>> getConsolidated() {
         return ResponseEntity.ok(vehicleMonitoringUseCase.getConsolidatedMonitoring());
     }

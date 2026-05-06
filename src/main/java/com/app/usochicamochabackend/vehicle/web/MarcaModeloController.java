@@ -18,7 +18,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/brand/vehicle")
 @RequiredArgsConstructor
-@Tag(name = "Marcas de Vehículos", description = "Endpoints para gestionar las marcas de los vehículos")
+@Tag(
+                name = "Marcas de Vehículos",
+                description = "CRUD de `cat_marcas_modelos` (descripción de marca). Referenciado por `VehicleRequest.idMarca`. "
+                                + "Mismo catálogo para vehículos y motos. Requiere rol **ADMIN** para POST/PUT/DELETE.")
 public class MarcaModeloController {
 
     private final MarcaModeloUseCase marcaModeloUseCase;

@@ -8,6 +8,8 @@ import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,7 +26,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/moto")
 @RequiredArgsConstructor
-@Tag(name = "Moto", description = "Endpoints para inspección de motocicletas")
+@Tag(
+                name = "Moto",
+                description = "Motocicletas: **CRUD** sobre la tabla `vehiculos` (tipo forzado a MOTOCICLETA en servidor), "
+                                + "**inspección diaria** (`POST /inspeccion`), **documentos** por placa, **monitoreo** consolidado, "
+                                + "**reportes** de inspección e **imagen** pública de documentos. "
+                                + "Inspecciones formales tipo “preoperativa extendida” de automóvil usan `/api/v1/vehicle-inspection`.")
 public class MotoController {
 
     private final MotoService motoService;
@@ -50,7 +57,16 @@ public class MotoController {
     }
 
     @PostMapping("/inspeccion")
-    @Operation(summary = "Guardar inspección de moto")
+    @Operation(
+                    summary = "Guardar inspección de moto",
+                    description = "Registra cabecera en `inspeccion_pre_operativa`, detalle mecánico y detalle documentos. "
+                                    + "Actualiza km del vehículo si se informa kilometraje. El responsable se toma del **usuario JWT**. "
+                                    + "Respuesta: **201 Created** con el id numérico de la inspección.")
+    @ApiResponses({
+                    @ApiResponse(responseCode = "201", description = "Inspección creada; cuerpo = id de inspección (Long)"),
+                    @ApiResponse(responseCode = "400", description = "Solicitud inválida"),
+                    @ApiResponse(responseCode = "404", description = "Vehículo no encontrado")
+    })
     public ResponseEntity<Long> saveInspeccion(@RequestBody InspeccionMotoRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(motoService.saveInspeccion(req));
     }
@@ -73,23 +89,51 @@ public class MotoController {
         return ResponseEntity.ok(getInspectionsUseCase.getMotoInspectionsLatestPerVehicle());
     }
 
-    // --- CRUD ---
+    // --- CRUD --- (tipo MOTOCICLETA fijado en MotoService; body compatible con VehicleRequest)
     @GetMapping
+    @Operation(
+                    summary = "Listar motocicletas (inventario admin)",
+                    description = "Solo registros activos cuyo tipo es **MOTOCICLETA**, con marca, km y ubicación base si existen.")
     public ResponseEntity<List<VehicleResponse>> getAllMotos() {
         return ResponseEntity.ok(motoService.findAllMotos());
     }
 
     @PostMapping
+    @Operation(
+                    summary = "Crear motocicleta",
+                    description = "Body tipo `VehicleRequest`; `idTipoVehiculo` del cliente se ignora — el servidor asigna el id del tipo **MOTOCICLETA**. "
+                                    + "Placa única en toda la tabla vehículos. Requiere rol **ADMIN**.")
+    @ApiResponses({
+                    @ApiResponse(responseCode = "201", description = "Moto creada"),
+                    @ApiResponse(responseCode = "400", description = "Placa duplicada, placa vacía o ubicación inválida"),
+                    @ApiResponse(responseCode = "500", description = "Tipo MOTOCICLETA no configurado en catálogo")
+    })
     public ResponseEntity<VehicleResponse> createMoto(@RequestBody VehicleRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(motoService.createMoto(request));
     }
 
     @PutMapping("/{id}")
+    @Operation(
+                    summary = "Actualizar motocicleta",
+                    description = "El registro debe ser de tipo MOTOCICLETA; si no, 400. Requiere rol **ADMIN**.")
+    @ApiResponses({
+                    @ApiResponse(responseCode = "200", description = "Moto actualizada"),
+                    @ApiResponse(responseCode = "400", description = "No es moto / placa duplicada / ubicación inválida"),
+                    @ApiResponse(responseCode = "404", description = "Id no encontrado")
+    })
     public ResponseEntity<VehicleResponse> updateMoto(@PathVariable Integer id, @RequestBody VehicleRequest request) {
         return ResponseEntity.ok(motoService.updateMoto(id, request));
     }
 
     @DeleteMapping("/{id}")
+    @Operation(
+                    summary = "Eliminar motocicleta",
+                    description = "Borra la fila en `vehiculos` si es tipo MOTOCICLETA. Requiere rol **ADMIN**.")
+    @ApiResponses({
+                    @ApiResponse(responseCode = "204", description = "Eliminada"),
+                    @ApiResponse(responseCode = "400", description = "El id no corresponde a una motocicleta"),
+                    @ApiResponse(responseCode = "404", description = "No encontrada")
+    })
     public ResponseEntity<Void> deleteMoto(@PathVariable Integer id) {
         motoService.deleteMoto(id);
         return ResponseEntity.noContent().build();

@@ -18,25 +18,37 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/vehicle")
 @RequiredArgsConstructor
-@Tag(name = "Vehicle", description = "Endpoints para vehículos")
+@Tag(
+                name = "Vehicle",
+                description = "Administración de vehículos (tabla `vehiculos`). El listado devuelve **todos** los registros activos; "
+                                + "las motocicletas pueden aparecer aquí y también en el recurso `/api/v1/moto`. "
+                                + "Campos típicos del cuerpo: placa, idMarca, idTipoVehiculo (`cat_tipos_vehiculo`), kilometrajeActual, belongsTo, idUbicacionBase, activo.")
 public class VehicleController {
 
     private final VehicleUseCase vehicleUseCase;
 
     @GetMapping
-    @Operation(summary = "Listar vehículos activos", description = "Retorna todos los vehículos activos con placa, marca y tipo.")
+    @Operation(
+                    summary = "Listar vehículos activos",
+                    description = "Retorna todos los vehículos con `activo=true` (marca, tipo, km, área, ubicación base si aplica). "
+                                    + "No filtra por tipo; puede incluir motocicletas si están en la misma tabla.")
     public ResponseEntity<List<VehicleResponse>> getAllVehicles() {
         return ResponseEntity.ok(vehicleUseCase.findAllVehicles());
     }
 
     @GetMapping("/{placa}")
-    @Operation(summary = "Obtener vehículo por placa", description = "Retorna el detalle de un vehículo específico.")
+    @Operation(
+                    summary = "Obtener vehículo por placa",
+                    description = "Detalle por placa (404 si no existe o no está activo). La placa en la URL debe coincidir con el registro.")
     public ResponseEntity<VehicleResponse> getVehicleByPlaca(@PathVariable String placa) {
         return ResponseEntity.ok(vehicleUseCase.findByPlaca(placa));
     }
 
     @PostMapping
-    @Operation(summary = "Crear vehículo", description = "Crea un nuevo vehículo en el sistema.")
+    @Operation(
+                    summary = "Crear vehículo",
+                    description = "Alta en `vehiculos`. Placa única. Requiere JWT con rol **ADMIN**. "
+                                    + "Al crear, el registro queda activo por defecto.")
     @ApiResponse(responseCode = "201", description = "Vehículo creado exitosamente")
     public ResponseEntity<VehicleResponse> createVehicle(@Valid @RequestBody VehicleRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(vehicleUseCase.createVehicle(request));

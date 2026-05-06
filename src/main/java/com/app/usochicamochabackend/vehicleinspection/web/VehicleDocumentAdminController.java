@@ -11,7 +11,10 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/admin/documents")
 @RequiredArgsConstructor
-@Tag(name = "Admin Documents", description = "CRUD administrativo para vigencia de documentos")
+@Tag(
+                name = "Admin Documents",
+                description = "Actualización administrativa de vigencias de documentación (SOAT, Tecnomecánica, etc.) en vehículos/motos registrados. "
+                                + "Requiere rol **ADMIN** (`POST /api/v1/admin/documents`).")
 public class VehicleDocumentAdminController {
 
     private final VehiculoInspectionService vehiculoInspectionService;

@@ -25,7 +25,11 @@ import java.net.URISyntaxException;
 @RestController
 @RequestMapping("/api/v1/vehicle-inspection")
 @RequiredArgsConstructor
-@Tag(name = "Vehicle Inspection", description = "Endpoints para la Inspección Pre-Operativa de Vehículos")
+@Tag(
+                name = "Vehicle Inspection",
+                description = "Inspección **preoperativa completa** para vehículos de campo (livianos/pesados): registro en varias tablas "
+                                + "detalladas. Las **motocicletas** usan el flujo simplificado `POST /api/v1/moto/inspeccion`. "
+                                + "Listados por tipo de vehículo: `GET .../reports/{typeId}` (p. ej. `typeId=2` para AUTOMOVIL en datos semilla).")
 public class VehiculoInspectionController {
 
         private final CreateVehiculoInspectionUseCase createVehiculoInspectionUseCase;
@@ -65,7 +69,15 @@ public class VehiculoInspectionController {
         }
 
         @PostMapping("/documentos")
-        @Operation(summary = "Actualizar documentos de un vehículo", description = "Permite al administrador subir o actualizar la fecha de vencimiento de SOAT, Tecno, etc.")
+        @Operation(
+                        summary = "Actualizar documentos (vigencias) vía inspección",
+                        description = "Alias funcional de actualización de vigencias; en despliegues recientes el panel admin puede usar "
+                                        + "`POST /api/v1/admin/documents` con el mismo propósito.")
+        @ApiResponses(value = {
+                        @ApiResponse(responseCode = "200", description = "Documento guardado"),
+                        @ApiResponse(responseCode = "401", description = "No autorizado"),
+                        @ApiResponse(responseCode = "403", description = "Sin permisos suficientes")
+        })
         public ResponseEntity<Void> updateDocumento(@RequestBody com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleDocumentRequest request) {
                 vehiculoInspectionService.saveDocument(request);
                 return ResponseEntity.ok().build();
@@ -86,7 +98,15 @@ public class VehiculoInspectionController {
         }
 
         @GetMapping("/reports/{typeId}")
-        @Operation(summary = "Obtener reportes de inspección por tipo", description = "Retorna el listado completo de inspecciones detalladas para un tipo de vehículo (1=Carro, 2=Moto)")
+        @Operation(
+                        summary = "Reportes de inspección por tipo de vehículo",
+                        description = "Listado completo de inspecciones para vehículos cuyo `id_tipo_vehiculo` coincide con `typeId` (catálogo `cat_tipos_vehiculo`). "
+                                        + "En datos semilla habituales: 1 = MOTOCICLETA, 2 = AUTOMOVIL, 3 = CAMION, 4 = PICKUP. "
+                                        + "La web admin usa `typeId=2` para el listado de inspecciones de livianos.")
+        @ApiResponses(value = {
+                        @ApiResponse(responseCode = "200", description = "Lista de reportes (`VehicleInspectionReportDTO`)"),
+                        @ApiResponse(responseCode = "401", description = "No autorizado")
+        })
         public ResponseEntity<java.util.List<VehicleInspectionReportDTO>> getReportsByType(@PathVariable Integer typeId) {
                 return ResponseEntity.ok(getVehicleInspectionsUseCase.getInspectionsByType(typeId));
         }
