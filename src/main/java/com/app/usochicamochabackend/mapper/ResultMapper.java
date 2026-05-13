@@ -10,6 +10,7 @@ import com.app.usochicamochabackend.performance.infrastructure.entity.LaborEntit
 import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEntity;
 import com.app.usochicamochabackend.performance.infrastructure.entity.SparePartEntity;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -71,15 +72,20 @@ public class ResultMapper {
 
         OrderResponse order = OrderMapper.toDto(entity.getOrder());
 
+        Double hourMeter = order != null && order.inspection() != null ? order.inspection().hourMeter() : null;
+
+        BigDecimal laborPrice = labor != null ? labor.price() : BigDecimal.ZERO;
+        BigDecimal sparePrice = sparePart != null ? sparePart.price() : BigDecimal.ZERO;
+
         return new ResultDTO(
                 entity.getId(),
                 entity.getDate(),
                 entity.getDescription(),
-                order.inspection().hourMeter(),
+                hourMeter,
                 entity.getTimeSpent(),
                 labor,
                 sparePart,
-                labor.price().add(sparePart.price())
+                laborPrice.add(sparePrice)
         );
     }
 
