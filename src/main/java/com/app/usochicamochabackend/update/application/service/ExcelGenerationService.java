@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.update.application.service;
 
 import com.app.usochicamochabackend.context.application.dto.MachineCurriculumDTO;
+import com.app.usochicamochabackend.context.application.dto.VehicleCurriculumDTO;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.update.application.dto.ConsolidateHydraulicAndMotorOilDTO;
 import lombok.extern.slf4j.Slf4j;
@@ -388,6 +389,105 @@ public class ExcelGenerationService {
             workbook.close();
 
             log.info("Archivo Excel de inspecciones generado exitosamente con {} filas de datos", inspections.size());
+            return outputStream.toByteArray();
+        }
+    }
+
+    public byte[] generateVehicleCurriculumExcel(List<VehicleCurriculumDTO> curriculumData) throws IOException {
+        log.info("Generando archivo Excel para curriculum de {} vehículos", curriculumData.size());
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            for (VehicleCurriculumDTO curriculum : curriculumData) {
+                String sheetName = curriculum.vehicle().placa() != null ? curriculum.vehicle().placa() : "SIN_PLACA";
+                if (sheetName.length() > 31) sheetName = sheetName.substring(0, 31);
+                Sheet sheet = workbook.createSheet(sheetName);
+
+                CellStyle headerStyle = workbook.createCellStyle();
+                Font headerFont = workbook.createFont();
+                headerFont.setBold(true);
+                headerFont.setColor(IndexedColors.WHITE.getIndex());
+                headerStyle.setFont(headerFont);
+                headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
+                headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                headerStyle.setAlignment(HorizontalAlignment.CENTER);
+                headerStyle.setBorderBottom(BorderStyle.THIN);
+                headerStyle.setBorderTop(BorderStyle.THIN);
+                headerStyle.setBorderRight(BorderStyle.THIN);
+                headerStyle.setBorderLeft(BorderStyle.THIN);
+
+                CellStyle dataStyle = workbook.createCellStyle();
+                dataStyle.setBorderBottom(BorderStyle.THIN);
+                dataStyle.setBorderTop(BorderStyle.THIN);
+                dataStyle.setBorderRight(BorderStyle.THIN);
+                dataStyle.setBorderLeft(BorderStyle.THIN);
+
+                int rowNum = 0;
+
+                // Vehicle info header
+                Row vHeaderRow = sheet.createRow(rowNum++);
+                String[] vHeaders = {"Placa", "Marca", "Tipo", "Km Actual", "Área", "Ubicación"};
+                for (int i = 0; i < vHeaders.length; i++) {
+                    Cell cell = vHeaderRow.createCell(i);
+                    cell.setCellValue(vHeaders[i]);
+                    cell.setCellStyle(headerStyle);
+                }
+
+                // Vehicle info data
+                Row vDataRow = sheet.createRow(rowNum++);
+                vDataRow.createCell(0).setCellValue(curriculum.vehicle().placa() != null ? curriculum.vehicle().placa() : "");
+                vDataRow.createCell(1).setCellValue(curriculum.vehicle().marca() != null ? curriculum.vehicle().marca() : "");
+                vDataRow.createCell(2).setCellValue(curriculum.vehicle().tipoVehiculo() != null ? curriculum.vehicle().tipoVehiculo() : "");
+                vDataRow.createCell(3).setCellValue(curriculum.vehicle().kilometrajeActual() != null ? curriculum.vehicle().kilometrajeActual() : 0);
+                vDataRow.createCell(4).setCellValue(curriculum.vehicle().belongsTo() != null ? curriculum.vehicle().belongsTo() : "");
+                vDataRow.createCell(5).setCellValue(curriculum.vehicle().ubicacionBase() != null ? curriculum.vehicle().ubicacionBase() : "");
+                for (int i = 0; i < vHeaders.length; i++) {
+                    vDataRow.getCell(i).setCellStyle(dataStyle);
+                }
+
+                rowNum += 2;
+
+                // Results header
+                Row rHeaderRow = sheet.createRow(rowNum++);
+                String[] rHeaders = {"Fecha", "Kilómetro", "Descripción", "REF", "Nombre repuesto", "Cantidad", "Valor repuesto", "Mecánico de planta", "Contratista", "Tiempo empleado", "Valor mano de obra", "Valor total", "Observaciones"};
+                for (int i = 0; i < rHeaders.length; i++) {
+                    Cell cell = rHeaderRow.createCell(i);
+                    cell.setCellValue(rHeaders[i]);
+                    cell.setCellStyle(headerStyle);
+                }
+
+                // Results data
+                for (var result : curriculum.results()) {
+                    Row row = sheet.createRow(rowNum++);
+                    int colNum = 0;
+                    row.createCell(colNum++).setCellValue(result.date() != null ? result.date().format(DATETIME_FORMATTER) : "");
+                    row.createCell(colNum++).setCellValue(result.hourMeter() != null ? result.hourMeter() : 0);
+                    row.createCell(colNum++).setCellValue(result.description() != null ? result.description() : "");
+                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().ref() : "");
+                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().name() : "");
+                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().quantity() : "");
+                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().price().toString() : "");
+                    row.createCell(colNum++).setCellValue(result.labor() != null && result.labor().user() != null ? result.labor().user().getFullName() : "");
+                    row.createCell(colNum++).setCellValue(result.labor() != null ? result.labor().contractor() : "");
+                    row.createCell(colNum++).setCellValue(result.timeSpent() != null ? result.timeSpent() : "");
+                    row.createCell(colNum++).setCellValue(result.labor() != null ? result.labor().price().toString() : "");
+                    row.createCell(colNum++).setCellValue(result.totalPrice() != null ? result.totalPrice().toString() : "");
+                    row.createCell(colNum++).setCellValue(result.labor() != null && result.labor().observations() != null ? result.labor().observations() : "");
+                    for (int i = 0; i < rHeaders.length; i++) {
+                        row.getCell(i).setCellStyle(dataStyle);
+                    }
+                }
+
+                int maxCols = Math.max(vHeaders.length, rHeaders.length);
+                for (int i = 0; i < maxCols; i++) {
+                    sheet.autoSizeColumn(i);
+                    if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
+                    if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
+                }
+            }
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+            log.info("Archivo Excel de curriculum de vehículos generado exitosamente con {} hojas", curriculumData.size());
             return outputStream.toByteArray();
         }
     }
