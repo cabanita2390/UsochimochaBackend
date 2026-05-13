@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.update.application.service;
 
+import com.app.usochicamochabackend.common.text.InputTextNormalizer;
+import com.app.usochicamochabackend.update.application.dto.VehicleOilChangeHistoryDTO;
 import com.app.usochicamochabackend.update.application.dto.VehicleOilChangeRequest;
 import com.app.usochicamochabackend.update.infrastructure.entity.BrandEntity;
 import com.app.usochicamochabackend.update.infrastructure.entity.VehicleOilChangeEntity;
@@ -11,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class VehicleOilChangeService {
@@ -21,7 +25,11 @@ public class VehicleOilChangeService {
 
     @Transactional
     public void registerChange(VehicleOilChangeRequest request) {
-        VehicleEntity vehicle = vehicleRepository.findByPlaca(request.placa())
+        String placa = InputTextNormalizer.normalizePlaca(request.placa());
+        if (placa.isEmpty()) {
+            throw new IllegalArgumentException("La placa es obligatoria");
+        }
+        VehicleEntity vehicle = vehicleRepository.findByPlaca(placa)
                 .orElseThrow(() -> new IllegalArgumentException("Vehículo no encontrado"));
 
         BrandEntity brand = null;
@@ -33,7 +41,7 @@ public class VehicleOilChangeService {
         VehicleOilChangeEntity entity = VehicleOilChangeEntity.builder()
                 .vehicle(vehicle)
                 .dateStamp(request.dateStamp() != null ? request.dateStamp() : java.time.LocalDateTime.now())
-                .oilType(request.oilType())
+                .oilType(InputTextNormalizer.normalizeFreeTextPreserveCase(request.oilType()))
                 .brand(brand)
                 .quantity(request.quantity())
                 .kmAtChange(request.kmAtChange())
@@ -49,5 +57,22 @@ public class VehicleOilChangeService {
             vehicle.setKilometrajeActual(kmChange);
             vehicleRepository.save(vehicle);
         }
+    }
+
+    public List<VehicleOilChangeHistoryDTO> getHistoryByPlaca(String placa) {
+        String p = InputTextNormalizer.normalizePlaca(placa);
+        return vehicleOilChangeRepository.findAllByPlacaOrderByDateStampDesc(p)
+                .stream()
+                .map(e -> new VehicleOilChangeHistoryDTO(
+                        e.getId(),
+                        e.getDateStamp(),
+                        e.getOilType(),
+                        e.getBrand() != null ? e.getBrand().getName() : null,
+                        e.getQuantity(),
+                        e.getKmAtChange(),
+                        e.getIntervalKm(),
+                        e.getAirFilterChanged()
+                ))
+                .toList();
     }
 }

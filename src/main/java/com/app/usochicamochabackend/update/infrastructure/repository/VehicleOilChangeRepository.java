@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -13,4 +14,7 @@ public interface VehicleOilChangeRepository extends JpaRepository<VehicleOilChan
     
     @Query("SELECT v FROM VehicleOilChangeEntity v WHERE v.vehicle.idVehiculo = :vehicleId ORDER BY v.dateStamp DESC LIMIT 1")
     Optional<VehicleOilChangeEntity> findLatestByVehicleId(@Param("vehicleId") Integer vehicleId);
+
+    @Query("SELECT v FROM VehicleOilChangeEntity v WHERE v.vehicle.placa = :placa ORDER BY v.dateStamp DESC")
+    List<VehicleOilChangeEntity> findAllByPlacaOrderByDateStampDesc(@Param("placa") String placa);
 }
