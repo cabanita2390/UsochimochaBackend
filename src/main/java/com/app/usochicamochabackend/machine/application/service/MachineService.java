@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.machine.application.service;
 
 import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import com.app.usochicamochabackend.common.text.InputTextNormalizer;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.machine.application.dto.MachineRequest;
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
@@ -28,7 +29,8 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
 
     @Override
     public MachineResponse createMachine(MachineRequest machineRequest) {
-        MachineEntity savedMachine = machineRepository.save(new MachineEntity(null, machineRequest.name(), machineRequest.model(), machineRequest.belongsTo(), machineRequest.soat(), machineRequest.brand(), machineRequest.runt(), true, machineRequest.numEngine(), machineRequest.numInterIdentification()));
+        MachineRequest req = machineRequest.normalized();
+        MachineEntity savedMachine = machineRepository.save(new MachineEntity(null, req.name(), req.model(), req.belongsTo(), req.soat(), req.brand(), req.runt(), true, req.numEngine(), req.numInterIdentification()));
 
         try {
             Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -88,6 +90,7 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
 
     @Override
     public MachineResponse updateMachine(MachineRequest machineRequest, Long id) {
+        MachineRequest req = machineRequest.normalized();
         MachineEntity currentMachine = machineRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Machine not found with ID: " + id));
 
@@ -95,7 +98,7 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             throw new ResourceNotFoundException("Machine not found with ID: " + id);
         }
 
-        MachineEntity savedMachine = machineRepository.save(new MachineEntity(id, machineRequest.name(), machineRequest.model(), machineRequest.belongsTo(), machineRequest.soat(), machineRequest.brand(), machineRequest.runt(), true, machineRequest.numEngine(), machineRequest.numInterIdentification()));
+        MachineEntity savedMachine = machineRepository.save(new MachineEntity(id, req.name(), req.model(), req.belongsTo(), req.soat(), req.brand(), req.runt(), true, req.numEngine(), req.numInterIdentification()));
 
         List<String> cambios = new ArrayList<>();
 
