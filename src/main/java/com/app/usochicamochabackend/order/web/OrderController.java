@@ -3,10 +3,7 @@ package com.app.usochicamochabackend.order.web;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.order.application.dto.*;
-import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
-import com.app.usochicamochabackend.order.application.port.GetAllOrdersByInspectionIdUseCase;
-import com.app.usochicamochabackend.order.application.port.GetAllOrdersByMachineIdUseCase;
-import com.app.usochicamochabackend.order.application.port.GetAllOrdersUseCase;
+import com.app.usochicamochabackend.order.application.port.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -33,9 +30,12 @@ import java.util.List;
 public class OrderController {
 
     private final AssignOrderUseCase assignOrderUseCase;
-    private final GetAllOrdersByInspectionIdUseCase  getAllOrdersByInspectionIdUseCase;
+    private final GetAllOrdersByInspectionIdUseCase getAllOrdersByInspectionIdUseCase;
     private final GetAllOrdersUseCase getAllOrdersUseCase;
     private final GetAllOrdersByMachineIdUseCase getAllOrdersByMachineIdUseCase;
+    private final AssignVehicleOrderUseCase assignVehicleOrderUseCase;
+    private final GetAllOrdersByVehicleInspectionIdUseCase getAllOrdersByVehicleInspectionIdUseCase;
+    private final GetAllVehicleOrdersUseCase getAllVehicleOrdersUseCase;
 
     @Operation(
             summary = "Assign a new order",
@@ -108,5 +108,29 @@ public class OrderController {
 
         GetAllOrdersByMachineId response = getAllOrdersByMachineIdUseCase.getAllOrdersByMachineId(machineId);
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Create vehicle order", description = "Creates a work order linked to a vehicle pre-operative inspection.")
+    @PostMapping(value = "/vehicle", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<OrderWithVehicleDTO> assignVehicleOrder(
+            @RequestBody AssignVehicleOrderRequest request) {
+        return ResponseEntity.status(201).body(assignVehicleOrderUseCase.assignVehicleOrder(request));
+    }
+
+    @Operation(summary = "Get vehicle orders by inspection", description = "Returns all work orders for a given vehicle pre-operative inspection.")
+    @GetMapping("/vehicle/{vehicleInspectionId}")
+    public ResponseEntity<GetAllOrdersByVehicleInspectionIdResponse> getAllOrdersByVehicleInspectionId(
+            @Parameter(description = "PK of `inspeccion_pre_operativa`", required = true, example = "5")
+            @PathVariable Long vehicleInspectionId) {
+        return ResponseEntity.ok(getAllOrdersByVehicleInspectionIdUseCase.getAllOrdersByVehicleInspectionId(vehicleInspectionId));
+    }
+
+    @Operation(summary = "Get all vehicle orders (paginated)", description = "Returns all work orders linked to vehicle inspections, sorted by most recent.")
+    @GetMapping("/vehicle/all")
+    public ResponseEntity<Page<OrderWithVehicleDTO>> getAllVehicleOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+        return ResponseEntity.ok(getAllVehicleOrdersUseCase.getAllVehicleOrders(pageable));
     }
 }

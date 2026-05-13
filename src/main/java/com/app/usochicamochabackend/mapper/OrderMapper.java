@@ -1,8 +1,11 @@
 package com.app.usochicamochabackend.mapper;
 
-import com.app.usochicamochabackend.order.application.dto.OrderResponse;
-import com.app.usochicamochabackend.order.application.dto.OrderWithoutInspectionResponse;
+import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
+import com.app.usochicamochabackend.review.application.dto.InspectionFormResponse;
+import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
+import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 
 import java.util.List;
 
@@ -17,12 +20,15 @@ public class OrderMapper {
             return null;
         }
 
+        InspectionEntity inspection = entity.getInspection();
+        InspectionFormResponse inspectionDto = inspection == null ? null : InspectionMapper.toDto(inspection);
+
         return new OrderResponse(
                 entity.getId(),
                 entity.getStatus(),
                 entity.getDate(),
                 entity.getDescription(),
-                InspectionMapper.toDto(entity.getInspection()),
+                inspectionDto,
                 UserMapper.toResponse(entity.getAssignerUser())
         );
     }
@@ -45,5 +51,31 @@ public class OrderMapper {
         if (entity == null) return null;
 
         return entity.stream().map(OrderMapper::toDtoWithoutInspection).toList();
+    }
+
+    public static OrderWithVehicleDTO toVehicleOrderDTO(OrderEntity entity) {
+        if (entity == null) return null;
+
+        OrderWithoutInspectionResponse orderDTO = toDtoWithoutInspection(entity);
+
+        InspPreOperativaEntity vi = entity.getVehicleInspection();
+        VehicleEntity vehiculo = vi != null ? vi.getVehiculo() : null;
+        String placa = vehiculo != null ? vehiculo.getPlaca() : null;
+        String marca = (vehiculo != null && vehiculo.getMarca() != null) ? vehiculo.getMarca().getDescripcion() : null;
+
+        String tipoVehiculo = (vehiculo != null && vehiculo.getTipoVehiculo() != null)
+                ? vehiculo.getTipoVehiculo().getNombreTipo() : null;
+        Integer vehiculoId = vehiculo != null ? vehiculo.getIdVehiculo() : null;
+
+        VehicleOrderSummaryDTO vehicleSummary = new VehicleOrderSummaryDTO(
+                vi != null ? vi.getIdInspeccion() : null,
+                placa,
+                marca,
+                vi != null ? vi.getFechaRegistro() : null,
+                tipoVehiculo,
+                vehiculoId
+        );
+
+        return new OrderWithVehicleDTO(orderDTO, vehicleSummary);
     }
 }

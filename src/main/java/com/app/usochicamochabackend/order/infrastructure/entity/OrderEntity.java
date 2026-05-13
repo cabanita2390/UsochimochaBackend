@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.order.infrastructure.entity;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -32,6 +33,10 @@ public class OrderEntity {
     @ManyToOne
     @JoinColumn(name = "inspection_id")
     private InspectionEntity inspection;
+
+    @ManyToOne
+    @JoinColumn(name = "vehicle_inspection_id", nullable = true)
+    private InspPreOperativaEntity vehicleInspection;
 
     @OneToOne
     @JoinColumn(name = "result_id", nullable = true)
