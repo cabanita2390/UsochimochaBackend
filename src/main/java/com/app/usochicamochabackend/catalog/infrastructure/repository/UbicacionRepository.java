@@ -9,4 +9,8 @@ import java.util.List;
 @Repository
 public interface UbicacionRepository extends JpaRepository<UbicacionEntity, Integer> {
     List<UbicacionEntity> findByActivoTrue();
+
+    boolean existsByNombreUbicacionIgnoreCase(String nombreUbicacion);
+
+    boolean existsByNombreUbicacionIgnoreCaseAndIdNot(String nombreUbicacion, Integer id);
 }

@@ -9,4 +9,8 @@ import java.util.List;
 @Repository
 public interface AreaRepository extends JpaRepository<AreaEntity, Integer> {
     List<AreaEntity> findByActivoTrue();
+
+    boolean existsByNombre(String nombre);
+
+    boolean existsByNombreAndIdNot(String nombre, Integer id);
 }
