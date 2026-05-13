@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.moto.application.service;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import com.app.usochicamochabackend.common.text.InputTextNormalizer;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.catalog.infrastructure.entity.TipoVehiculoEntity;
 import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntity;
@@ -48,11 +49,11 @@ public class MotoService implements MotoCRUDUseCase {
     private final InspDetalleMecanicoRepository detalleMecanicoRepository;
     private final DocumentacionYElementosRepository documentacionRepository;
 
-        /** Retorna las motocicletas activas (tipo = MOTOCICLETA) */
+        /** Retorna las motocicletas activas (tipo = MOTOCICLETA) con su ubicación base */
         public List<MotoPlacaResponse> getMotocicletas() {
-                return vehicleRepository.findAllByTipoName(TIPO_MOTO)
+                return vehicleRepository.findAllActiveVehiclesByTipoName(TIPO_MOTO)
                                 .stream()
-                                .map(v -> new MotoPlacaResponse(v.getIdVehiculo(), v.getPlaca()))
+                                .map(v -> new MotoPlacaResponse(v.getId(), v.getPlaca(), v.getIdUbicacionBase(), v.getUbicacionBase()))
                                 .toList();
         }
 
@@ -71,9 +72,10 @@ public class MotoService implements MotoCRUDUseCase {
          * - Fallback: Si no hay inspección previa, calcula el estado en tiempo real.
          */
         public List<DocumentoExistenteResponse> getDocumentosByPlaca(String placa) {
-                VehicleEntity vehiculo = vehicleRepository.findByPlacaAndActivoTrue(placa)
+                String p = InputTextNormalizer.normalizePlaca(placa);
+                VehicleEntity vehiculo = vehicleRepository.findByPlacaAndActivoTrue(p)
                                 .orElseThrow(() -> new ResourceNotFoundException(
-                                                "Vehículo no encontrado: " + placa));
+                                                "Vehículo no encontrado: " + p));
 
                 // Definir los tipos que la APP espera y mapearlos a la Base de Datos
                 return java.util.List.of("SOAT", "REVISION_TECNO", "LICENCIA").stream()
@@ -225,31 +227,32 @@ public class MotoService implements MotoCRUDUseCase {
     @Override
     @Transactional
     public VehicleResponse createMoto(VehicleRequest request) {
-        String placa = request.placa() != null ? request.placa().trim() : "";
+        VehicleRequest req = request.normalized();
+        String placa = req.placa();
         if (placa.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La placa es obligatoria");
         }
         if (vehicleRepository.findByPlaca(placa).isPresent()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ya existe un vehículo con esta placa");
         }
-        TipoVehiculoEntity tipoMoto = tipoVehiculoRepository.findByNombreTipo(TIPO_MOTO)
+        TipoVehiculoEntity tipoMoto = tipoVehiculoRepository.findByNombreTipoIgnoreCase(TIPO_MOTO)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                         "Tipo MOTOCICLETA no configurado en catálogo"));
 
-        if (request.idUbicacionBase() != null && !ubicacionRepository.existsById(request.idUbicacionBase())) {
+        if (req.idUbicacionBase() != null && !ubicacionRepository.existsById(req.idUbicacionBase())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ubicación no válida");
         }
-        var ubiBase = request.idUbicacionBase() != null
-                ? ubicacionRepository.getReferenceById(request.idUbicacionBase())
+        var ubiBase = req.idUbicacionBase() != null
+                ? ubicacionRepository.getReferenceById(req.idUbicacionBase())
                 : null;
         VehicleEntity entity = VehicleEntity.builder()
                 .placa(placa)
-                .idMarca(request.idMarca())
+                .idMarca(req.idMarca())
                 .idTipoVehiculo(tipoMoto.getId())
-                .kilometrajeActual(request.kilometrajeActual())
-                .belongsTo(request.belongsTo())
+                .kilometrajeActual(req.kilometrajeActual())
+                .belongsTo(req.belongsTo())
                 .ubicacionBase(ubiBase)
-                .activo(request.activo() != null ? request.activo() : Boolean.TRUE)
+                .activo(req.activo() != null ? req.activo() : Boolean.TRUE)
                 .build();
         vehicleRepository.save(entity);
         return VehicleMapper.toResponse(
@@ -259,11 +262,12 @@ public class MotoService implements MotoCRUDUseCase {
     @Override
     @Transactional
     public VehicleResponse updateMoto(Integer id, VehicleRequest request) {
+        VehicleRequest req = request.normalized();
         VehicleEntity entity = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Moto no encontrada"));
         assertMotoTipo(entity);
 
-        String placa = request.placa() != null ? request.placa().trim() : "";
+        String placa = req.placa();
         if (placa.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La placa es obligatoria");
         }
@@ -272,22 +276,22 @@ public class MotoService implements MotoCRUDUseCase {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ya existe otro vehículo con esta placa");
         }
 
-        TipoVehiculoEntity tipoMoto = tipoVehiculoRepository.findByNombreTipo(TIPO_MOTO)
+        TipoVehiculoEntity tipoMoto = tipoVehiculoRepository.findByNombreTipoIgnoreCase(TIPO_MOTO)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                         "Tipo MOTOCICLETA no configurado en catálogo"));
 
         entity.setPlaca(placa);
-        entity.setIdMarca(request.idMarca());
+        entity.setIdMarca(req.idMarca());
         entity.setIdTipoVehiculo(tipoMoto.getId());
-        entity.setKilometrajeActual(request.kilometrajeActual());
-        entity.setBelongsTo(request.belongsTo());
-        if (request.idUbicacionBase() != null && !ubicacionRepository.existsById(request.idUbicacionBase())) {
+        entity.setKilometrajeActual(req.kilometrajeActual());
+        entity.setBelongsTo(req.belongsTo());
+        if (req.idUbicacionBase() != null && !ubicacionRepository.existsById(req.idUbicacionBase())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ubicación no válida");
         }
-        entity.setUbicacionBase(request.idUbicacionBase() != null
-                ? ubicacionRepository.getReferenceById(request.idUbicacionBase())
+        entity.setUbicacionBase(req.idUbicacionBase() != null
+                ? ubicacionRepository.getReferenceById(req.idUbicacionBase())
                 : null);
-        entity.setActivo(request.activo() != null ? request.activo() : entity.getActivo());
+        entity.setActivo(req.activo() != null ? req.activo() : entity.getActivo());
         vehicleRepository.save(entity);
         return VehicleMapper.toResponse(
                 vehicleRepository.findById(entity.getIdVehiculo()).orElse(entity));

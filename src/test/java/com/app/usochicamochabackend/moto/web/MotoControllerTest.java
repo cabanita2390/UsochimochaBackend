@@ -50,11 +50,14 @@ class MotoControllerTest {
     @Test
     @WithMockUser
     void getMotocicletas_ShouldReturnOk() throws Exception {
-        when(motoService.getMotocicletas()).thenReturn(List.of(new MotoPlacaResponse(1, "XYZ789")));
+        when(motoService.getMotocicletas()).thenReturn(
+                List.of(new MotoPlacaResponse(1, "XYZ789", 2, "Unidad Pantano")));
 
         mockMvc.perform(get("/api/v1/moto/placas"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].placa").value("XYZ789"));
+                .andExpect(jsonPath("$[0].placa").value("XYZ789"))
+                .andExpect(jsonPath("$[0].idUbicacionBase").value(2))
+                .andExpect(jsonPath("$[0].ubicacionBase").value("Unidad Pantano"));
     }
 
     @Test
