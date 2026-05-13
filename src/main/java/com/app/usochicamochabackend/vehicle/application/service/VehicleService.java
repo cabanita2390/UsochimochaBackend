@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.vehicle.application.service;
 
 import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
+import com.app.usochicamochabackend.common.text.InputTextNormalizer;
 import com.app.usochicamochabackend.mapper.VehicleMapper;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
@@ -30,29 +31,31 @@ public class VehicleService implements VehicleUseCase {
 
     @Override
     public VehicleResponse findByPlaca(String placa) {
-        return vehicleRepository.findVehicleDetailByPlaca(placa)
+        String p = InputTextNormalizer.normalizePlaca(placa);
+        return vehicleRepository.findVehicleDetailByPlaca(p)
                 .map(VehicleMapper::toResponse)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehículo no encontrado con placa: " + placa));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehículo no encontrado con placa: " + p));
     }
 
     @Override
     public VehicleResponse createVehicle(VehicleRequest request) {
-        if (vehicleRepository.findByPlaca(request.placa()).isPresent()) {
+        VehicleRequest req = request.normalized();
+        if (vehicleRepository.findByPlaca(req.placa()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ya existe un vehículo con esta placa");
         }
-        if (request.idUbicacionBase() != null && !ubicacionRepository.existsById(request.idUbicacionBase())) {
+        if (req.idUbicacionBase() != null && !ubicacionRepository.existsById(req.idUbicacionBase())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ubicación no válida");
         }
 
-        var ubi = request.idUbicacionBase() != null
-                ? ubicacionRepository.getReferenceById(request.idUbicacionBase())
+        var ubi = req.idUbicacionBase() != null
+                ? ubicacionRepository.getReferenceById(req.idUbicacionBase())
                 : null;
         VehicleEntity entity = VehicleEntity.builder()
-                .placa(request.placa())
-                .idMarca(request.idMarca())
-                .idTipoVehiculo(request.idTipoVehiculo())
-                .kilometrajeActual(request.kilometrajeActual())
-                .belongsTo(request.belongsTo())
+                .placa(req.placa())
+                .idMarca(req.idMarca())
+                .idTipoVehiculo(req.idTipoVehiculo())
+                .kilometrajeActual(req.kilometrajeActual())
+                .belongsTo(req.belongsTo())
                 .ubicacionBase(ubi)
                 .activo(true)
                 .build();
@@ -63,26 +66,27 @@ public class VehicleService implements VehicleUseCase {
 
     @Override
     public VehicleResponse updateVehicle(Integer id, VehicleRequest request) {
+        VehicleRequest req = request.normalized();
         VehicleEntity entity = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehículo no encontrado"));
 
-        if (!entity.getPlaca().equals(request.placa()) && vehicleRepository.findByPlaca(request.placa()).isPresent()) {
+        if (!entity.getPlaca().equals(req.placa()) && vehicleRepository.findByPlaca(req.placa()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ya existe otro vehículo con esta placa");
         }
 
-        if (request.idUbicacionBase() != null && !ubicacionRepository.existsById(request.idUbicacionBase())) {
+        if (req.idUbicacionBase() != null && !ubicacionRepository.existsById(req.idUbicacionBase())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ubicación no válida");
         }
 
-        entity.setPlaca(request.placa());
-        entity.setIdMarca(request.idMarca());
-        entity.setIdTipoVehiculo(request.idTipoVehiculo());
-        entity.setKilometrajeActual(request.kilometrajeActual());
-        entity.setBelongsTo(request.belongsTo());
-        entity.setUbicacionBase(request.idUbicacionBase() != null
-                ? ubicacionRepository.getReferenceById(request.idUbicacionBase())
+        entity.setPlaca(req.placa());
+        entity.setIdMarca(req.idMarca());
+        entity.setIdTipoVehiculo(req.idTipoVehiculo());
+        entity.setKilometrajeActual(req.kilometrajeActual());
+        entity.setBelongsTo(req.belongsTo());
+        entity.setUbicacionBase(req.idUbicacionBase() != null
+                ? ubicacionRepository.getReferenceById(req.idUbicacionBase())
                 : null);
-        entity.setActivo(request.activo() != null ? request.activo() : entity.getActivo());
+        entity.setActivo(req.activo() != null ? req.activo() : entity.getActivo());
 
         vehicleRepository.save(entity);
         return findByPlaca(entity.getPlaca());
@@ -90,9 +94,9 @@ public class VehicleService implements VehicleUseCase {
 
     @Override
     public void deleteVehicle(Integer id) {
-        if (!vehicleRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehículo no encontrado");
-        }
-        vehicleRepository.deleteById(id);
+        VehicleEntity entity = vehicleRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehículo no encontrado"));
+        entity.setActivo(false);
+        vehicleRepository.save(entity);
     }
 }

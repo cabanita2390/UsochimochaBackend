@@ -12,6 +12,10 @@ public record VehicleResponse(
         String placa,
         @Schema(description = "Descripción de marca (`cat_marcas_modelos`)", example = "Toyota")
         String marca,
+        @Schema(description = "FK `cat_marcas_modelos.id_marca`", example = "3")
+        Integer idMarca,
+        @Schema(description = "FK `cat_tipos_vehiculo.id_tipo_vehiculo`", example = "1")
+        Integer idTipoVehiculo,
         @Schema(description = "Nombre del tipo (`cat_tipos_vehiculo`)", example = "AUTOMOVIL")
         String tipoVehiculo,
         @Schema(description = "Kilometraje actual registrado", example = "89000")

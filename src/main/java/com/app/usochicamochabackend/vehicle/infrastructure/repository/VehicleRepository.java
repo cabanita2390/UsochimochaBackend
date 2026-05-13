@@ -14,10 +14,12 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer>
 
     @Query(nativeQuery = true, value = """
             SELECT
-                v.id_vehiculo       AS "id",
-                v.placa             AS "placa",
-                m.descripcion       AS "marca",
-                t.nombre_tipo       AS "tipoVehiculo",
+                v.id_vehiculo        AS "id",
+                v.placa              AS "placa",
+                m.descripcion        AS "marca",
+                v.id_marca           AS "idMarca",
+                v.id_tipo_vehiculo   AS "idTipoVehiculo",
+                t.nombre_tipo        AS "tipoVehiculo",
                 v.kilometraje_actual AS "kilometrajeActual",
                 v.belongs_to         AS "belongsTo",
                 v.id_ubicacion_base  AS "idUbicacionBase",
@@ -34,10 +36,12 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer>
     /** Listado activo filtrado por nombre de tipo (p. ej. MOTOCICLETA) — JOIN de ubicación base como {@link #findAllActiveVehicles()}. */
     @Query(nativeQuery = true, value = """
             SELECT
-                v.id_vehiculo       AS "id",
-                v.placa             AS "placa",
-                m.descripcion       AS "marca",
-                t.nombre_tipo       AS "tipoVehiculo",
+                v.id_vehiculo        AS "id",
+                v.placa              AS "placa",
+                m.descripcion        AS "marca",
+                v.id_marca           AS "idMarca",
+                v.id_tipo_vehiculo   AS "idTipoVehiculo",
+                t.nombre_tipo        AS "tipoVehiculo",
                 v.kilometraje_actual AS "kilometrajeActual",
                 v.belongs_to         AS "belongsTo",
                 v.id_ubicacion_base  AS "idUbicacionBase",
@@ -69,10 +73,12 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer>
      */
     @Query(nativeQuery = true, value = """
             SELECT
-                v.id_vehiculo       AS "id",
-                v.placa             AS "placa",
-                m.descripcion       AS "marca",
-                t.nombre_tipo       AS "tipoVehiculo",
+                v.id_vehiculo        AS "id",
+                v.placa              AS "placa",
+                m.descripcion        AS "marca",
+                v.id_marca           AS "idMarca",
+                v.id_tipo_vehiculo   AS "idTipoVehiculo",
+                t.nombre_tipo        AS "tipoVehiculo",
                 v.kilometraje_actual AS "kilometrajeActual",
                 v.belongs_to         AS "belongsTo",
                 v.id_ubicacion_base  AS "idUbicacionBase",
@@ -87,10 +93,10 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer>
             """)
     java.util.Optional<VehicleProjection> findVehicleDetailByPlaca(@Param("placa") String placa);
 
-    @Query("SELECT v FROM VehicleEntity v JOIN v.tipoVehiculo t WHERE t.nombreTipo = :tipoName AND v.activo = TRUE")
+    @Query("SELECT v FROM VehicleEntity v JOIN v.tipoVehiculo t WHERE UPPER(TRIM(t.nombreTipo)) = UPPER(TRIM(:tipoName)) AND v.activo = TRUE")
     List<VehicleEntity> findAllByTipoName(@Param("tipoName") String tipoName);
 
-    @Query("SELECT v FROM VehicleEntity v JOIN v.tipoVehiculo t WHERE t.nombreTipo <> :tipoName AND v.activo = TRUE")
+    @Query("SELECT v FROM VehicleEntity v JOIN v.tipoVehiculo t WHERE UPPER(TRIM(t.nombreTipo)) <> UPPER(TRIM(:tipoName)) AND v.activo = TRUE")
     List<VehicleEntity> findAllByTipoNameNot(@Param("tipoName") String tipoName);
 
     java.util.Optional<VehicleEntity> findByPlacaAndActivoTrue(String placa);

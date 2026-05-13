@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.vehicle.application.dto;
 
+import com.app.usochicamochabackend.common.text.InputTextNormalizer;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import jakarta.validation.constraints.NotBlank;
@@ -40,4 +41,15 @@ public record VehicleRequest(
         @Schema(description = "Si el vehículo está activo en inventario (en alta vehículo el backend puede forjar `true`)", example = "true")
         Boolean activo
 ) {
+    /** Placa en mayúsculas sin espacios; {@code belongsTo} en formato título; resto sin cambiar. */
+    public VehicleRequest normalized() {
+        return new VehicleRequest(
+                InputTextNormalizer.normalizePlaca(placa),
+                idMarca,
+                idTipoVehiculo,
+                kilometrajeActual,
+                InputTextNormalizer.normalizeTitleWords(belongsTo),
+                idUbicacionBase,
+                activo);
+    }
 }

@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.vehicle.application.service;
 
+import com.app.usochicamochabackend.common.text.InputTextNormalizer;
 import com.app.usochicamochabackend.vehicle.application.dto.MarcaModeloRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.MarcaModeloResponse;
 import com.app.usochicamochabackend.vehicle.application.port.MarcaModeloUseCase;
@@ -34,8 +35,15 @@ public class MarcaModeloService implements MarcaModeloUseCase {
 
     @Override
     public MarcaModeloResponse create(MarcaModeloRequest request) {
+        String desc = InputTextNormalizer.normalizeTitleWords(request.descripcion());
+        if (desc == null || desc.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La descripción es obligatoria");
+        }
+        if (repository.existsByDescripcionIgnoreCase(desc)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una marca con ese nombre.");
+        }
         MarcaModeloEntity entity = MarcaModeloEntity.builder()
-                .descripcion(request.descripcion())
+                .descripcion(desc)
                 .build();
         return mapToResponse(repository.save(entity));
     }
@@ -45,7 +53,14 @@ public class MarcaModeloService implements MarcaModeloUseCase {
         MarcaModeloEntity entity = repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Marca no encontrada"));
         
-        entity.setDescripcion(request.descripcion());
+        String desc = InputTextNormalizer.normalizeTitleWords(request.descripcion());
+        if (desc == null || desc.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La descripción es obligatoria");
+        }
+        if (repository.existsByDescripcionIgnoreCaseAndIdMarcaNot(desc, id)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una marca con ese nombre.");
+        }
+        entity.setDescripcion(desc);
         return mapToResponse(repository.save(entity));
     }
 
