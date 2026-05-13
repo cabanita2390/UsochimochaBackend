@@ -16,5 +16,7 @@ public record VehicleDocumentRequest(
         @Schema(description = "Fin de vigencia")
         LocalDate fechaVencimiento,
         @Schema(description = "URL absoluta o ruta bajo `/uploads/documents/` según política de despliegue")
-        String imagenUrl
+        String imagenUrl,
+        @Schema(description = "Tipo MIME del archivo (opcional)", example = "application/pdf")
+        String contentType
 ) {}

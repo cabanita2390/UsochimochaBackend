@@ -1,8 +1,8 @@
 package com.app.usochicamochabackend.vehicleinspection.application.service;
 
-import java.util.List;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
+import com.app.usochicamochabackend.common.text.InputTextNormalizer;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.*;
@@ -26,11 +26,16 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.YearMonth;
+import java.io.IOException;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +50,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     private final DocumentacionYElementosRepository documentacionRepository;
     private final UbicacionRepository ubicacionRepository;
     private final VehicleRepository vehicleRepository;
+    private final VehicleDocumentStorageService vehicleDocumentStorageService;
 
     /**
      * POST — Guarda la inspección pre-operativa en las 5 tablas de inspección
@@ -55,9 +61,10 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     public VehiculoInspectionResponse create(VehiculoInspectionRequest req, UserPrincipal inspector) {
 
         // ── Resolver idVehiculo a partir de la placa ─────────────────────────
-        VehicleEntity vehicle = vehicleRepository.findByPlaca(req.placaVehiculo())
+        String placaNorm = InputTextNormalizer.normalizePlaca(req.placaVehiculo());
+        VehicleEntity vehicle = vehicleRepository.findByPlaca(placaNorm)
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Vehículo no encontrado con placa: " + req.placaVehiculo()));
+                        "Vehículo no encontrado con placa: " + placaNorm));
 
         Integer idVehiculo = vehicle.getIdVehiculo();
 
@@ -69,7 +76,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 .kilometrajeReportado(req.kilometrajeReportado() != null ? req.kilometrajeReportado() : 0)
                 .aprobadoRuta(req.aprobadoRuta())
                 .observacionesFinales(req.observacionesFinales())
-                .idUbicacion(req.idUbicacion())
+                .idUbicacion(resolveIdUbicacionForNewInspection(req, vehicle))
                 .build();
 
         InspPreOperativaEntity saved = inspPreOperativaRepository.save(cabecera);
@@ -122,7 +129,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                         .conscienteResponsabilidad(req.conscienteResponsabilidad())
                         .build());
 
-        mergeDocumentsFromInspectionRequest(idVehiculo, req);
+        mergeDocumentsFromInspectionRequest(idVehiculo, req, inspector);
 
         // ── Actualizar kilometraje y fecha de último reporte (monitoreo) ───────
         if (req.kilometrajeReportado() != null && req.kilometrajeReportado() > 0) {
@@ -139,10 +146,18 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
      * Persiste fechas/URLs opcionales en documentacion_y_elementos (misma semántica que
      * {@link #saveDocument(VehicleDocumentRequest)} / GET documentos).
      */
-    private void mergeDocumentsFromInspectionRequest(Integer idVehiculo, VehiculoInspectionRequest req) {
-        upsertDocumentIfPresent(idVehiculo, "SOAT", req.fechaVencSoat(), blankToNull(req.urlImagenSoat()));
-        upsertDocumentIfPresent(idVehiculo, "TECNOMECANICA", req.fechaVencTecno(), blankToNull(req.urlImagenTecno()));
-        upsertDocumentIfPresent(idVehiculo, "LICENCIA DE CONDUCCION", req.fechaVencLicencia(), blankToNull(req.urlImagenLicencia()));
+    /**
+     * La inspección solo registra la fecha de vencimiento — nunca reemplaza la URL del archivo.
+     * La app envía URLs absolutas (resueltas por resolveUrl) que no coinciden con la ruta
+     * relativa almacenada en BD, lo que causaría un nuevo registro por cada inspección.
+     * Pasar null como URL hace que saveDocument use la URL ya almacenada en BD para la
+     * comparación y el guardado, evitando duplicados cuando la fecha no cambia.
+     */
+    private void mergeDocumentsFromInspectionRequest(Integer idVehiculo, VehiculoInspectionRequest req, UserPrincipal inspector) {
+        String u = inspector.username();
+        upsertDocumentIfPresent(idVehiculo, "SOAT", req.fechaVencSoat(), null, u);
+        upsertDocumentIfPresent(idVehiculo, "TECNOMECANICA", req.fechaVencTecno(), null, u);
+        upsertDocumentIfPresent(idVehiculo, "LICENCIA DE CONDUCCION", req.fechaVencLicencia(), null, u);
 
         LocalDate extintorFecha = parseExtintorMonth(req.vigenciaExtintor());
         if (extintorFecha != null) {
@@ -150,16 +165,17 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                     idVehiculo,
                     "EXTINTOR",
                     extintorFecha,
-                    blankToNull(req.urlImagenExtintor())));
+                    null,
+                    null), u);
         }
     }
 
-    private void upsertDocumentIfPresent(Integer idVehiculo, String tipoBd, String fechaRaw, String imagenUrl) {
+    private void upsertDocumentIfPresent(Integer idVehiculo, String tipoBd, String fechaRaw, String imagenUrl, String registradoPor) {
         LocalDate fecha = parseFlexibleDate(fechaRaw);
         if (fecha == null) {
             return;
         }
-        saveDocument(new VehicleDocumentRequest(idVehiculo, tipoBd, fecha, imagenUrl));
+        saveDocument(new VehicleDocumentRequest(idVehiculo, tipoBd, fecha, imagenUrl, null), registradoPor);
     }
 
     private static String blankToNull(String s) {
@@ -203,14 +219,64 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         }
     }
 
+    /** Solo filas cuyo vehículo/moto siga activo en inventario (`vehiculos.activo`; excluye dados de baja del dashboard). */
+    private static boolean isActiveVehicleForDashboard(InspPreOperativaEntity row) {
+        VehicleEntity v = row.getVehiculo();
+        if (v == null) {
+            return false;
+        }
+        return !Boolean.FALSE.equals(v.getActivo());
+    }
+
     @Override
     public List<VehicleInspectionReportDTO> getInspectionsByType(Integer typeId) {
-        List<InspPreOperativaEntity> inspections = inspPreOperativaRepository.findAllByVehicleType(typeId);
-        return mapToReportDTO(inspections);
+        List<InspPreOperativaEntity> inspections = inspPreOperativaRepository.findAllByVehicleType(typeId).stream()
+                .filter(VehiculoInspectionService::isActiveVehicleForDashboard)
+                .toList();
+        // Dedup: la query ya viene DESC, putIfAbsent conserva solo la más reciente por vehículo
+        Map<String, InspPreOperativaEntity> latestByKey = new LinkedHashMap<>();
+        for (InspPreOperativaEntity row : inspections) {
+            latestByKey.putIfAbsent(dedupeKeyVehicleReport(row), row);
+        }
+        List<InspPreOperativaEntity> latestRows = latestByKey.values().stream()
+                .sorted(Comparator.comparing(InspPreOperativaEntity::getFechaRegistro).reversed())
+                .toList();
+        return mapToReportDTO(latestRows);
+    }
+
+    private static String dedupeKeyVehicleReport(InspPreOperativaEntity row) {
+        if (row.getVehiculo() != null && row.getVehiculo().getPlaca() != null) {
+            String p = row.getVehiculo().getPlaca().trim();
+            if (!p.isEmpty()) return "p:" + p.toUpperCase(Locale.ROOT);
+        }
+        return "v:" + (row.getIdVehiculo() != null ? row.getIdVehiculo() : 0);
+    }
+
+    @Override
+    public List<VehicleInspectionReportDTO> getAllVehicleInspections() {
+        return mapToReportDTO(inspPreOperativaRepository.findAllNonMoto().stream()
+                .filter(VehiculoInspectionService::isActiveVehicleForDashboard)
+                .toList());
+    }
+
+    @Override
+    public List<VehicleInspectionReportDTO> getLatestVehicleInspectionsPerVehicle() {
+        List<InspPreOperativaEntity> ordered = inspPreOperativaRepository.findAllNonMoto().stream()
+                .filter(VehiculoInspectionService::isActiveVehicleForDashboard)
+                .toList();
+        Map<String, InspPreOperativaEntity> latestByKey = new LinkedHashMap<>();
+        for (InspPreOperativaEntity row : ordered) {
+            latestByKey.putIfAbsent(dedupeKeyVehicleReport(row), row);
+        }
+        return mapToReportDTO(latestByKey.values().stream()
+                .sorted(Comparator.comparing(InspPreOperativaEntity::getFechaRegistro).reversed())
+                .toList());
     }
 
     private List<InspPreOperativaEntity> listMotoInspectionEntitiesNewestFirst() {
-        return inspPreOperativaRepository.findAllByVehicleTypeName("MOTOCICLETA");
+        return inspPreOperativaRepository.findAllByVehicleTypeName("MOTOCICLETA").stream()
+                .filter(VehiculoInspectionService::isActiveVehicleForDashboard)
+                .toList();
     }
 
     @Override
@@ -243,6 +309,40 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         return "v:" + (row.getIdVehiculo() != null ? row.getIdVehiculo() : 0);
     }
 
+    /**
+     * Texto de ubicación para reportes: primero la de la inspección ({@code id_ubicacion});
+     * si no hay, la ubicación base del vehículo en inventario ({@code id_ubicacion_base}).
+     */
+    private String resolveUbicacionNombre(InspPreOperativaEntity inspection, VehicleEntity vehicle) {
+        if (inspection.getIdUbicacion() != null) {
+            String fromInsp = ubicacionRepository.findById(inspection.getIdUbicacion())
+                    .map(u -> u.getNombreUbicacion())
+                    .filter(n -> n != null && !n.isBlank())
+                    .orElse(null);
+            if (fromInsp != null) {
+                return fromInsp;
+            }
+        }
+        if (vehicle != null && vehicle.getUbicacionBase() != null) {
+            String n = vehicle.getUbicacionBase().getNombreUbicacion();
+            if (n != null && !n.isBlank()) {
+                return n;
+            }
+        }
+        return "N/A";
+    }
+
+    /** Si el cliente no envía ubicación, se toma la base del vehículo para persistir y reportes. */
+    private static Integer resolveIdUbicacionForNewInspection(VehiculoInspectionRequest req, VehicleEntity vehicle) {
+        if (req.idUbicacion() != null) {
+            return req.idUbicacion();
+        }
+        if (vehicle != null && vehicle.getUbicacionBase() != null) {
+            return vehicle.getUbicacionBase().getId();
+        }
+        return null;
+    }
+
     private List<VehicleInspectionReportDTO> mapToReportDTO(List<InspPreOperativaEntity> inspections) {
         List<VehicleInspectionReportDTO> reportList = new java.util.ArrayList<>();
 
@@ -263,9 +363,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 (vehicle != null && vehicle.getBelongsTo() != null && !vehicle.getBelongsTo().isBlank())
                         ? vehicle.getBelongsTo()
                         : "N/A",
-                (inspection.getIdUbicacion() != null)
-                    ? ubicacionRepository.findById(inspection.getIdUbicacion()).map(u -> u.getNombreUbicacion()).orElse("N/A")
-                    : "N/A",
+                resolveUbicacionNombre(inspection, vehicle),
                 inspection.getLoginUser(),
                 inspection.getKilometrajeReportado(),
                 inspection.getAprobadoRuta(),
@@ -313,9 +411,10 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
      */
     public KilometrajeValidacionResponse validarKilometraje(String placa, Integer kilometrajeIngresado) {
 
-        VehicleEntity vehicle = vehicleRepository.findByPlaca(placa)
+        String p = InputTextNormalizer.normalizePlaca(placa);
+        VehicleEntity vehicle = vehicleRepository.findByPlaca(p)
                 .orElseThrow(() -> new IllegalArgumentException(
-                        "Vehículo no encontrado con placa: " + placa));
+                        "Vehículo no encontrado con placa: " + p));
 
         Integer kilometrajeActual = vehicle.getKilometrajeActual();
 
@@ -384,31 +483,157 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     }
 
     /**
-     * Guarda o actualiza un documento maestro del vehículo.
+     * Guarda una nueva versión de documento (desactiva la fila activa anterior del mismo tipo).
      */
     @Transactional
     public void saveDocument(VehicleDocumentRequest req) {
-        // Buscar si ya existe uno de ese tipo para actualizarlo, o crear uno nuevo
-        Optional<DocumentacionYElementosEntity> existing = documentacionRepository
-                .findLatestByVehiculoAndTipo(req.idVehiculo(), req.tipoDocumento());
+        saveDocument(req, null);
+    }
 
-        DocumentacionYElementosEntity doc;
-        if (existing.isPresent()) {
-            doc = existing.get();
-            doc.setFechaVencimiento(req.fechaVencimiento());
-            if (req.imagenUrl() != null) doc.setImagenUrl(req.imagenUrl());
-            doc.setEstadoDatos(calcularEstado(req.fechaVencimiento()));
-        } else {
-            doc = DocumentacionYElementosEntity.builder()
-                    .idVehiculo(req.idVehiculo())
-                    .tipoDocumento(req.tipoDocumento())
-                    .fechaVencimiento(req.fechaVencimiento())
-                    .imagenUrl(req.imagenUrl())
-                    .estadoDatos(calcularEstado(req.fechaVencimiento()))
-                    .activo(true)
-                    .build();
+    @Transactional
+    public void saveDocument(VehicleDocumentRequest req, String registradoPor) {
+        if (req.idVehiculo() == null || req.fechaVencimiento() == null) {
+            throw new IllegalArgumentException("idVehiculo y fechaVencimiento son obligatorios.");
         }
+        if (!vehicleRepository.existsById(req.idVehiculo())) {
+            throw new IllegalArgumentException("Vehículo no encontrado: id=" + req.idVehiculo());
+        }
+        String tipo = normalizeTipoForPersistence(req.tipoDocumento());
+        Optional<DocumentacionYElementosEntity> activeOpt =
+                documentacionRepository.findLatestByVehiculoAndTipo(req.idVehiculo(), tipo);
+
+        String imagenUrl = blankToNull(req.imagenUrl());
+        String contentType = blankToNull(req.contentType());
+        if (imagenUrl == null && activeOpt.isPresent()) {
+            imagenUrl = blankToNull(activeOpt.get().getImagenUrl());
+            if (contentType == null) {
+                contentType = blankToNull(activeOpt.get().getContentType());
+            }
+        }
+
+        if (activeOpt.isPresent()) {
+            DocumentacionYElementosEntity a = activeOpt.get();
+            if (a.getFechaVencimiento().equals(req.fechaVencimiento())
+                    && Objects.equals(blankToNull(a.getImagenUrl()), imagenUrl)) {
+                return;
+            }
+        }
+
+        documentacionRepository.deactivateAllActiveForVehiculoAndTipo(req.idVehiculo(), tipo);
+
+        DocumentacionYElementosEntity doc = DocumentacionYElementosEntity.builder()
+                .idVehiculo(req.idVehiculo())
+                .tipoDocumento(tipo)
+                .fechaVencimiento(req.fechaVencimiento())
+                .imagenUrl(imagenUrl)
+                .contentType(contentType)
+                .estadoDatos(calcularEstado(req.fechaVencimiento()))
+                .activo(true)
+                .registradoPor(normalizeRegistradoPor(registradoPor))
+                .build();
         documentacionRepository.save(doc);
+    }
+
+    @Transactional
+    public void saveDocumentFromUpload(Integer idVehiculo, String tipoRaw, LocalDate fecha, MultipartFile file, String username)
+            throws IOException {
+        if (!vehicleRepository.existsById(idVehiculo)) {
+            throw new IllegalArgumentException("Vehículo no encontrado: id=" + idVehiculo);
+        }
+        String tipo = normalizeTipoForPersistence(tipoRaw);
+        String folder = VehicleDocumentStorageService.folderSegmentForTipoBd(tipo);
+
+        // Capturar el registro activo ANTES de mover el archivo, para luego actualizar su URL al path archivado.
+        Optional<DocumentacionYElementosEntity> prevActive =
+                documentacionRepository.findLatestByVehiculoAndTipo(idVehiculo, tipo);
+
+        var stored = vehicleDocumentStorageService.store(file, idVehiculo, folder);
+
+        // Corregir la URL del registro anterior para que apunte al archivo archivado, no al nuevo current.
+        if (stored.previousArchivedUrl() != null && prevActive.isPresent()) {
+            documentacionRepository.updateImagenUrlById(
+                    prevActive.get().getIdDocumento(), stored.previousArchivedUrl());
+        }
+
+        saveDocument(new VehicleDocumentRequest(idVehiculo, tipo, fecha, stored.relativeUrl(), stored.contentType()), username);
+    }
+
+    @Transactional(readOnly = true)
+    public List<DocumentoVehiculoVersionDTO> getDocumentHistory(Integer idVehiculo) {
+        if (!vehicleRepository.existsById(idVehiculo)) {
+            throw new IllegalArgumentException("Vehículo no encontrado: id=" + idVehiculo);
+        }
+        return documentacionRepository.findByIdVehiculoOrderByIdDocumentoDesc(idVehiculo).stream()
+                .map(row -> new DocumentoVehiculoVersionDTO(
+                        row.getIdDocumento(),
+                        row.getTipoDocumento(),
+                        row.getFechaVencimiento(),
+                        resolveUrl(row.getImagenUrl()),
+                        row.getContentType() != null ? row.getContentType() : guessContentTypeFromPath(row.getImagenUrl()),
+                        row.getFechaRegistro(),
+                        normalizeRegistradoPor(row.getRegistradoPor()),
+                        row.getActivo() == null || Boolean.TRUE.equals(row.getActivo()),
+                        calcularEstado(row.getFechaVencimiento())))
+                .toList();
+    }
+
+    /**
+     * Registros antiguos pudieron persistir {@link UserPrincipal#toString()} en {@code registrado_por}
+     * (p. ej. {@code UserPrincipal[id=41, username=David]}). Devuelve el login legible.
+     */
+    private static String normalizeRegistradoPor(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String s = raw.trim();
+        if (s.startsWith("UserPrincipal[")) {
+            int key = s.indexOf("username=");
+            if (key >= 0) {
+                int from = key + "username=".length();
+                int end = s.indexOf(']', from);
+                if (end > from) {
+                    s = s.substring(from, end).trim();
+                }
+            }
+        }
+        if (s.isBlank()) {
+            return null;
+        }
+        if (s.length() > 100) {
+            return s.substring(0, 100);
+        }
+        return s;
+    }
+
+    private static String normalizeTipoForPersistence(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("tipoDocumento es obligatorio.");
+        }
+        String t = raw.trim().toUpperCase(Locale.ROOT).replace('_', ' ');
+        return switch (t) {
+            case "LICENCIA", "LICENCIA CONDUCCION" -> "LICENCIA DE CONDUCCION";
+            default -> t;
+        };
+    }
+
+    private static String guessContentTypeFromPath(String url) {
+        if (url == null) {
+            return null;
+        }
+        String u = url.toLowerCase(Locale.ROOT);
+        if (u.endsWith(".pdf")) {
+            return "application/pdf";
+        }
+        if (u.endsWith(".png")) {
+            return "image/png";
+        }
+        if (u.endsWith(".webp")) {
+            return "image/webp";
+        }
+        if (u.endsWith(".jpg") || u.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        return null;
     }
 
     /**

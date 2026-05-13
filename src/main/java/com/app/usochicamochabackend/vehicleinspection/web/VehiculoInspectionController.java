@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.vehicleinspection.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.DocumentoVehiculoResponse;
+import com.app.usochicamochabackend.vehicleinspection.application.dto.DocumentoVehiculoVersionDTO;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.KilometrajeValidacionResponse;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoInspectionRequest;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/vehicle-inspection")
@@ -68,6 +70,18 @@ public class VehiculoInspectionController {
                 return ResponseEntity.ok(vehiculoInspectionService.getDocumentos(idVehiculo));
         }
 
+        @GetMapping("/documentos/{idVehiculo}/history")
+        @Operation(
+                        summary = "Historial de documentación del vehículo",
+                        description = "Lista todas las versiones registradas (activas e históricas), más recientes primero.")
+        @ApiResponses(value = {
+                        @ApiResponse(responseCode = "200", description = "Historial"),
+                        @ApiResponse(responseCode = "404", description = "Vehículo no encontrado")
+        })
+        public ResponseEntity<List<DocumentoVehiculoVersionDTO>> getDocumentHistory(@PathVariable Integer idVehiculo) {
+                return ResponseEntity.ok(vehiculoInspectionService.getDocumentHistory(idVehiculo));
+        }
+
         @PostMapping("/documentos")
         @Operation(
                         summary = "Actualizar documentos (vigencias) vía inspección",
@@ -78,8 +92,12 @@ public class VehiculoInspectionController {
                         @ApiResponse(responseCode = "401", description = "No autorizado"),
                         @ApiResponse(responseCode = "403", description = "Sin permisos suficientes")
         })
-        public ResponseEntity<Void> updateDocumento(@RequestBody com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleDocumentRequest request) {
-                vehiculoInspectionService.saveDocument(request);
+        public ResponseEntity<Void> updateDocumento(
+                        @RequestBody com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleDocumentRequest request,
+                        Authentication authentication) {
+                vehiculoInspectionService.saveDocument(
+                                request,
+                                authentication != null ? authentication.getName() : null);
                 return ResponseEntity.ok().build();
         }
 
@@ -97,12 +115,37 @@ public class VehiculoInspectionController {
                 return ResponseEntity.ok(vehiculoInspectionService.validarKilometraje(placa, kilometraje));
         }
 
+        @GetMapping("/reports/all")
+        @Operation(
+                        summary = "Reportes de inspección — todos los vehículos (excluye motos)",
+                        description = "Retorna todas las inspecciones de vehículos sin importar su tipo (AUTOMOVIL, CAMION, PICKUP…), "
+                                        + "excluyendo MOTOCICLETA. Más recientes primero.")
+        @ApiResponses(value = {
+                        @ApiResponse(responseCode = "200", description = "Lista de reportes (`VehicleInspectionReportDTO`)"),
+                        @ApiResponse(responseCode = "401", description = "No autorizado")
+        })
+        public ResponseEntity<java.util.List<VehicleInspectionReportDTO>> getAllVehicleReports() {
+                return ResponseEntity.ok(getVehicleInspectionsUseCase.getAllVehicleInspections());
+        }
+
+        @GetMapping("/reports/latest")
+        @Operation(
+                        summary = "Última inspección por vehículo (excluye motos)",
+                        description = "Una sola fila por placa — la inspección más reciente para cada vehículo no-moto.")
+        @ApiResponses(value = {
+                        @ApiResponse(responseCode = "200", description = "Lista deduplicada por vehículo"),
+                        @ApiResponse(responseCode = "401", description = "No autorizado")
+        })
+        public ResponseEntity<java.util.List<VehicleInspectionReportDTO>> getLatestVehicleReports() {
+                return ResponseEntity.ok(getVehicleInspectionsUseCase.getLatestVehicleInspectionsPerVehicle());
+        }
+
         @GetMapping("/reports/{typeId}")
         @Operation(
                         summary = "Reportes de inspección por tipo de vehículo",
                         description = "Listado completo de inspecciones para vehículos cuyo `id_tipo_vehiculo` coincide con `typeId` (catálogo `cat_tipos_vehiculo`). "
                                         + "En datos semilla habituales: 1 = MOTOCICLETA, 2 = AUTOMOVIL, 3 = CAMION, 4 = PICKUP. "
-                                        + "La web admin usa `typeId=2` para el listado de inspecciones de livianos.")
+                                        + "Mantenido por compatibilidad; preferir `GET /reports` para mostrar todos los vehículos.")
         @ApiResponses(value = {
                         @ApiResponse(responseCode = "200", description = "Lista de reportes (`VehicleInspectionReportDTO`)"),
                         @ApiResponse(responseCode = "401", description = "No autorizado")

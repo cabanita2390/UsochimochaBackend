@@ -6,6 +6,12 @@ import java.util.List;
 public interface GetVehicleInspectionsUseCase {
     List<VehicleInspectionReportDTO> getInspectionsByType(Integer typeId);
 
+    /** Todas las inspecciones de vehículos (excluye motos), más recientes primero. */
+    List<VehicleInspectionReportDTO> getAllVehicleInspections();
+
+    /** Una fila por placa, excluyendo motos (la más reciente por vehículo). */
+    List<VehicleInspectionReportDTO> getLatestVehicleInspectionsPerVehicle();
+
     /** Una fila por placa: inspección con {@code fecha_registro} más reciente (evita duplicados por varios {@code id_vehiculo}). */
     List<VehicleInspectionReportDTO> getMotoInspectionsLatestPerVehicle();
 
