@@ -2,8 +2,14 @@ package com.app.usochicamochabackend.update.application.service;
 
 import com.app.usochicamochabackend.context.application.dto.MachineCurriculumDTO;
 import com.app.usochicamochabackend.context.application.dto.VehicleCurriculumDTO;
+import com.app.usochicamochabackend.maintenance.application.dto.MaintenanceResponse;
+import com.app.usochicamochabackend.moto.application.dto.MotoMonitoringDTO;
+import com.app.usochicamochabackend.order.application.dto.OrderWithMachineDTO;
+import com.app.usochicamochabackend.order.application.dto.OrderWithVehicleDTO;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.update.application.dto.ConsolidateHydraulicAndMotorOilDTO;
+import com.app.usochicamochabackend.vehicle.application.dto.VehicleMonitoringDTO;
+import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -390,6 +396,505 @@ public class ExcelGenerationService {
 
             log.info("Archivo Excel de inspecciones generado exitosamente con {} filas de datos", inspections.size());
             return outputStream.toByteArray();
+        }
+    }
+
+    public byte[] generateVehicleConsolidatedExcel(List<VehicleMonitoringDTO> data) throws IOException {
+        log.info("Generando Excel consolidado vehículos: {} registros", data.size());
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Consolidado Vehículos");
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+
+            CellStyle dataStyle = workbook.createCellStyle();
+            dataStyle.setBorderBottom(BorderStyle.THIN);
+            dataStyle.setBorderTop(BorderStyle.THIN);
+            dataStyle.setBorderRight(BorderStyle.THIN);
+            dataStyle.setBorderLeft(BorderStyle.THIN);
+
+            String[] headers = {
+                "Área", "Placa", "Km Actual", "Fecha Último Reporte", "Días sin Reporte",
+                // Aceite
+                "Tipo Aceite", "Fecha Últ. Cambio Aceite", "Km Últ. Cambio Aceite",
+                "Km Próximo Cambio Aceite", "Km Restantes Aceite", "Estado Aceite",
+                // SOAT
+                "Vencimiento SOAT", "Días Restantes SOAT", "Estado SOAT",
+                // Tecno
+                "Vencimiento Tecnomecánica", "Días Restantes Tecno", "Estado Tecnomecánica"
+            };
+
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowNum = 1;
+            for (VehicleMonitoringDTO dto : data) {
+                Row row = sheet.createRow(rowNum++);
+                int c = 0;
+
+                row.createCell(c++).setCellValue(dto.area() != null ? dto.area() : "");
+                row.createCell(c++).setCellValue(dto.placa() != null ? dto.placa() : "");
+                row.createCell(c++).setCellValue(dto.kmActual() != null ? dto.kmActual() : 0);
+                row.createCell(c++).setCellValue(dto.fechaUltimoReporte() != null ? dto.fechaUltimoReporte().format(DATETIME_FORMATTER) : "");
+                row.createCell(c++).setCellValue(dto.diasUltimoReporte() != null ? dto.diasUltimoReporte() : 0);
+
+                VehicleMonitoringDTO.OilStatus oil = dto.maintenance();
+                row.createCell(c++).setCellValue(oil != null && oil.tipoAceite() != null ? oil.tipoAceite() : "");
+                row.createCell(c++).setCellValue(oil != null && oil.fechaUltimoCambio() != null ? oil.fechaUltimoCambio().format(DATE_FORMATTER) : "");
+                row.createCell(c++).setCellValue(oil != null && oil.kmUltimoCambio() != null ? oil.kmUltimoCambio() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.kmProximoCambio() != null ? oil.kmProximoCambio() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.kmParaCambio() != null ? oil.kmParaCambio() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.estado() != null ? oil.estado() : "");
+
+                VehicleMonitoringDTO.DocumentStatus soat = dto.soat();
+                row.createCell(c++).setCellValue(soat != null && soat.fechaVencimiento() != null ? soat.fechaVencimiento().format(DATE_FORMATTER) : "");
+                row.createCell(c++).setCellValue(soat != null && soat.diasRestantes() != null ? soat.diasRestantes() : 0);
+                row.createCell(c++).setCellValue(soat != null && soat.estado() != null ? soat.estado() : "");
+
+                VehicleMonitoringDTO.DocumentStatus tecno = dto.tecno();
+                row.createCell(c++).setCellValue(tecno != null && tecno.fechaVencimiento() != null ? tecno.fechaVencimiento().format(DATE_FORMATTER) : "");
+                row.createCell(c++).setCellValue(tecno != null && tecno.diasRestantes() != null ? tecno.diasRestantes() : 0);
+                row.createCell(c++).setCellValue(tecno != null && tecno.estado() != null ? tecno.estado() : "");
+
+                for (int i = 0; i < headers.length; i++) {
+                    row.getCell(i).setCellStyle(dataStyle);
+                }
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+                if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
+                if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    public byte[] generateMotoConsolidatedExcel(List<MotoMonitoringDTO> data) throws IOException {
+        log.info("Generando Excel consolidado motos: {} registros", data.size());
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Consolidado Motos");
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+
+            CellStyle dataStyle = workbook.createCellStyle();
+            dataStyle.setBorderBottom(BorderStyle.THIN);
+            dataStyle.setBorderTop(BorderStyle.THIN);
+            dataStyle.setBorderRight(BorderStyle.THIN);
+            dataStyle.setBorderLeft(BorderStyle.THIN);
+
+            String[] headers = {
+                "Departamento", "Ubicación Base", "Estación Último Reporte", "Placa",
+                "Km Actual", "Estado Moto", "Novedad Actual",
+                "Fecha Último Reporte", "Días sin Reporte",
+                // Aceite
+                "Fecha Últ. Cambio Aceite", "Km Cambio Aceite", "Km Próximo Cambio Aceite",
+                "Km Restantes Aceite", "Filtro Aire", "Estado Aceite",
+                // SOAT
+                "Vencimiento SOAT", "Días Restantes SOAT", "Estado SOAT",
+                // Tecno
+                "Vencimiento Tecnomecánica", "Días Restantes Tecno", "Estado Tecnomecánica"
+            };
+
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowNum = 1;
+            for (MotoMonitoringDTO dto : data) {
+                Row row = sheet.createRow(rowNum++);
+                int c = 0;
+
+                row.createCell(c++).setCellValue(dto.departamento() != null ? dto.departamento() : "");
+                row.createCell(c++).setCellValue(dto.ubicacionBase() != null ? dto.ubicacionBase() : "");
+                row.createCell(c++).setCellValue(dto.responsable() != null ? dto.responsable() : "");
+                row.createCell(c++).setCellValue(dto.placa() != null ? dto.placa() : "");
+                row.createCell(c++).setCellValue(dto.kmActual() != null ? dto.kmActual() : 0);
+                row.createCell(c++).setCellValue(dto.estadoMoto() != null ? dto.estadoMoto() : "");
+                row.createCell(c++).setCellValue(dto.novedadActual() != null ? dto.novedadActual() : "");
+                row.createCell(c++).setCellValue(dto.fechaUltimoReporte() != null ? dto.fechaUltimoReporte().format(DATETIME_FORMATTER) : "");
+                row.createCell(c++).setCellValue(dto.diasUltimoReporte() != null ? dto.diasUltimoReporte() : 0);
+
+                MotoMonitoringDTO.OilStatus oil = dto.oil();
+                row.createCell(c++).setCellValue(oil != null && oil.fechaUltimoCambio() != null ? oil.fechaUltimoCambio().format(DATE_FORMATTER) : "");
+                row.createCell(c++).setCellValue(oil != null && oil.kmCambio() != null ? oil.kmCambio() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.kmProximoCambio() != null ? oil.kmProximoCambio() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.kmParaProximo() != null ? oil.kmParaProximo() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.filtroAire() != null ? (oil.filtroAire() ? "Sí" : "No") : "");
+                row.createCell(c++).setCellValue(oil != null && oil.estado() != null ? oil.estado() : "");
+
+                MotoMonitoringDTO.DocumentStatus soat = dto.soat();
+                row.createCell(c++).setCellValue(soat != null && soat.fechaVencimiento() != null ? soat.fechaVencimiento().format(DATE_FORMATTER) : "");
+                row.createCell(c++).setCellValue(soat != null && soat.diasRestantes() != null ? soat.diasRestantes() : 0);
+                row.createCell(c++).setCellValue(soat != null && soat.estado() != null ? soat.estado() : "");
+
+                MotoMonitoringDTO.DocumentStatus tecno = dto.tecno();
+                row.createCell(c++).setCellValue(tecno != null && tecno.fechaVencimiento() != null ? tecno.fechaVencimiento().format(DATE_FORMATTER) : "");
+                row.createCell(c++).setCellValue(tecno != null && tecno.diasRestantes() != null ? tecno.diasRestantes() : 0);
+                row.createCell(c++).setCellValue(tecno != null && tecno.estado() != null ? tecno.estado() : "");
+
+                for (int i = 0; i < headers.length; i++) {
+                    row.getCell(i).setCellStyle(dataStyle);
+                }
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+                if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
+                if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    public byte[] generateMachineOrdersExcel(List<OrderWithMachineDTO> orders) throws IOException {
+        log.info("Generando Excel órdenes maquinaria: {} registros", orders.size());
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Órdenes Maquinaria");
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+
+            CellStyle dataStyle = workbook.createCellStyle();
+            dataStyle.setBorderBottom(BorderStyle.THIN);
+            dataStyle.setBorderTop(BorderStyle.THIN);
+            dataStyle.setBorderRight(BorderStyle.THIN);
+            dataStyle.setBorderLeft(BorderStyle.THIN);
+
+            String[] headers = {
+                "ID Orden", "Fecha", "Estado", "Descripción",
+                "Asignado por", "Máquina", "Área"
+            };
+
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowNum = 1;
+            for (OrderWithMachineDTO dto : orders) {
+                Row row = sheet.createRow(rowNum++);
+                int c = 0;
+                var order = dto.order();
+                var machine = dto.machine();
+                row.createCell(c++).setCellValue(order != null && order.id() != null ? order.id() : 0);
+                row.createCell(c++).setCellValue(order != null && order.date() != null ? order.date().format(DATETIME_FORMATTER) : "");
+                row.createCell(c++).setCellValue(order != null && order.status() != null ? order.status() : "");
+                row.createCell(c++).setCellValue(order != null && order.description() != null ? order.description() : "");
+                row.createCell(c++).setCellValue(order != null && order.assignerUser() != null ? order.assignerUser().fullName() : "");
+                row.createCell(c++).setCellValue(machine != null && machine.name() != null ? machine.name() : "");
+                row.createCell(c++).setCellValue(machine != null && machine.belongsTo() != null ? machine.belongsTo() : "");
+
+                for (int i = 0; i < headers.length; i++) {
+                    row.getCell(i).setCellStyle(dataStyle);
+                }
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+                if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
+                if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    public byte[] generateVehicleOrdersExcel(List<OrderWithVehicleDTO> orders) throws IOException {
+        log.info("Generando Excel órdenes vehículos/motos: {} registros", orders.size());
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Órdenes Vehículos");
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+
+            CellStyle dataStyle = workbook.createCellStyle();
+            dataStyle.setBorderBottom(BorderStyle.THIN);
+            dataStyle.setBorderTop(BorderStyle.THIN);
+            dataStyle.setBorderRight(BorderStyle.THIN);
+            dataStyle.setBorderLeft(BorderStyle.THIN);
+
+            String[] headers = {
+                "ID Orden", "Fecha", "Estado", "Descripción",
+                "Asignado por", "Placa", "Marca", "Tipo Vehículo", "Fecha Inspección"
+            };
+
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowNum = 1;
+            for (OrderWithVehicleDTO dto : orders) {
+                Row row = sheet.createRow(rowNum++);
+                int c = 0;
+                var order = dto.order();
+                var vehicle = dto.vehicle();
+                row.createCell(c++).setCellValue(order != null && order.id() != null ? order.id() : 0);
+                row.createCell(c++).setCellValue(order != null && order.date() != null ? order.date().format(DATETIME_FORMATTER) : "");
+                row.createCell(c++).setCellValue(order != null && order.status() != null ? order.status() : "");
+                row.createCell(c++).setCellValue(order != null && order.description() != null ? order.description() : "");
+                row.createCell(c++).setCellValue(order != null && order.assignerUser() != null ? order.assignerUser().fullName() : "");
+                row.createCell(c++).setCellValue(vehicle != null && vehicle.placa() != null ? vehicle.placa() : "");
+                row.createCell(c++).setCellValue(vehicle != null && vehicle.marca() != null ? vehicle.marca() : "");
+                row.createCell(c++).setCellValue(vehicle != null && vehicle.tipoVehiculo() != null ? vehicle.tipoVehiculo() : "");
+                row.createCell(c++).setCellValue(vehicle != null && vehicle.fechaInspeccion() != null ? vehicle.fechaInspeccion().format(DATETIME_FORMATTER) : "");
+
+                for (int i = 0; i < headers.length; i++) {
+                    row.getCell(i).setCellStyle(dataStyle);
+                }
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+                if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
+                if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    public byte[] generateMaintenanceExcel(List<MaintenanceResponse> records) throws IOException {
+        log.info("Generando Excel de mantenimiento: {} registros", records.size());
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Mantenimiento");
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+
+            CellStyle dataStyle = workbook.createCellStyle();
+            dataStyle.setBorderBottom(BorderStyle.THIN);
+            dataStyle.setBorderTop(BorderStyle.THIN);
+            dataStyle.setBorderRight(BorderStyle.THIN);
+            dataStyle.setBorderLeft(BorderStyle.THIN);
+
+            String[] headers = {
+                "Fecha", "Placa", "Ubicación", "Responsable Asignado",
+                "Kilometraje", "Tipo Mantenimiento", "Repuestos",
+                "Taller Responsable", "Observaciones"
+            };
+
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowNum = 1;
+            for (MaintenanceResponse r : records) {
+                Row row = sheet.createRow(rowNum++);
+                int c = 0;
+                row.createCell(c++).setCellValue(r.fecha() != null ? r.fecha().format(DATETIME_FORMATTER) : "");
+                row.createCell(c++).setCellValue(r.placa() != null ? r.placa() : "");
+                row.createCell(c++).setCellValue(r.ubicacion() != null ? r.ubicacion() : "");
+                row.createCell(c++).setCellValue(r.responsableAsignado() != null ? r.responsableAsignado() : "");
+                row.createCell(c++).setCellValue(r.kilometraje() != null ? r.kilometraje() : 0);
+                row.createCell(c++).setCellValue(r.tipoMantenimiento() != null ? r.tipoMantenimiento() : "");
+                row.createCell(c++).setCellValue(r.repuestosMantenimiento() != null ? r.repuestosMantenimiento() : "");
+                row.createCell(c++).setCellValue(r.tallerResponsable() != null ? r.tallerResponsable() : "");
+                row.createCell(c++).setCellValue(r.observaciones() != null ? r.observaciones() : "");
+
+                for (int i = 0; i < headers.length; i++) {
+                    row.getCell(i).setCellStyle(dataStyle);
+                }
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+                if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
+                if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    public byte[] generateVehicleInspectionsExcel(List<VehicleInspectionReportDTO> inspections) throws IOException {
+        log.info("Generando Excel de inspecciones de vehículos/motos: {} registros", inspections.size());
+
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Inspecciones");
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(IndexedColors.WHITE.getIndex());
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+
+            CellStyle dataStyle = workbook.createCellStyle();
+            dataStyle.setBorderBottom(BorderStyle.THIN);
+            dataStyle.setBorderTop(BorderStyle.THIN);
+            dataStyle.setBorderRight(BorderStyle.THIN);
+            dataStyle.setBorderLeft(BorderStyle.THIN);
+
+            String[] headers = {
+                "Fecha Registro", "Placa", "Marca", "Tipo Vehículo", "Área", "Ubicación",
+                "Responsable", "Kilometraje", "Aprobado Ruta",
+                // Mecánico
+                "Nivel Aceite", "Nivel Refrigerante", "Nivel Frenos", "Estado Llantas",
+                "Luces", "Estado Visual", "Limpieza",
+                // Documentos
+                "Check SOAT", "Check Tecnomecánica", "Check Licencia", "Check Extintor",
+                // Elementos
+                "Botiquín", "Señalización", "Líneas Emergencia", "Llanta Repuesto", "Gato Hidráulico",
+                // Salud
+                "Salud Física", "Salud Mental", "Sobriedad", "Medicamentos",
+                "Condición para Conducir", "Consciente Responsabilidad",
+                // Observaciones
+                "Observaciones"
+            };
+
+            Row headerRow = sheet.createRow(0);
+            for (int i = 0; i < headers.length; i++) {
+                Cell cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowNum = 1;
+            for (VehicleInspectionReportDTO dto : inspections) {
+                Row row = sheet.createRow(rowNum++);
+                int c = 0;
+
+                row.createCell(c++).setCellValue(dto.fechaRegistro() != null ? dto.fechaRegistro().format(DATETIME_FORMATTER) : "");
+                row.createCell(c++).setCellValue(dto.placa() != null ? dto.placa() : "");
+                row.createCell(c++).setCellValue(dto.marca() != null ? dto.marca() : "");
+                row.createCell(c++).setCellValue(dto.tipoVehiculo() != null ? dto.tipoVehiculo() : "");
+                row.createCell(c++).setCellValue(dto.areaOrganizacional() != null ? dto.areaOrganizacional() : "");
+                row.createCell(c++).setCellValue(dto.ubicacion() != null ? dto.ubicacion() : "");
+                row.createCell(c++).setCellValue(dto.responsable() != null ? dto.responsable() : "");
+                row.createCell(c++).setCellValue(dto.kilometraje() != null ? dto.kilometraje() : 0);
+                row.createCell(c++).setCellValue(dto.aprobadoRuta() != null ? (dto.aprobadoRuta() ? "Sí" : "No") : "");
+
+                row.createCell(c++).setCellValue(dto.nivelAceite() != null ? dto.nivelAceite() : "");
+                row.createCell(c++).setCellValue(dto.nivelRefrigerante() != null ? dto.nivelRefrigerante() : "");
+                row.createCell(c++).setCellValue(dto.nivelFrenos() != null ? dto.nivelFrenos() : "");
+                row.createCell(c++).setCellValue(dto.estadoLlantas() != null ? dto.estadoLlantas() : "");
+                row.createCell(c++).setCellValue(dto.lucesGeneral() != null ? dto.lucesGeneral() : "");
+                row.createCell(c++).setCellValue(dto.estadoVisual() != null ? dto.estadoVisual() : "");
+                row.createCell(c++).setCellValue(dto.limpiezaGeneral() != null ? dto.limpiezaGeneral() : "");
+
+                row.createCell(c++).setCellValue(dto.checkSoat() != null ? dto.checkSoat() : "");
+                row.createCell(c++).setCellValue(dto.checkTecno() != null ? dto.checkTecno() : "");
+                row.createCell(c++).setCellValue(dto.checkLicencia() != null ? dto.checkLicencia() : "");
+                row.createCell(c++).setCellValue(dto.checkExtintor() != null ? dto.checkExtintor() : "");
+
+                row.createCell(c++).setCellValue(dto.tieneBotiquin() != null ? (dto.tieneBotiquin() ? "Sí" : "No") : "");
+                row.createCell(c++).setCellValue(dto.tieneSeñalizacion() != null ? (dto.tieneSeñalizacion() ? "Sí" : "No") : "");
+                row.createCell(c++).setCellValue(dto.tieneLineasEmergencia() != null ? (dto.tieneLineasEmergencia() ? "Sí" : "No") : "");
+                row.createCell(c++).setCellValue(dto.tieneLlantaRepuesto() != null ? dto.tieneLlantaRepuesto() : "");
+                row.createCell(c++).setCellValue(dto.tieneGatoHidraulico() != null ? dto.tieneGatoHidraulico() : "");
+
+                row.createCell(c++).setCellValue(dto.saludFisica() != null ? (dto.saludFisica() ? "Sí" : "No") : "");
+                row.createCell(c++).setCellValue(dto.saludMental() != null ? (dto.saludMental() ? "Sí" : "No") : "");
+                row.createCell(c++).setCellValue(dto.sobrio() != null ? (dto.sobrio() ? "Sí" : "No") : "");
+                row.createCell(c++).setCellValue(dto.medicamentos() != null ? (dto.medicamentos() ? "Sí" : "No") : "");
+                row.createCell(c++).setCellValue(dto.condicionParaConducir() != null ? (dto.condicionParaConducir() ? "Sí" : "No") : "");
+                row.createCell(c++).setCellValue(dto.conscienteResponsabilidad() != null ? (dto.conscienteResponsabilidad() ? "Sí" : "No") : "");
+                row.createCell(c++).setCellValue(dto.observacionesFinales() != null ? dto.observacionesFinales() : "");
+
+                for (int i = 0; i < headers.length; i++) {
+                    row.getCell(i).setCellStyle(dataStyle);
+                }
+            }
+
+            for (int i = 0; i < headers.length; i++) {
+                sheet.autoSizeColumn(i);
+                if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
+                if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            workbook.write(out);
+            return out.toByteArray();
         }
     }
 

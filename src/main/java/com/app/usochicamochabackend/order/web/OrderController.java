@@ -4,6 +4,7 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.*;
+import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -16,11 +17,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -36,6 +39,7 @@ public class OrderController {
     private final AssignVehicleOrderUseCase assignVehicleOrderUseCase;
     private final GetAllOrdersByVehicleInspectionIdUseCase getAllOrdersByVehicleInspectionIdUseCase;
     private final GetAllVehicleOrdersUseCase getAllVehicleOrdersUseCase;
+    private final ExcelGenerationService excelGenerationService;
 
     @Operation(
             summary = "Assign a new order",
@@ -132,5 +136,27 @@ public class OrderController {
             @RequestParam(defaultValue = "10") int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
         return ResponseEntity.ok(getAllVehicleOrdersUseCase.getAllVehicleOrders(pageable));
+    }
+
+    @Operation(summary = "Exportar órdenes de maquinaria a Excel")
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportMachineOrders() throws IOException {
+        List<OrderWithMachineDTO> orders = getAllOrdersUseCase.getAllOrders(Pageable.unpaged()).getContent();
+        byte[] excelData = excelGenerationService.generateMachineOrdersExcel(orders);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "ordenes_maquinaria.xlsx");
+        return ResponseEntity.ok().headers(headers).body(excelData);
+    }
+
+    @Operation(summary = "Exportar órdenes de vehículos y motos a Excel")
+    @GetMapping("/vehicle/export")
+    public ResponseEntity<byte[]> exportVehicleOrders() throws IOException {
+        List<OrderWithVehicleDTO> orders = getAllVehicleOrdersUseCase.getAllVehicleOrders(Pageable.unpaged()).getContent();
+        byte[] excelData = excelGenerationService.generateVehicleOrdersExcel(orders);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "ordenes_vehiculos_motos.xlsx");
+        return ResponseEntity.ok().headers(headers).body(excelData);
     }
 }

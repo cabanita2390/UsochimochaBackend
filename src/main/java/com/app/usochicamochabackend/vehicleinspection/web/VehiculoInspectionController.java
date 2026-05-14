@@ -7,6 +7,7 @@ import com.app.usochicamochabackend.vehicleinspection.application.dto.Kilometraj
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoInspectionRequest;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoInspectionResponse;
+import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import com.app.usochicamochabackend.vehicleinspection.application.port.CreateVehiculoInspectionUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.service.VehiculoInspectionService;
@@ -15,11 +16,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -37,6 +40,7 @@ public class VehiculoInspectionController {
         private final CreateVehiculoInspectionUseCase createVehiculoInspectionUseCase;
         private final GetVehicleInspectionsUseCase getVehicleInspectionsUseCase;
         private final VehiculoInspectionService vehiculoInspectionService;
+        private final ExcelGenerationService excelGenerationService;
 
         @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
         @Operation(summary = "Registrar una inspección pre-operativa de vehículo", description = "Guarda la inspección completa en 5 tablas: cabecera, mecánico, documentos, elementos y salud.")
@@ -138,6 +142,23 @@ public class VehiculoInspectionController {
         })
         public ResponseEntity<java.util.List<VehicleInspectionReportDTO>> getLatestVehicleReports() {
                 return ResponseEntity.ok(getVehicleInspectionsUseCase.getLatestVehicleInspectionsPerVehicle());
+        }
+
+        @GetMapping("/export")
+        @Operation(
+                        summary = "Exportar inspecciones de vehículos a Excel",
+                        description = "Descarga todas las inspecciones pre-operativas de vehículos (excluye motos) en formato .xlsx.")
+        @ApiResponses(value = {
+                        @ApiResponse(responseCode = "200", description = "Archivo Excel generado"),
+                        @ApiResponse(responseCode = "401", description = "No autorizado")
+        })
+        public ResponseEntity<byte[]> exportVehicleInspections() throws IOException {
+                List<VehicleInspectionReportDTO> inspections = getVehicleInspectionsUseCase.getAllVehicleInspections();
+                byte[] excelData = excelGenerationService.generateVehicleInspectionsExcel(inspections);
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+                headers.setContentDispositionFormData("attachment", "inspecciones_vehiculos.xlsx");
+                return ResponseEntity.ok().headers(headers).body(excelData);
         }
 
         @GetMapping("/reports/{typeId}")

@@ -1,15 +1,19 @@
 package com.app.usochicamochabackend.vehicle.web;
 
+import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleMonitoringDTO;
 import com.app.usochicamochabackend.vehicle.application.port.VehicleMonitoringUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -22,6 +26,7 @@ import java.util.List;
 public class VehicleMonitoringController {
 
     private final VehicleMonitoringUseCase vehicleMonitoringUseCase;
+    private final ExcelGenerationService excelGenerationService;
 
     @GetMapping("/consolidated")
     @Operation(
@@ -30,5 +35,16 @@ public class VehicleMonitoringController {
                                     + "Requiere rol MECANIC o ADMIN para GET.")
     public ResponseEntity<List<VehicleMonitoringDTO>> getConsolidated() {
         return ResponseEntity.ok(vehicleMonitoringUseCase.getConsolidatedMonitoring());
+    }
+
+    @GetMapping("/consolidated/export")
+    @Operation(summary = "Exportar consolidado de vehículos a Excel")
+    public ResponseEntity<byte[]> exportConsolidated() throws IOException {
+        byte[] excelData = excelGenerationService.generateVehicleConsolidatedExcel(
+                vehicleMonitoringUseCase.getConsolidatedMonitoring());
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "consolidado_vehiculos.xlsx");
+        return ResponseEntity.ok().headers(headers).body(excelData);
     }
 }

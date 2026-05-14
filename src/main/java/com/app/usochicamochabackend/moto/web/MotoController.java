@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.moto.web;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.moto.application.port.MotoMonitoringUseCase;
 import com.app.usochicamochabackend.moto.application.service.MotoService;
+import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
@@ -12,12 +13,14 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.MediaType;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -37,6 +40,7 @@ public class MotoController {
     private final MotoService motoService;
     private final MotoMonitoringUseCase monitoringUseCase;
     private final GetVehicleInspectionsUseCase getInspectionsUseCase;
+    private final ExcelGenerationService excelGenerationService;
 
     @GetMapping("/placas")
     @Operation(summary = "Obtener motocicletas activas", description = "Retorna la lista de placas de motocicletas activas en la BD")
@@ -75,6 +79,34 @@ public class MotoController {
     @Operation(summary = "Obtener monitoreo consolidado de motos", description = "Dashboard con SOAT, Tecno, Aceite y filtros para motos.")
     public ResponseEntity<List<MotoMonitoringDTO>> getConsolidatedMonitoring() {
         return ResponseEntity.ok(monitoringUseCase.getConsolidatedMonitoring());
+    }
+
+    @GetMapping("/monitoring/consolidated/export")
+    @Operation(summary = "Exportar consolidado de motos a Excel")
+    public ResponseEntity<byte[]> exportConsolidatedMonitoring() throws IOException {
+        byte[] excelData = excelGenerationService.generateMotoConsolidatedExcel(
+                monitoringUseCase.getConsolidatedMonitoring());
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "consolidado_motos.xlsx");
+        return ResponseEntity.ok().headers(headers).body(excelData);
+    }
+
+    @GetMapping("/inspections/export")
+    @Operation(
+                    summary = "Exportar inspecciones de motos a Excel",
+                    description = "Descarga el historial completo de inspecciones de motocicletas en formato .xlsx.")
+    @ApiResponses({
+                    @ApiResponse(responseCode = "200", description = "Archivo Excel generado"),
+                    @ApiResponse(responseCode = "401", description = "No autorizado")
+    })
+    public ResponseEntity<byte[]> exportMotoInspections() throws IOException {
+        List<VehicleInspectionReportDTO> inspections = getInspectionsUseCase.getMotoInspectionsHistory();
+        byte[] excelData = excelGenerationService.generateVehicleInspectionsExcel(inspections);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "inspecciones_motos.xlsx");
+        return ResponseEntity.ok().headers(headers).body(excelData);
     }
 
     @GetMapping("/inspections/reports/history")
