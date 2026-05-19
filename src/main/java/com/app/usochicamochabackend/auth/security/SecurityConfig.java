@@ -123,6 +123,8 @@ public class SecurityConfig {
         configuration.setAllowedOriginPatterns(List.of(
                 "https://usochicamocha.co",
                 "https://web.usochicamocha.co",
+                "http://front-test.usochicamocha.co",
+                "https://front-test.usochicamocha.co",
                 "http://localhost:[*]",
                 "http://127.0.0.1:[*]"
         ));
