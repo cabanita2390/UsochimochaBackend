@@ -6,6 +6,7 @@ import com.app.usochicamochabackend.common.text.InputTextNormalizer;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.*;
+import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.vehicleinspection.application.port.CreateVehiculoInspectionUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.*;
@@ -51,6 +52,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     private final UbicacionRepository ubicacionRepository;
     private final VehicleRepository vehicleRepository;
     private final VehicleDocumentStorageService vehicleDocumentStorageService;
+    private final NotificationService notificationService;
 
     /**
      * POST — Guarda la inspección pre-operativa en las 5 tablas de inspección
@@ -138,6 +140,12 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                     req.kilometrajeReportado(),
                     LocalDateTime.now());
         }
+
+        String tipoNombre = (vehicle.getTipoVehiculo() != null && vehicle.getTipoVehiculo().getNombreTipo() != null)
+                ? vehicle.getTipoVehiculo().getNombreTipo().toUpperCase(Locale.ROOT)
+                : "";
+        String updateEvent = tipoNombre.contains("MOTO") ? "moto-inspections-updated" : "vehicle-inspections-updated";
+        notificationService.notifyDataUpdate(updateEvent);
 
         return new VehiculoInspectionResponse(idInspeccion, "Inspección guardada exitosamente");
     }

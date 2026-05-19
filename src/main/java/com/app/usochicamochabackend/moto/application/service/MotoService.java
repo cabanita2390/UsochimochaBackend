@@ -9,6 +9,7 @@ import com.app.usochicamochabackend.catalog.infrastructure.repository.TipoVehicu
 import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
 import com.app.usochicamochabackend.mapper.VehicleMapper;
 import com.app.usochicamochabackend.moto.application.dto.*;
+import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.moto.application.port.MotoCRUDUseCase;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
@@ -48,6 +49,7 @@ public class MotoService implements MotoCRUDUseCase {
     private final InspDetalleDocumentosRepository detalleDocumentosRepository;
     private final InspDetalleMecanicoRepository detalleMecanicoRepository;
     private final DocumentacionYElementosRepository documentacionRepository;
+    private final NotificationService notificationService;
 
         /** Retorna las motocicletas activas (tipo = MOTOCICLETA) con su ubicación base */
         public List<MotoPlacaResponse> getMotocicletas() {
@@ -185,6 +187,8 @@ public class MotoService implements MotoCRUDUseCase {
                                 .checkExtintor(req.checkExtintor())
                                 .build();
                 detalleDocumentosRepository.save(detalleDoc);
+
+                notificationService.notifyDataUpdate("moto-inspections-updated");
 
                 return inspeccion.getIdInspeccion();
         }

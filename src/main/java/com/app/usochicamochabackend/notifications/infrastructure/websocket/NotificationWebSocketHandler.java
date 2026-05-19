@@ -100,4 +100,12 @@ public class NotificationWebSocketHandler {
         log.debug("Sending SOAT/RUNT notification to user {}: {}", username, soatRuntData);
         messagingTemplate.convertAndSend("/user/" + username + "/notifications/soat-runt", soatRuntData);
     }
+
+    /**
+     * Broadcast a data-update event to all connected clients (e.g. "vehicle-inspections-updated")
+     */
+    public void broadcastDataUpdate(String message) {
+        log.debug("Broadcasting data update: {}", message);
+        messagingTemplate.convertAndSend("/topic/notifications/data-update", message);
+    }
 }

@@ -104,6 +104,17 @@ public class NotificationService {
     }
 
     /**
+     * Broadcast a data-update event (e.g. "vehicle-inspections-updated", "moto-inspections-updated")
+     */
+    public void notifyDataUpdate(String message) {
+        if (message != null) {
+            log.debug("Sending data update WebSocket notification: {}", message);
+            webSocketHandler.broadcastDataUpdate(message);
+            recordNotificationStats("data-update");
+        }
+    }
+
+    /**
      * Send SOAT/RUNT notification to specific user via WebSocket
      */
     public void notifySoatRuntUser(String username, String soatRuntData) {
