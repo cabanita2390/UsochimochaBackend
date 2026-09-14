@@ -30,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -64,6 +65,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * sí es infraestructura de test legítima, no tiene relación con el seeder.
  */
 @SpringBootTest
+@ActiveProfiles("test")
 @Transactional
 @TestPropertySource(properties = "app.storage.uploads-root=${java.io.tmpdir}/subestaciones-test-uploads")
 class SubstationServiceIntegrationTest {
