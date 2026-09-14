@@ -119,4 +119,36 @@ class OrderServiceTest {
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
     }
+
+    @Test
+    @DisplayName("getAllVehicleOrders(pageable, soloMotos=true): filtra por tipo de vehículo en el repositorio")
+    void getAllVehicleOrders_SoloMotos_FiltraEnRepositorio() {
+        OrderEntity entity = OrderEntity.builder()
+                .id(3L).status("Pending").consecutive("OT-VH-00002").build();
+        when(orderRepository.findAllByVehicleInspectionIsNotNullAndTipoVehiculo(eq("MOTOCICLETA"), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(entity)));
+
+        var result = orderService.getAllVehicleOrders(PageRequest.of(0, 10), true);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        verify(orderRepository).findAllByVehicleInspectionIsNotNullAndTipoVehiculo(eq("MOTOCICLETA"), any(PageRequest.class));
+        verify(orderRepository, never()).findAllByVehicleInspectionIsNotNull(any(PageRequest.class));
+    }
+
+    @Test
+    @DisplayName("getAllVehicleOrders(pageable, soloMotos=false): excluye motocicletas en el repositorio")
+    void getAllVehicleOrders_ExcluyeMotos_FiltraEnRepositorio() {
+        OrderEntity entity = OrderEntity.builder()
+                .id(4L).status("Pending").consecutive("OT-VH-00003").build();
+        when(orderRepository.findAllByVehicleInspectionIsNotNullAndTipoVehiculoNot(eq("MOTOCICLETA"), any(PageRequest.class)))
+                .thenReturn(new PageImpl<>(List.of(entity)));
+
+        var result = orderService.getAllVehicleOrders(PageRequest.of(0, 10), false);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        verify(orderRepository).findAllByVehicleInspectionIsNotNullAndTipoVehiculoNot(eq("MOTOCICLETA"), any(PageRequest.class));
+        verify(orderRepository, never()).findAllByVehicleInspectionIsNotNull(any(PageRequest.class));
+    }
 }
