@@ -84,7 +84,8 @@ public class SubstationController {
     }
 
     @PostMapping(path = "/ejecuciones/{id}/evidencia", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Subir una foto de evidencia para una ejecución ya registrada")
+    @Operation(summary = "Subir una foto de evidencia para una ejecución ya registrada",
+            description = "Idempotente por (ejecucionId, hash del archivo): reenviar la misma foto tras un reintento de red no duplica el registro.")
     public ResponseEntity<EvidenciaResponse> agregarEvidencia(
             @PathVariable Long id,
             @RequestPart("file") MultipartFile file) throws IOException {

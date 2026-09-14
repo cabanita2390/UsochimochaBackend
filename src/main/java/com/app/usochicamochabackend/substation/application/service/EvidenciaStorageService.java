@@ -8,7 +8,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -30,9 +32,15 @@ public class EvidenciaStorageService {
         this.uploadsRoot = Paths.get(uploadsRootProperty).toAbsolutePath().normalize();
     }
 
-    public record StoredFile(String rutaRelativa, String nombreOriginal) {
+    public record StoredFile(String rutaRelativa, String nombreOriginal, String hashSha256) {
     }
 
+    /**
+     * Guarda el archivo y calcula su SHA-256 (usado por SubstationService para detectar
+     * subidas duplicadas de la misma foto para la misma ejecución — ver V39). Siempre
+     * escribe a disco; si el llamador determina después que era un duplicado, debe
+     * limpiar el archivo con {@link #delete(String)}.
+     */
     public StoredFile store(MultipartFile file, Long ejecucionId) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Archivo vacío.");
@@ -45,6 +53,9 @@ public class EvidenciaStorageService {
             throw new IllegalArgumentException("Tipo de archivo no permitido. Use JPEG, PNG o WebP.");
         }
 
+        byte[] bytes = file.getBytes();
+        String hash = sha256Hex(bytes);
+
         Path dir = uploadsRoot.resolve("subestaciones").resolve("ejecuciones").resolve(String.valueOf(ejecucionId));
         Files.createDirectories(dir);
 
@@ -52,11 +63,25 @@ public class EvidenciaStorageService {
         String fileName = UUID.randomUUID() + ext;
         Path destino = dir.resolve(fileName);
 
-        Files.copy(file.getInputStream(), destino, StandardCopyOption.REPLACE_EXISTING);
+        Files.write(destino, bytes);
 
         String rutaRelativa = uploadsRoot.relativize(destino).toString().replace('\\', '/');
         String nombreOriginal = file.getOriginalFilename() != null ? file.getOriginalFilename() : fileName;
-        return new StoredFile(rutaRelativa, nombreOriginal);
+        return new StoredFile(rutaRelativa, nombreOriginal, hash);
+    }
+
+    /** Borra un archivo ya guardado, identificado por la ruta relativa de {@link StoredFile}. */
+    public void delete(String rutaRelativa) throws IOException {
+        Files.deleteIfExists(uploadsRoot.resolve(rutaRelativa));
+    }
+
+    private static String sha256Hex(byte[] bytes) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(bytes));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 no disponible", e);
+        }
     }
 
     private static String resolveExtension(String originalFilename, String mime) {

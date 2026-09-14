@@ -249,10 +249,20 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
         var stored = evidenciaStorageService.store(file, ejecucionId);
 
+        // Idempotente por (ejecucionId, hash): WorkManager reintenta la subida ante
+        // cualquier fallo de red, incluido un timeout justo después de que el servidor
+        // ya guardó el archivo. Sin esto, ese reintento crearía una foto duplicada.
+        var existente = evidenciaRepository.findByEjecucion_IdAndHashSha256(ejecucionId, stored.hashSha256());
+        if (existente.isPresent()) {
+            evidenciaStorageService.delete(stored.rutaRelativa());
+            return EvidenciaResponse.fromEntity(existente.get());
+        }
+
         EvidenciaEntity entity = EvidenciaEntity.builder()
                 .ejecucion(ejecucion)
                 .rutaArchivo(stored.rutaRelativa())
                 .nombreOriginal(stored.nombreOriginal())
+                .hashSha256(stored.hashSha256())
                 .build();
 
         return EvidenciaResponse.fromEntity(evidenciaRepository.save(entity));
