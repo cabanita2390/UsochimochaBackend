@@ -21,6 +21,7 @@ import com.app.usochicamochabackend.substation.infrastructure.repository.Cumplim
 import com.app.usochicamochabackend.substation.infrastructure.repository.DisciplinaRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionEdicionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionSpecifications;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EstacionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EvidenciaRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.IndicadorEstacionViewRepository;
@@ -249,10 +250,20 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
         var stored = evidenciaStorageService.store(file, ejecucionId);
 
+        // Idempotente por (ejecucionId, hash): WorkManager reintenta la subida ante
+        // cualquier fallo de red, incluido un timeout justo después de que el servidor
+        // ya guardó el archivo. Sin esto, ese reintento crearía una foto duplicada.
+        var existente = evidenciaRepository.findByEjecucion_IdAndHashSha256(ejecucionId, stored.hashSha256());
+        if (existente.isPresent()) {
+            evidenciaStorageService.delete(stored.rutaRelativa());
+            return EvidenciaResponse.fromEntity(existente.get());
+        }
+
         EvidenciaEntity entity = EvidenciaEntity.builder()
                 .ejecucion(ejecucion)
                 .rutaArchivo(stored.rutaRelativa())
                 .nombreOriginal(stored.nombreOriginal())
+                .hashSha256(stored.hashSha256())
                 .build();
 
         return EvidenciaResponse.fromEntity(evidenciaRepository.save(entity));
@@ -275,20 +286,14 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
     @Override
     public Page<EjecucionResponse> listarEjecuciones(
-            Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada, Pageable pageable) {
+            Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
+            List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
+            Pageable pageable) {
         LocalDate desde = fechaInicio != null ? fechaInicio : LocalDate.of(2000, 1, 1);
         LocalDate hasta = fechaFin != null ? fechaFin : LocalDate.now();
-        Page<EjecucionEntity> pagina;
-        if (estacionId != null) {
-            pagina = esProgramada != null
-                    ? ejecucionRepository.findByEstacion_IdAndFechaBetweenAndEsProgramada(estacionId, desde, hasta, esProgramada, pageable)
-                    : ejecucionRepository.findByEstacion_IdAndFechaBetween(estacionId, desde, hasta, pageable);
-        } else {
-            pagina = esProgramada != null
-                    ? ejecucionRepository.findByFechaBetweenAndEsProgramada(desde, hasta, esProgramada, pageable)
-                    : ejecucionRepository.findByFechaBetween(desde, hasta, pageable);
-        }
-        return pagina.map(this::toResponse);
+        var spec = EjecucionSpecifications.filtrar(
+                estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad);
+        return ejecucionRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     private EjecucionResponse toResponse(EjecucionEntity entity) {

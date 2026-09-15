@@ -84,7 +84,8 @@ public class SubstationController {
     }
 
     @PostMapping(path = "/ejecuciones/{id}/evidencia", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Subir una foto de evidencia para una ejecución ya registrada")
+    @Operation(summary = "Subir una foto de evidencia para una ejecución ya registrada",
+            description = "Idempotente por (ejecucionId, hash del archivo): reenviar la misma foto tras un reintento de red no duplica el registro.")
     public ResponseEntity<EvidenciaResponse> agregarEvidencia(
             @PathVariable Long id,
             @RequestPart("file") MultipartFile file) throws IOException {
@@ -104,16 +105,24 @@ public class SubstationController {
     }
 
     @GetMapping("/ejecuciones")
-    @Operation(summary = "Listado de ejecuciones por rango de fecha",
+    @Operation(summary = "Listado de ejecuciones por rango de fecha, con filtros opcionales",
             description = "Sin estacionId: todas las estaciones. Con estacionId: solo esa estación. "
-                    + "esProgramada es opcional (ej. false para traer solo actividades no previstas).")
+                    + "esProgramada, actividadId, tipoMantenimiento y tipoActividad son opcionales. "
+                    + "resultado acepta uno o varios valores separados por coma (ej. resultado=CON_HALLAZGOS,"
+                    + "REQUIERE_INTERVENCION para el preset 'solo hallazgos' de la pantalla de Ejecuciones).")
     public ResponseEntity<Page<EjecucionResponse>> listarEjecuciones(
             @RequestParam(required = false) Long estacionId,
             @RequestParam(required = false) LocalDate fechaInicio,
             @RequestParam(required = false) LocalDate fechaFin,
             @RequestParam(required = false) Boolean esProgramada,
+            @RequestParam(required = false) List<String> resultado,
+            @RequestParam(required = false) Long actividadId,
+            @RequestParam(required = false) String tipoMantenimiento,
+            @RequestParam(required = false) String tipoActividad,
             Pageable pageable) {
-        return ResponseEntity.ok(ejecucionUseCase.listarEjecuciones(estacionId, fechaInicio, fechaFin, esProgramada, pageable));
+        return ResponseEntity.ok(ejecucionUseCase.listarEjecuciones(
+                estacionId, fechaInicio, fechaFin, esProgramada,
+                resultado, actividadId, tipoMantenimiento, tipoActividad, pageable));
     }
 
     @GetMapping("/indicadores/cumplimiento")

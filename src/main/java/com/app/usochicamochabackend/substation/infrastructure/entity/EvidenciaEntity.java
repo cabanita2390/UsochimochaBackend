@@ -30,6 +30,9 @@ public class EvidenciaEntity {
     @Column(name = "nombre_original", nullable = false)
     private String nombreOriginal;
 
+    @Column(name = "hash_sha256", length = 64)
+    private String hashSha256;
+
     @Column(name = "subido_en", nullable = false)
     @Builder.Default
     private LocalDateTime subidoEn = LocalDateTime.now();
