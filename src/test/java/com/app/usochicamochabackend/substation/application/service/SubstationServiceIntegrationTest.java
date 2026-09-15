@@ -422,6 +422,10 @@ class SubstationServiceIntegrationTest {
 
         assertNotNull(evidencia.id());
         assertEquals("foto.jpg", evidencia.nombreOriginal());
+        // La ruta pública debe incluir el prefijo "/uploads/" igual que los demás
+        // módulos (documentos de vehículo, facturas) — sin esto, el navegador/app
+        // piden la imagen sin ese prefijo y el backend responde 403 (bug real, V40).
+        assertTrue(evidencia.rutaArchivo().startsWith("/uploads/subestaciones/ejecuciones/"));
 
         EjecucionResponse detalle = ejecucionUseCase.obtenerEjecucion(ejecucion.id());
         assertEquals(1, detalle.evidencias().size());

@@ -65,14 +65,26 @@ public class EvidenciaStorageService {
 
         Files.write(destino, bytes);
 
-        String rutaRelativa = uploadsRoot.relativize(destino).toString().replace('\\', '/');
+        // Ruta PÚBLICA con el prefijo "/uploads/" incluido — igual convención que
+        // VehicleDocumentStorageService/FuelDocumentStorageService (ruta hardcodeada,
+        // no relativize() contra uploadsRoot, que por definición nunca incluye ese
+        // prefijo). Antes de este fix, rutaArchivo se guardaba SIN el prefijo — el
+        // navegador/app pedían la imagen sin "/uploads/" y el backend respondía 403.
+        String rutaRelativa = "/uploads/subestaciones/ejecuciones/" + ejecucionId + "/" + fileName;
         String nombreOriginal = file.getOriginalFilename() != null ? file.getOriginalFilename() : fileName;
         return new StoredFile(rutaRelativa, nombreOriginal, hash);
     }
 
-    /** Borra un archivo ya guardado, identificado por la ruta relativa de {@link StoredFile}. */
+    /**
+     * Borra un archivo ya guardado, identificado por la ruta pública de {@link StoredFile}
+     * (con o sin el prefijo "/uploads/" — acepta ambas para no romper con filas guardadas
+     * antes de V40, que no lo tenían).
+     */
     public void delete(String rutaRelativa) throws IOException {
-        Files.deleteIfExists(uploadsRoot.resolve(rutaRelativa));
+        String rutaFisica = rutaRelativa.startsWith("/uploads/")
+                ? rutaRelativa.substring("/uploads/".length())
+                : rutaRelativa;
+        Files.deleteIfExists(uploadsRoot.resolve(rutaFisica));
     }
 
     private static String sha256Hex(byte[] bytes) {
