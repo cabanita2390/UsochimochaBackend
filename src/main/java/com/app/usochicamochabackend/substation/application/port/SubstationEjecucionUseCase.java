@@ -11,6 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.List;
 
 public interface SubstationEjecucionUseCase {
 
@@ -30,9 +31,15 @@ public interface SubstationEjecucionUseCase {
     /**
      * Listado de ejecuciones. {@code estacionId} es opcional: si es null, trae de todas las
      * estaciones para el rango de fechas dado (mismo patrón que
-     * {@link SubstationIndicadoresUseCase#cumplimientoPorMes}). {@code esProgramada} es
-     * opcional: si es null, no filtra por ese campo.
+     * {@link SubstationIndicadoresUseCase#cumplimientoPorMes}). {@code esProgramada},
+     * {@code resultado}, {@code actividadId}, {@code tipoMantenimiento} y
+     * {@code tipoActividad} son opcionales: si son null (o vacío para {@code resultado}), no
+     * filtran por ese campo. {@code resultado} admite varios valores (coincide si el registro
+     * tiene cualquiera de ellos) — así el preset "solo hallazgos" pide CON_HALLAZGOS y
+     * REQUIERE_INTERVENCION en una sola llamada.
      */
     Page<EjecucionResponse> listarEjecuciones(
-            Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada, Pageable pageable);
+            Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
+            List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
+            Pageable pageable);
 }

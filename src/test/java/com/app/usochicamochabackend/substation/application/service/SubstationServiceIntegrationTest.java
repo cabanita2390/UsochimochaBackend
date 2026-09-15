@@ -522,7 +522,8 @@ class SubstationServiceIntegrationTest {
         ejecucionUseCase.registrarEjecucion(request, usuario);
 
         var pagina = ejecucionUseCase.listarEjecuciones(
-                estacionUno.getId(), LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null, PageRequest.of(0, 10));
+                estacionUno.getId(), LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
+                null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getTotalElements() >= 1);
         assertTrue(pagina.getContent().stream().allMatch(e -> e.estacionId().equals(estacionUno.getId())));
@@ -546,7 +547,8 @@ class SubstationServiceIntegrationTest {
         ejecucionUseCase.registrarEjecucion(enEstacionDos, usuario);
 
         var pagina = ejecucionUseCase.listarEjecuciones(
-                null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null, PageRequest.of(0, 10));
+                null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
+                null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getTotalElements() >= 2);
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.estacionId().equals(estacionUno.getId())));
@@ -572,10 +574,97 @@ class SubstationServiceIntegrationTest {
         EjecucionResponse noProgramadaCreada = ejecucionUseCase.registrarEjecucion(noProgramada, usuario);
 
         var pagina = ejecucionUseCase.listarEjecuciones(
-                null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), false, PageRequest.of(0, 10));
+                null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), false,
+                null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().allMatch(e -> Boolean.FALSE.equals(e.esProgramada())));
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(noProgramadaCreada.id())));
+    }
+
+    @Test
+    void listarEjecuciones_filtraPorResultado_aceptaVariosValores() {
+        EjecucionRequest conforme = new EjecucionRequest(
+                LocalDate.of(2030, 6, 1), 6, 1, estacionUno.getId(), "CIVIL",
+                "NO_PROGRAMADO", "INSPECCION",
+                null, null, "NO_PROGRAMADO",
+                "CONFORME", "obs conforme", "algo",
+                UUID.randomUUID());
+        EjecucionRequest conHallazgos = new EjecucionRequest(
+                LocalDate.of(2030, 6, 2), 6, 1, estacionUno.getId(), "CIVIL",
+                "NO_PROGRAMADO", "INSPECCION",
+                null, null, "NO_PROGRAMADO",
+                "CON_HALLAZGOS", "obs con hallazgos", "algo",
+                UUID.randomUUID());
+        EjecucionRequest requiereIntervencion = new EjecucionRequest(
+                LocalDate.of(2030, 6, 3), 6, 1, estacionUno.getId(), "CIVIL",
+                "NO_PROGRAMADO", "INSPECCION",
+                null, null, "NO_PROGRAMADO",
+                "REQUIERE_INTERVENCION", "obs requiere intervencion", "algo",
+                UUID.randomUUID());
+        ejecucionUseCase.registrarEjecucion(conforme, usuario);
+        EjecucionResponse conHallazgosCreada = ejecucionUseCase.registrarEjecucion(conHallazgos, usuario);
+        EjecucionResponse requiereIntervencionCreada = ejecucionUseCase.registrarEjecucion(requiereIntervencion, usuario);
+
+        // Preset "solo hallazgos": dos valores en una sola llamada.
+        var pagina = ejecucionUseCase.listarEjecuciones(
+                null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
+                List.of("CON_HALLAZGOS", "REQUIERE_INTERVENCION"), null, null, null, PageRequest.of(0, 10));
+
+        assertTrue(pagina.getContent().stream().noneMatch(e -> "CONFORME".equals(e.resultado())));
+        assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(conHallazgosCreada.id())));
+        assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(requiereIntervencionCreada.id())));
+    }
+
+    @Test
+    void listarEjecuciones_filtraPorActividadId() {
+        ProgramacionEntity cita = programar(estacionUno, actividadUno, 2030, 7);
+        EjecucionRequest deActividadUno = new EjecucionRequest(
+                LocalDate.of(2030, 7, 10), 7, 2, estacionUno.getId(), "CIVIL",
+                "PREVENTIVO", "MANTENIMIENTO",
+                actividadUno.getId(), cita.getId(), null,
+                "CONFORME", "obs actividad uno", null,
+                UUID.randomUUID());
+        EjecucionRequest sinActividad = new EjecucionRequest(
+                LocalDate.of(2030, 7, 11), 7, 2, estacionUno.getId(), "CIVIL",
+                "NO_PROGRAMADO", "INSPECCION",
+                null, null, "NO_PROGRAMADO",
+                "CONFORME", "obs sin actividad", "algo",
+                UUID.randomUUID());
+        EjecucionResponse deActividadUnoCreada = ejecucionUseCase.registrarEjecucion(deActividadUno, usuario);
+        ejecucionUseCase.registrarEjecucion(sinActividad, usuario);
+
+        var pagina = ejecucionUseCase.listarEjecuciones(
+                null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
+                null, actividadUno.getId(), null, null, PageRequest.of(0, 10));
+
+        assertTrue(pagina.getContent().stream().allMatch(e -> actividadUno.getId().equals(e.actividadId())));
+        assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(deActividadUnoCreada.id())));
+    }
+
+    @Test
+    void listarEjecuciones_filtraPorTipoMantenimientoYTipoActividad() {
+        EjecucionRequest correctivoInspeccion = new EjecucionRequest(
+                LocalDate.of(2030, 8, 1), 8, 1, estacionUno.getId(), "CIVIL",
+                "CORRECTIVO", "INSPECCION",
+                null, null, "NO_PROGRAMADO",
+                "CONFORME", "obs correctivo inspeccion", "algo",
+                UUID.randomUUID());
+        EjecucionRequest preventivoMantenimiento = new EjecucionRequest(
+                LocalDate.of(2030, 8, 2), 8, 1, estacionUno.getId(), "CIVIL",
+                "PREVENTIVO", "MANTENIMIENTO",
+                null, null, "NO_PROGRAMADO",
+                "CONFORME", "obs preventivo mantenimiento", "algo",
+                UUID.randomUUID());
+        EjecucionResponse correctivoInspeccionCreada = ejecucionUseCase.registrarEjecucion(correctivoInspeccion, usuario);
+        ejecucionUseCase.registrarEjecucion(preventivoMantenimiento, usuario);
+
+        var pagina = ejecucionUseCase.listarEjecuciones(
+                null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
+                null, null, "CORRECTIVO", "INSPECCION", PageRequest.of(0, 10));
+
+        assertTrue(pagina.getContent().stream().allMatch(
+                e -> "CORRECTIVO".equals(e.tipoMantenimiento()) && "INSPECCION".equals(e.tipoActividad())));
+        assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(correctivoInspeccionCreada.id())));
     }
 
     @Test
