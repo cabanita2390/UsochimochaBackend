@@ -143,15 +143,11 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/refueling").hasAnyRole( "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/refueling").hasAnyRole(  "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/fuel/refueling/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.DELETE, "/api/v1/fuel/refueling/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.DELETE, "/api/v1/fuel/refueling/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
 
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/dashboard/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers("/api/v1/fuel/monthly-discount/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/almacen/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
-                    // "/**" cubre también la ruta exacta "/api/v1/fuel/rendimiento" (AntPathMatcher
-                    // matchea "/**" con cero segmentos extra) — antes solo cubría esa ruta exacta,
-                    // así que /rendimiento/export y el nuevo /rendimiento/export-mensual caían al
-                    // catch-all "/api/v1/fuel/**" → authenticated() (cualquier rol autenticado).
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/rendimiento/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/distribucion").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/reintegros").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
