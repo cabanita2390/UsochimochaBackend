@@ -173,7 +173,19 @@ public class OrderService implements AssignOrderUseCase, GetOrderByIdUseCase,
     @Transactional
     @Override
     public Page<OrderWithVehicleDTO> getAllVehicleOrders(Pageable pageable) {
-        Page<OrderEntity> orders = orderRepository.findAllByVehicleInspectionIsNotNull(pageable);
+        return getAllVehicleOrders(pageable, null);
+    }
+
+    @Override
+    public Page<OrderWithVehicleDTO> getAllVehicleOrders(Pageable pageable, Boolean soloMotos) {
+        Page<OrderEntity> orders;
+        if (soloMotos == null) {
+            orders = orderRepository.findAllByVehicleInspectionIsNotNull(pageable);
+        } else if (soloMotos) {
+            orders = orderRepository.findAllByVehicleInspectionIsNotNullAndTipoVehiculo("MOTOCICLETA", pageable);
+        } else {
+            orders = orderRepository.findAllByVehicleInspectionIsNotNullAndTipoVehiculoNot("MOTOCICLETA", pageable);
+        }
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() +
