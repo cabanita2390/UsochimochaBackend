@@ -89,9 +89,15 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.POST, "/api/v1/inspection/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
 
                     // 4b. Subestaciones (mantenimiento Civil/Eléctrico/Electromecánico)
+                    // Lecturas: app móvil (OPERARIO) + web.
                     http.requestMatchers(HttpMethod.GET, "/api/v1/substation/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/substation/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Captura desde el móvil; el PUT es el "Editar registro" del móvil, por eso incluye OPERARIO.
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/substation/ejecuciones", "/api/v1/substation/ejecuciones/*/evidencia").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/ejecuciones/*").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Seguimiento de hallazgos (web).
+                    http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/hallazgos/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Cualquier otra escritura (cronograma, publicación, catálogos): solo ADMIN.
+                    http.requestMatchers("/api/v1/substation/**").hasRole("ADMIN");
 
                     // Lecturas de inspección (móvil + supervisor + admin)
                     http.requestMatchers(HttpMethod.GET, "/api/v1/inspection/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
