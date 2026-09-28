@@ -11,10 +11,12 @@ import com.app.usochicamochabackend.substation.application.dto.EjecucionResponse
 import com.app.usochicamochabackend.substation.application.dto.EstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.IndicadorEstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ProgramacionResponse;
+import com.app.usochicamochabackend.substation.application.dto.ResolverHallazgoRequest;
 import com.app.usochicamochabackend.substation.application.dto.ResumenActividadResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogAdminUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
+import com.app.usochicamochabackend.substation.application.port.SubstationHallazgoUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ActividadEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.DisciplinaEntity;
@@ -23,6 +25,7 @@ import com.app.usochicamochabackend.substation.infrastructure.entity.Programacio
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.DisciplinaRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EstacionRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.HallazgoSeguimientoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ProgramacionRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,6 +85,12 @@ class SubstationServiceIntegrationTest {
 
     @Autowired
     private SubstationIndicadoresUseCase indicadoresUseCase;
+
+    @Autowired
+    private SubstationHallazgoUseCase hallazgoUseCase;
+
+    @Autowired
+    private HallazgoSeguimientoRepository hallazgoSeguimientoRepository;
 
     @Autowired
     private UserRepositoryJpa userRepositoryJpa;
@@ -531,7 +540,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 estacionUno.getId(), LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, null, null, null, PageRequest.of(0, 10));
+                null, null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getTotalElements() >= 1);
         assertTrue(pagina.getContent().stream().allMatch(e -> e.estacionId().equals(estacionUno.getId())));
@@ -556,7 +565,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, null, null, null, PageRequest.of(0, 10));
+                null, null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getTotalElements() >= 2);
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.estacionId().equals(estacionUno.getId())));
@@ -583,7 +592,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), false,
-                null, null, null, null, PageRequest.of(0, 10));
+                null, null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().allMatch(e -> Boolean.FALSE.equals(e.esProgramada())));
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(noProgramadaCreada.id())));
@@ -616,7 +625,7 @@ class SubstationServiceIntegrationTest {
         // Preset "solo hallazgos": dos valores en una sola llamada.
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                List.of("CON_HALLAZGOS", "REQUIERE_INTERVENCION"), null, null, null, PageRequest.of(0, 10));
+                List.of("CON_HALLAZGOS", "REQUIERE_INTERVENCION"), null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().noneMatch(e -> "CONFORME".equals(e.resultado())));
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(conHallazgosCreada.id())));
@@ -643,7 +652,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, actividadUno.getId(), null, null, PageRequest.of(0, 10));
+                null, actividadUno.getId(), null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().allMatch(e -> actividadUno.getId().equals(e.actividadId())));
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(deActividadUnoCreada.id())));
@@ -668,7 +677,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, null, "CORRECTIVO", "INSPECCION", PageRequest.of(0, 10));
+                null, null, "CORRECTIVO", "INSPECCION", null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().allMatch(
                 e -> "CORRECTIVO".equals(e.tipoMantenimiento()) && "INSPECCION".equals(e.tipoActividad())));
@@ -749,5 +758,112 @@ class SubstationServiceIntegrationTest {
                 r.actividadNombre().equals(actividadUno.getNombre()) && r.programadoAnual() == 3));
         assertTrue(resumen.stream().anyMatch(r ->
                 r.actividadNombre().equals(actividadDos.getNombre()) && r.programadoAnual() == 0));
+    }
+
+    // ---------------------------------------------------------------------
+    // SUB-03: seguimiento de hallazgos
+    // ---------------------------------------------------------------------
+
+    private EjecucionRequest ejecucionLibre(String resultado, LocalDate fecha, Long estacionId, UUID uuid) {
+        return new EjecucionRequest(
+                fecha, fecha.getMonthValue(), 1, estacionId, "CIVIL",
+                "NO_PROGRAMADO", "INSPECCION",
+                null, null, "NO_PROGRAMADO",
+                resultado, "obs", "revision de rutina",
+                uuid);
+    }
+
+    private EjecucionEditRequest edicionConResultado(EjecucionResponse e, String resultado) {
+        return new EjecucionEditRequest(
+                e.fecha(), e.mesEjecucion(), e.semanaEjecucion(),
+                "NO_PROGRAMADO", "INSPECCION", null, "NO_PROGRAMADO",
+                resultado, "obs", "revision de rutina",
+                "Cambio de resultado para la prueba de seguimiento.");
+    }
+
+    @Test
+    void registrarEjecucion_conHallazgo_creaSeguimientoAbierto_yConformeNo() {
+        EjecucionResponse conHallazgo = ejecucionUseCase.registrarEjecucion(
+                ejecucionLibre("CON_HALLAZGOS", LocalDate.of(2030, 5, 1), estacionUno.getId(), UUID.randomUUID()), usuario);
+        EjecucionResponse conforme = ejecucionUseCase.registrarEjecucion(
+                ejecucionLibre("CONFORME", LocalDate.of(2030, 5, 2), estacionUno.getId(), UUID.randomUUID()), usuario);
+
+        assertNotNull(conHallazgo.seguimiento());
+        assertEquals("ABIERTO", conHallazgo.seguimiento().estado());
+        assertEquals("Técnico de Prueba", conHallazgo.seguimiento().actualizadoPor());
+        assertNull(conforme.seguimiento());
+        assertTrue(hallazgoSeguimientoRepository.findByEjecucion_Id(conforme.id()).isEmpty());
+    }
+
+    @Test
+    void registrarEjecucion_reintentoMismoUuid_noDuplicaSeguimiento() {
+        UUID uuid = UUID.randomUUID();
+        EjecucionResponse primera = ejecucionUseCase.registrarEjecucion(
+                ejecucionLibre("REQUIERE_INTERVENCION", LocalDate.of(2030, 5, 3), estacionUno.getId(), uuid), usuario);
+        EjecucionResponse reintento = ejecucionUseCase.registrarEjecucion(
+                ejecucionLibre("REQUIERE_INTERVENCION", LocalDate.of(2030, 5, 3), estacionUno.getId(), uuid), usuario);
+
+        assertEquals(primera.id(), reintento.id());
+        long seguimientos = hallazgoSeguimientoRepository.findAll().stream()
+                .filter(s -> s.getEjecucion().getId().equals(primera.id()))
+                .count();
+        assertEquals(1, seguimientos);
+    }
+
+    @Test
+    void editarEjecucion_aConforme_ocultaSeguimiento_yDeVueltaLoReabreLimpio() {
+        EjecucionResponse creada = ejecucionUseCase.registrarEjecucion(
+                ejecucionLibre("CON_HALLAZGOS", LocalDate.of(2030, 6, 1), estacionUno.getId(), UUID.randomUUID()), usuario);
+        hallazgoUseCase.resolver(creada.id(), new ResolverHallazgoRequest("Se corrigió en sitio.", null, true), usuario);
+
+        EjecucionResponse aConforme = ejecucionUseCase.editarEjecucion(creada.id(), edicionConResultado(creada, "CONFORME"), usuario);
+        assertNull(aConforme.seguimiento());
+        assertNull(ejecucionUseCase.obtenerEjecucion(creada.id()).seguimiento());
+
+        EjecucionResponse deVuelta = ejecucionUseCase.editarEjecucion(creada.id(), edicionConResultado(creada, "CON_HALLAZGOS"), usuario);
+        assertEquals("ABIERTO", deVuelta.seguimiento().estado());
+        assertNull(deVuelta.seguimiento().observacionesCierre());
+        assertNull(deVuelta.seguimiento().cerradoPor());
+        assertFalse(deVuelta.seguimiento().resueltoMismaVisita());
+    }
+
+    @Test
+    void resolver_conEjecucionPosteriorDeLaMismaEstacion_quedaResueltoConResponsable() {
+        EjecucionResponse hallazgo = ejecucionUseCase.registrarEjecucion(
+                ejecucionLibre("CON_HALLAZGOS", LocalDate.of(2030, 7, 1), estacionUno.getId(), UUID.randomUUID()), usuario);
+        EjecucionResponse posterior = ejecucionUseCase.registrarEjecucion(
+                ejecucionLibre("CONFORME", LocalDate.of(2030, 7, 20), estacionUno.getId(), UUID.randomUUID()), usuario);
+
+        hallazgoUseCase.marcarEnProceso(hallazgo.id(), usuario);
+        var resuelto = hallazgoUseCase.resolver(hallazgo.id(),
+                new ResolverHallazgoRequest("Se selló la fisura.", posterior.id(), false), usuario);
+
+        assertEquals("RESUELTO", resuelto.estado());
+        assertEquals("Técnico de Prueba", resuelto.cerradoPor());
+        assertNotNull(resuelto.cerradoEn());
+        assertEquals(posterior.id(), resuelto.resueltoEnEjecucionId());
+        assertEquals(LocalDate.of(2030, 7, 20), resuelto.resueltoEnEjecucionFecha());
+    }
+
+    @Test
+    void listarEjecuciones_filtroSeguimiento_soloTraeEsosEstados() {
+        LocalDate dia = LocalDate.of(2030, 8, 1);
+        EjecucionResponse abierto = ejecucionUseCase.registrarEjecucion(
+                ejecucionLibre("CON_HALLAZGOS", dia, estacionDos.getId(), UUID.randomUUID()), usuario);
+        EjecucionResponse enProceso = ejecucionUseCase.registrarEjecucion(
+                ejecucionLibre("CON_HALLAZGOS", dia, estacionDos.getId(), UUID.randomUUID()), usuario);
+        EjecucionResponse resuelto = ejecucionUseCase.registrarEjecucion(
+                ejecucionLibre("CON_HALLAZGOS", dia, estacionDos.getId(), UUID.randomUUID()), usuario);
+        ejecucionUseCase.registrarEjecucion(ejecucionLibre("CONFORME", dia, estacionDos.getId(), UUID.randomUUID()), usuario);
+        hallazgoUseCase.marcarEnProceso(enProceso.id(), usuario);
+        hallazgoUseCase.resolver(resuelto.id(), new ResolverHallazgoRequest("Listo.", null, false), usuario);
+
+        var pagina = ejecucionUseCase.listarEjecuciones(
+                estacionDos.getId(), dia, dia, null,
+                null, null, null, null, List.of("ABIERTO", "EN_PROCESO"), PageRequest.of(0, 10));
+
+        assertEquals(2, pagina.getTotalElements());
+        assertTrue(pagina.getContent().stream().map(EjecucionResponse::id).toList()
+                .containsAll(List.of(abierto.id(), enProceso.id())));
     }
 }

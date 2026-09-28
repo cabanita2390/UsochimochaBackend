@@ -95,7 +95,9 @@ public class SubstationController {
             description = "Sin estacionId: todas las estaciones. Con estacionId: solo esa estación. "
                     + "esProgramada, actividadId, tipoMantenimiento y tipoActividad son opcionales. "
                     + "resultado acepta uno o varios valores separados por coma (ej. resultado=CON_HALLAZGOS,"
-                    + "REQUIERE_INTERVENCION para el preset 'solo hallazgos' de la pantalla de Ejecuciones).")
+                    + "REQUIERE_INTERVENCION para el preset 'solo hallazgos' de la pantalla de Ejecuciones). "
+                    + "seguimiento filtra por estado del hallazgo (ej. seguimiento=ABIERTO,EN_PROCESO para "
+                    + "el chip 'Solo hallazgos abiertos').")
     public ResponseEntity<Page<EjecucionResponse>> listarEjecuciones(
             @RequestParam(required = false) Long estacionId,
             @RequestParam(required = false) LocalDate fechaInicio,
@@ -105,10 +107,11 @@ public class SubstationController {
             @RequestParam(required = false) Long actividadId,
             @RequestParam(required = false) String tipoMantenimiento,
             @RequestParam(required = false) String tipoActividad,
+            @RequestParam(required = false) List<String> seguimiento,
             Pageable pageable) {
         return ResponseEntity.ok(ejecucionUseCase.listarEjecuciones(
                 estacionId, fechaInicio, fechaFin, esProgramada,
-                resultado, actividadId, tipoMantenimiento, tipoActividad, pageable));
+                resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, pageable));
     }
 
     @GetMapping("/indicadores/cumplimiento")

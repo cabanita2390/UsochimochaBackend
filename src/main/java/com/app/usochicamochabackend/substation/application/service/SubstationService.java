@@ -15,6 +15,7 @@ import com.app.usochicamochabackend.substation.infrastructure.entity.DisciplinaE
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEdicionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EvidenciaEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.HallazgoSeguimientoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ProgramacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.CumplimientoViewRepository;
@@ -24,6 +25,7 @@ import com.app.usochicamochabackend.substation.infrastructure.repository.Ejecuci
 import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionSpecifications;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EstacionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EvidenciaRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.HallazgoSeguimientoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.IndicadorEstacionViewRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ProgramacionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ResumenActividadViewRepository;
@@ -36,6 +38,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -56,6 +59,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     private final IndicadorEstacionViewRepository indicadorEstacionViewRepository;
     private final ResumenActividadViewRepository resumenActividadViewRepository;
     private final EjecucionEdicionRepository ejecucionEdicionRepository;
+    private final HallazgoSeguimientoRepository hallazgoSeguimientoRepository;
 
     private static final Set<String> TIPO_MANTENIMIENTO_VALIDOS =
             Set.of("PREVENTIVO", "CORRECTIVO", "PREDICTIVO", "NO_PROGRAMADO");
@@ -133,10 +137,58 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
         EjecucionEntity guardada = ejecucionRepository.save(entity);
 
+        // todo hallazgo arranca con seguimiento ABIERTO, en la misma transacción.
+        // Inserción trivial y sin validaciones a propósito: si este POST respondiera error, el
+        // móvil marcaría la ejecución como fallida en su cola. Los reintentos con el mismo
+        // uuidCliente no llegan aquí (salen por el return temprano de arriba).
+        if (!"CONFORME".equals(guardada.getResultado())) {
+            hallazgoSeguimientoRepository.save(HallazgoSeguimientoEntity.builder()
+                    .ejecucion(guardada)
+                    .actualizadoPor(usuarioEntity)
+                    .build());
+        }
+
         saveActionUseCase.save("El usuario " + usuarioEntity.getUsername()
                 + " ha registrado una ejecución de mantenimiento en la estación " + estacion.getNombre());
 
         return toResponse(guardada);
+    }
+
+    /**
+     * mantiene el seguimiento alineado con el resultado editado.
+     * hallazgo → CONFORME: se desactiva. CONFORME → hallazgo: se crea, o se reactiva en ABIERTO
+     * con los datos de cierre limpios. hallazgo → hallazgo: no cambia.
+     */
+    private void sincronizarSeguimiento(EjecucionEntity ejecucion, String resultadoAnterior, UserEntity usuario) {
+        boolean teniaHallazgo = !"CONFORME".equals(resultadoAnterior);
+        boolean tieneHallazgo = !"CONFORME".equals(ejecucion.getResultado());
+        if (teniaHallazgo == tieneHallazgo) {
+            return;
+        }
+
+        var existente = hallazgoSeguimientoRepository.findByEjecucion_Id(ejecucion.getId());
+        if (!tieneHallazgo) {
+            existente.ifPresent(seguimiento -> {
+                seguimiento.setStatus(false);
+                seguimiento.setActualizadoPor(usuario);
+                seguimiento.setActualizadoEn(LocalDateTime.now());
+                hallazgoSeguimientoRepository.save(seguimiento);
+            });
+            return;
+        }
+
+        HallazgoSeguimientoEntity seguimiento = existente.orElseGet(() ->
+                HallazgoSeguimientoEntity.builder().ejecucion(ejecucion).build());
+        seguimiento.setEstado("ABIERTO");
+        seguimiento.setStatus(true);
+        seguimiento.setResueltoEnEjecucion(null);
+        seguimiento.setResueltoMismaVisita(false);
+        seguimiento.setObservacionesCierre(null);
+        seguimiento.setCerradoPor(null);
+        seguimiento.setCerradoEn(null);
+        seguimiento.setActualizadoPor(usuario);
+        seguimiento.setActualizadoEn(LocalDateTime.now());
+        hallazgoSeguimientoRepository.save(seguimiento);
     }
 
     private void validarCoherencia(String disciplina, String tipoMantenimiento, String tipoActividad,
@@ -198,6 +250,8 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                     .orElseThrow(() -> new ResourceNotFoundException("Actividad no encontrada: id=" + request.actividadId()));
         }
 
+        String resultadoAnterior = entity.getResultado();
+
         entity.setFecha(request.fecha());
         entity.setMesEjecucion(request.mesEjecucion());
         entity.setSemanaEjecucion(request.semanaEjecucion());
@@ -211,6 +265,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         ejecucionRepository.save(entity);
 
         UserEntity usuarioEntity = userRepositoryJpa.getUserEntityById(usuario.id());
+        sincronizarSeguimiento(entity, resultadoAnterior, usuarioEntity);
         ejecucionEdicionRepository.save(EjecucionEdicionEntity.builder()
                 .ejecucion(entity)
                 .usuario(usuarioEntity)
@@ -269,11 +324,12 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     public Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
-            Pageable pageable) {
+            List<String> seguimiento, Pageable pageable) {
         LocalDate desde = fechaInicio != null ? fechaInicio : LocalDate.of(2000, 1, 1);
         LocalDate hasta = fechaFin != null ? fechaFin : LocalDate.now();
         var spec = EjecucionSpecifications.filtrar(
-                estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad);
+                estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad,
+                seguimiento);
         return ejecucionRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
@@ -285,7 +341,11 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .findByEjecucion_IdOrderByEditadoEnAsc(entity.getId()).stream()
                 .map(EjecucionEdicionResponse::fromEntity)
                 .toList();
-        return EjecucionResponse.fromEntity(entity, evidencias, ediciones);
+        SeguimientoResponse seguimiento = hallazgoSeguimientoRepository.findByEjecucion_Id(entity.getId())
+                .filter(HallazgoSeguimientoEntity::getStatus)
+                .map(SeguimientoResponse::fromEntity)
+                .orElse(null);
+        return EjecucionResponse.fromEntity(entity, evidencias, ediciones, seguimiento);
     }
 
     @Override
