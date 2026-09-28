@@ -65,31 +65,12 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             Set.of("INSPECCION", "MANTENIMIENTO", "NO_PROGRAMADO", "OTRO");
     private static final Set<String> MOTIVO_NO_CATALOGADO_VALIDOS =
             Set.of("NO_PROGRAMADO", "OTRO");
-    // Civil no usa "OTRO" en tipo_actividad ni en motivo_no_catalogado: en el
-    // formulario Civil ese cuarto valor quedaba redundante con el flujo de
-    // "no está en el catálogo" (decisión del usuario, 2026-09-09). El CHECK de
-    // la base de datos sigue permitiendo "OTRO" en ambos campos porque
-    // Electromecánico sí lo necesita (ver mant_ejecucion.tipo_actividad) — esta
-    // restricción es solo a nivel de aplicación, y solo para disciplina CIVIL.
     private static final Set<String> TIPO_ACTIVIDAD_VALIDOS_CIVIL =
             Set.of("INSPECCION", "MANTENIMIENTO", "NO_PROGRAMADO");
     private static final Set<String> MOTIVO_NO_CATALOGADO_VALIDOS_CIVIL =
             Set.of("NO_PROGRAMADO");
 
-    @Override
-    public List<EstacionResponse> listarEstaciones() {
-        return estacionRepository.findByStatusTrueOrderByNombreAsc().stream()
-                .map(EstacionResponse::fromEntity)
-                .toList();
-    }
 
-    @Override
-    public List<ActividadResponse> listarActividadesCapturables(String disciplina) {
-        return actividadRepository
-                .findByDisciplina_CodigoAndCapturaMovilHabilitadaTrueAndStatusTrueOrderByNombreAsc(disciplina).stream()
-                .map(ActividadResponse::fromEntity)
-                .toList();
-    }
 
     @Override
     public List<ProgramacionResponse> listarProgramacion(Long estacionId, Integer anio, Integer mes, String disciplina) {

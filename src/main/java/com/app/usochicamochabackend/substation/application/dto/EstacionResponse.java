@@ -7,9 +7,10 @@ public record EstacionResponse(
         @Schema(description = "ID de la estación", example = "1") Long id,
         @Schema(description = "Nombre de la estación", example = "Duitama") String nombre,
         @Schema(description = "Tipo de estación", example = "BOMBEO") String tipo,
-        @Schema(description = "Frecuencia base de mantenimiento", example = "TRIMESTRAL") String frecuenciaBase
+        @Schema(description = "Frecuencia base de mantenimiento", example = "TRIMESTRAL") String frecuenciaBase,
+        @Schema(description = "Activa", example = "true") Boolean activa
 ) {
     public static EstacionResponse fromEntity(EstacionEntity entity) {
-        return new EstacionResponse(entity.getId(), entity.getNombre(), entity.getTipo(), entity.getFrecuenciaBase());
+        return new EstacionResponse(entity.getId(), entity.getNombre(), entity.getTipo(), entity.getFrecuenciaBase(), entity.getStatus());
     }
 }

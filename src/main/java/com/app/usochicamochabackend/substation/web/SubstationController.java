@@ -1,12 +1,10 @@
 package com.app.usochicamochabackend.substation.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
-import com.app.usochicamochabackend.substation.application.dto.ActividadResponse;
 import com.app.usochicamochabackend.substation.application.dto.CumplimientoResponse;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionEditRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionResponse;
-import com.app.usochicamochabackend.substation.application.dto.EstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.EvidenciaResponse;
 import com.app.usochicamochabackend.substation.application.dto.IndicadorEstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ProgramacionResponse;
@@ -40,18 +38,6 @@ public class SubstationController {
     private final SubstationCatalogUseCase catalogUseCase;
     private final SubstationEjecucionUseCase ejecucionUseCase;
     private final SubstationIndicadoresUseCase indicadoresUseCase;
-
-    @GetMapping("/estaciones")
-    @Operation(summary = "Listar estaciones activas")
-    public ResponseEntity<List<EstacionResponse>> listarEstaciones() {
-        return ResponseEntity.ok(catalogUseCase.listarEstaciones());
-    }
-
-    @GetMapping("/actividades")
-    @Operation(summary = "Listar actividades del catálogo habilitadas para captura móvil, por disciplina")
-    public ResponseEntity<List<ActividadResponse>> listarActividades(@RequestParam String disciplina) {
-        return ResponseEntity.ok(catalogUseCase.listarActividadesCapturables(disciplina));
-    }
 
     @GetMapping("/programacion")
     @Operation(summary = "Citas del cronograma para una estación+mes+disciplina")

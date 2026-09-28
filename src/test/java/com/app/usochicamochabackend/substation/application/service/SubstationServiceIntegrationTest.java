@@ -12,6 +12,7 @@ import com.app.usochicamochabackend.substation.application.dto.EstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.IndicadorEstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ProgramacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ResumenActividadResponse;
+import com.app.usochicamochabackend.substation.application.port.SubstationCatalogAdminUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
@@ -72,6 +73,9 @@ class SubstationServiceIntegrationTest {
 
     @Autowired
     private SubstationCatalogUseCase catalogUseCase;
+
+    @Autowired
+    private SubstationCatalogAdminUseCase catalogAdminUseCase;
 
     @Autowired
     private SubstationEjecucionUseCase ejecucionUseCase;
@@ -295,7 +299,7 @@ class SubstationServiceIntegrationTest {
 
     @Test
     void listarEstaciones_devuelveTodasLasCreadas() {
-        List<EstacionResponse> estaciones = catalogUseCase.listarEstaciones();
+        List<EstacionResponse> estaciones = catalogAdminUseCase.listarEstaciones(false);
         assertEquals(3, estaciones.size());
         assertTrue(estaciones.stream().anyMatch(e -> e.nombre().equals(estacionUno.getNombre())));
         assertTrue(estaciones.stream().anyMatch(e -> e.nombre().equals(estacionDos.getNombre())));
@@ -320,7 +324,7 @@ class SubstationServiceIntegrationTest {
                 .status(true)
                 .build());
 
-        var actividades = catalogUseCase.listarActividadesCapturables("CIVIL");
+        var actividades = catalogAdminUseCase.listarActividades("CIVIL", false);
 
         assertEquals(2, actividades.size());
         assertTrue(actividades.stream().anyMatch(a -> a.nombre().equals(actividadUno.getNombre())));

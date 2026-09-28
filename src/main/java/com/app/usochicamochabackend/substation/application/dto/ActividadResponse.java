@@ -6,9 +6,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record ActividadResponse(
         @Schema(description = "ID de la actividad", example = "1") Long id,
         @Schema(description = "Nombre de la actividad", example = "Pintura muros Estaciones (segun estado)") String nombre,
-        @Schema(description = "Disciplina", example = "CIVIL") String disciplina
+        @Schema(description = "Disciplina", example = "CIVIL") String disciplina,
+        @Schema(description = "Captura móvil habilitada", example = "true") Boolean capturaMovilHabilitada,
+        @Schema(description = "Citas del año actual (columna \"Citas 2026\")", example = "12") Integer citasPublicadasAnio,
+        @Schema(description = "Activa", example = "true") Boolean activa
 ) {
-    public static ActividadResponse fromEntity(ActividadEntity entity) {
-        return new ActividadResponse(entity.getId(), entity.getNombre(), entity.getDisciplina().getCodigo());
+    public static ActividadResponse fromEntity(ActividadEntity entity, Integer citasPublicadasAnio) {
+        return new ActividadResponse(entity.getId(), entity.getNombre(), entity.getDisciplina().getCodigo(),
+                entity.getCapturaMovilHabilitada(), citasPublicadasAnio, entity.getStatus());
     }
 }

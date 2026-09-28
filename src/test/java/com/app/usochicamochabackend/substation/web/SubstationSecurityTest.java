@@ -4,6 +4,7 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.security.SecurityConfig;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.auth.application.service.UserDetailsServiceImp;
+import com.app.usochicamochabackend.substation.application.port.SubstationCatalogAdminUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
@@ -33,7 +34,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * significa que la seguridad deja pasar la petición (llega al 404/400/500 de la app) y
  * "denegado" que responde 403 antes de llegar al controller.
  */
-@WebMvcTest(SubstationController.class)
+@WebMvcTest({SubstationController.class, SubstationCatalogAdminController.class})
 @AutoConfigureMockMvc
 @Import(SecurityConfig.class)
 class SubstationSecurityTest {
@@ -43,6 +44,9 @@ class SubstationSecurityTest {
 
     @MockBean
     private SubstationCatalogUseCase catalogUseCase;
+
+    @MockBean
+    private SubstationCatalogAdminUseCase catalogAdminUseCase;
 
     @MockBean
     private SubstationEjecucionUseCase ejecucionUseCase;

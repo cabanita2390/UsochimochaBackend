@@ -7,4 +7,10 @@ import java.util.List;
 
 public interface EstacionRepository extends JpaRepository<EstacionEntity, Long> {
     List<EstacionEntity> findByStatusTrueOrderByNombreAsc();
+
+    List<EstacionEntity> findAllByOrderByNombreAsc();
+
+    boolean existsByNombreIgnoreCase(String nombre);
+
+    boolean existsByNombreIgnoreCaseAndIdNot(String nombre, Long id);
 }
