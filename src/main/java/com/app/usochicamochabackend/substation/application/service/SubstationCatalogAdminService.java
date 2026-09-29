@@ -140,6 +140,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
                 .nombre(nombre)
                 .disciplina(disciplina)
                 .capturaMovilHabilitada(request.capturaMovilHabilitada())
+                .nombreCorto(normalizarNombreCorto(request.nombreCorto()))
                 .build());
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha creado la actividad " + nombre
@@ -161,6 +162,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
         actividad.setNombre(nombre);
         actividad.setDisciplina(disciplina);
         actividad.setCapturaMovilHabilitada(request.capturaMovilHabilitada());
+        actividad.setNombreCorto(normalizarNombreCorto(request.nombreCorto()));
         ActividadEntity guardada = actividadRepository.save(actividad);
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha editado la actividad " + nombre
@@ -203,6 +205,14 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
         return programacionRepository
                 .countByActividad_IdAndAnioAndStatusTrueAndEstado(actividadId,
                         calendario.anioActual(), ProgramacionEntity.PUBLICADA);
+    }
+
+    /** Vacío o solo espacios → null (la web recorta el nombre completo). */
+    private String normalizarNombreCorto(String nombreCorto) {
+        if (nombreCorto == null || nombreCorto.isBlank()) {
+            return null;
+        }
+        return normalizarNombre(nombreCorto);
     }
 
     /** Quita espacios al inicio/final y deja uno solo entre palabras ("  Dren   Cuche " → "Dren Cuche"). */

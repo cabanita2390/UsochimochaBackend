@@ -201,13 +201,14 @@ class SubstationCatalogAdminServiceTest {
             return a;
         });
 
-        ActividadResponse creada = service.crearActividad(new ActividadRequest(" Pintura  muros ", "CIVIL", true), ADMIN);
+        ActividadResponse creada = service.crearActividad(new ActividadRequest(" Pintura  muros ", "CIVIL", true, "  Muros "), ADMIN);
 
         assertThat(creada.id()).isEqualTo(20L);
         assertThat(creada.nombre()).isEqualTo("Pintura muros");
         assertThat(creada.disciplina()).isEqualTo("CIVIL");
         assertThat(creada.activa()).isTrue();
         assertThat(creada.citasPublicadasAnio()).isZero();
+        assertThat(creada.nombreCorto()).isEqualTo("Muros");
         verify(saveActionUseCase).save(contains("creado la actividad Pintura muros (CIVIL)"));
     }
 
@@ -215,7 +216,7 @@ class SubstationCatalogAdminServiceTest {
     void crearActividad_disciplinaInexistente_responde400() {
         when(disciplinaRepository.findByCodigo("NUCLEAR")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> service.crearActividad(new ActividadRequest("X", "NUCLEAR", true), ADMIN))
+        assertThatThrownBy(() -> service.crearActividad(new ActividadRequest("X", "NUCLEAR", true, null), ADMIN))
                 .isInstanceOf(ResponseStatusException.class)
                 .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
         verify(actividadRepository, never()).save(any());
@@ -226,7 +227,7 @@ class SubstationCatalogAdminServiceTest {
         when(disciplinaRepository.findByCodigo("CIVIL")).thenReturn(Optional.of(CIVIL));
         when(actividadRepository.existsByNombreIgnoreCaseAndDisciplina_Id("Pintura", 1L)).thenReturn(true);
 
-        assertThatThrownBy(() -> service.crearActividad(new ActividadRequest("Pintura", "CIVIL", true), ADMIN))
+        assertThatThrownBy(() -> service.crearActividad(new ActividadRequest("Pintura", "CIVIL", true, null), ADMIN))
                 .isInstanceOf(ResponseStatusException.class)
                 .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
         verify(actividadRepository, never()).save(any());
@@ -241,10 +242,11 @@ class SubstationCatalogAdminServiceTest {
         when(actividadRepository.save(actual)).thenReturn(actual);
         when(programacionRepository.countByActividad_IdAndAnioAndStatusTrueAndEstado(eq(5L), anyInt(), eq("PUBLICADA"))).thenReturn(12);
 
-        ActividadResponse editada = service.actualizarActividad(5L, new ActividadRequest("Pintura", "CIVIL", false), ADMIN);
+        ActividadResponse editada = service.actualizarActividad(5L, new ActividadRequest("Pintura", "CIVIL", false, "   "), ADMIN);
 
         assertThat(editada.capturaMovilHabilitada()).isFalse();
         assertThat(editada.citasPublicadasAnio()).isEqualTo(12);
+        assertThat(editada.nombreCorto()).isNull(); // vacío → null: la web recorta el nombre
         verify(saveActionUseCase).save(contains("editado la actividad Pintura"));
     }
 

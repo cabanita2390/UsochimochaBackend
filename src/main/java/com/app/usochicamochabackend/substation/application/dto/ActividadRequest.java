@@ -13,6 +13,8 @@ public record ActividadRequest(
         @NotBlank String disciplina,
 
         @Schema(description = "Si el técnico puede registrarla desde el móvil", example = "true")
-        @NotNull Boolean capturaMovilHabilitada
+        @NotNull Boolean capturaMovilHabilitada,
+        @Schema(description = "Nombre corto para la grilla del Cronograma (opcional, máx. 24)", example = "Pintura muros")
+        @Size(max = 24) String nombreCorto
 ) {
 }

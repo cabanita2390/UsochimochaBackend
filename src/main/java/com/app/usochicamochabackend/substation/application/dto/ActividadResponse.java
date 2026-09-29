@@ -9,10 +9,11 @@ public record ActividadResponse(
         @Schema(description = "Disciplina", example = "CIVIL") String disciplina,
         @Schema(description = "Captura móvil habilitada", example = "true") Boolean capturaMovilHabilitada,
         @Schema(description = "Citas del año actual (columna \"Citas 2026\")", example = "12") Integer citasPublicadasAnio,
-        @Schema(description = "Activa", example = "true") Boolean activa
+        @Schema(description = "Activa", example = "true") Boolean activa,
+        @Schema(description = "Nombre corto para la grilla del Cronograma; null si no tiene", example = "Pintura muros") String nombreCorto
 ) {
     public static ActividadResponse fromEntity(ActividadEntity entity, Integer citasPublicadasAnio) {
         return new ActividadResponse(entity.getId(), entity.getNombre(), entity.getDisciplina().getCodigo(),
-                entity.getCapturaMovilHabilitada(), citasPublicadasAnio, entity.getStatus());
+                entity.getCapturaMovilHabilitada(), citasPublicadasAnio, entity.getStatus(), entity.getNombreCorto());
     }
 }
