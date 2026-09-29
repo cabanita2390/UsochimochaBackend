@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.substation.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import com.app.usochicamochabackend.substation.application.dto.CriticidadResponse;
 import com.app.usochicamochabackend.substation.application.dto.CumplimientoResponse;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionEditRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionRequest;
@@ -151,5 +152,16 @@ public class SubstationController {
             @RequestParam(required = false) Integer anio) {
         return ResponseEntity.ok(indicadoresUseCase.resumenPorActividad(
                 disciplina, anio != null ? anio : calendario.anioActual()));
+    }
+
+    @GetMapping("/indicadores/criticidad")
+    @Operation(summary = "Actividades más críticas de una estación",
+            description = "Intervenciones acumuladas (todos los años) por actividad en la estación, de más a menos. "
+                    + "Intervención = ejecución con actividad del catálogo; las libres no cuentan. "
+                    + "Para el bloque \"Actividades más críticas\" del Detalle por estación.")
+    public ResponseEntity<List<CriticidadResponse>> criticidadPorEstacion(
+            @RequestParam Long estacionId,
+            @RequestParam(defaultValue = "CIVIL") String disciplina) {
+        return ResponseEntity.ok(indicadoresUseCase.criticidadPorEstacion(estacionId, disciplina));
     }
 }

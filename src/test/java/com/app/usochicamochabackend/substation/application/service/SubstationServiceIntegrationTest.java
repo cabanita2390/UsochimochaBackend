@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.BadRequestException;
 import com.app.usochicamochabackend.substation.application.dto.CambioCampo;
+import com.app.usochicamochabackend.substation.application.dto.CriticidadResponse;
 import com.app.usochicamochabackend.substation.application.dto.PublicacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ResumenBorradorResponse;
 import com.app.usochicamochabackend.substation.application.dto.PublicacionResultado;
@@ -1550,5 +1551,50 @@ class SubstationServiceIntegrationTest {
         assertEquals(0, new java.math.BigDecimal("50.0").compareTo(uno.porcentajeCumplimiento()));
         assertTrue(filas.stream().noneMatch(f -> f.actividadId().equals(inactiva.getId())));
         assertNull(filaDe(filas, actividadDos).porcentajeCumplimiento());
+    }
+
+    // ---------------------------------------------------------------------
+    // SUB-14: datos del Detalle por estación
+    // ---------------------------------------------------------------------
+
+    @Test
+    void dashboard_conHallazgosDelAnioYHallazgosAbiertos() {
+        ejecucionUseCase.registrarEjecucion(ejecucionLibre("CON_HALLAZGOS", LocalDate.of(2020, 3, 5), estacionUno.getId(), UUID.randomUUID()), usuario);
+        EjecucionResponse resuelta = ejecucionUseCase.registrarEjecucion(
+                ejecucionLibre("REQUIERE_INTERVENCION", LocalDate.of(2020, 4, 5), estacionUno.getId(), UUID.randomUUID()), usuario);
+        ejecucionUseCase.registrarEjecucion(ejecucionLibre("CONFORME", LocalDate.of(2020, 5, 5), estacionUno.getId(), UUID.randomUUID()), usuario);
+        ejecucionUseCase.registrarEjecucion(ejecucionLibre("CON_HALLAZGOS", LocalDate.of(2019, 5, 5), estacionUno.getId(), UUID.randomUUID()), usuario);
+        entityManager.flush();
+        var seguimiento = hallazgoSeguimientoRepository.findByEjecucion_Id(resuelta.id()).orElseThrow();
+        seguimiento.setEstado("RESUELTO");
+        hallazgoSeguimientoRepository.save(seguimiento);
+        entityManager.flush();
+        entityManager.clear();
+
+        IndicadorEstacionResponse uno = filaDe(indicadoresUseCase.indicadoresPorEstacion(2020, "CIVIL"), estacionUno);
+
+        assertEquals(2, uno.conHallazgos());      // del año 2020
+        assertEquals(2, uno.hallazgosAbiertos()); // 2020 abierto + 2019 abierto (todos los años)
+        assertEquals(0, filaDe(indicadoresUseCase.indicadoresPorEstacion(2020, "CIVIL"), estacionDos).hallazgosAbiertos());
+    }
+
+    @Test
+    void criticidad_intervencionesHistoricasPorActividad_deMasAMenos() {
+        for (int mes = 1; mes <= 3; mes++) {
+            ejecutar(programar(estacionUno, actividadUno, 2020, mes), estacionUno, actividadUno);
+        }
+        ejecutar(programar(estacionUno, actividadUno, 2021, 1), estacionUno, actividadUno);
+        ejecutar(programar(estacionUno, actividadDos, 2021, 2), estacionUno, actividadDos);
+        ejecutar(programar(estacionDos, actividadDos, 2021, 2), estacionDos, actividadDos); // otra estación
+        ejecucionUseCase.registrarEjecucion(ejecucionLibre("CONFORME", LocalDate.of(2021, 6, 1), estacionUno.getId(), UUID.randomUUID()), usuario); // libre: no cuenta
+        entityManager.flush();
+        entityManager.clear();
+
+        List<CriticidadResponse> criticidad = indicadoresUseCase.criticidadPorEstacion(estacionUno.getId(), "CIVIL");
+
+        assertEquals(List.of(actividadUno.getId(), actividadDos.getId()),
+                criticidad.stream().map(CriticidadResponse::actividadId).toList());
+        assertEquals(4, criticidad.get(0).intervenciones());
+        assertEquals(1, criticidad.get(1).intervenciones());
     }
 }

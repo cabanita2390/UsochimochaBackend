@@ -427,6 +427,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         Map<Long, Citas> citas = contarCitas(anio, disciplina, CumplimientoView::getEstacionId);
         Map<Long, Object[]> ejecuciones = porId(ejecucionRepository.contarPorEstacion(
                 disciplina, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31)));
+        Map<Long, Object[]> abiertos = porId(hallazgoSeguimientoRepository.abiertosPorEstacion(disciplina));
         return estacionRepository.findByStatusTrueOrderByNombreAsc().stream()
                 .map(e -> {
                     Citas c = citas.getOrDefault(e.getId(), new Citas());
@@ -435,7 +436,8 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                             e.getId(), e.getNombre(), e.getTipo(),
                             c.programado, c.cumple, c.programado - c.cumple, c.porcentaje(),
                             entero(ej, 2), entero(ej, 3), entero(ej, 4), entero(ej, 5), entero(ej, 1),
-                            anio, c.vencidas, c.ejecutadasVencidas);
+                            anio, c.vencidas, c.ejecutadasVencidas,
+                            entero(ej, 6), entero(abiertos.get(e.getId()), 1));
                 })
                 .toList();
     }
@@ -456,6 +458,14 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                             c.programado, entero(ej, 1), entero(ej, 3), entero(ej, 4), entero(ej, 5), entero(ej, 1),
                             anio, c.vencidas, c.ejecutadasVencidas, c.porcentaje());
                 })
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CriticidadResponse> criticidadPorEstacion(Long estacionId, String disciplina) {
+        return ejecucionRepository.criticidadPorEstacion(estacionId, disciplina).stream()
+                .map(f -> new CriticidadResponse((Long) f[0], (String) f[1], (String) f[2], entero(f, 3)))
                 .toList();
     }
 

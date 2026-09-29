@@ -27,14 +27,15 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
 
     /**
      * Ejecuciones de la disciplina entre dos fechas, agrupadas por estación. Columnas:
-     * estacionId, total, programadas, noProgramadas, mantenimiento, inspeccion.
+     * estacionId, total, programadas, noProgramadas, mantenimiento, inspeccion, conHallazgos.
      */
     @Query("""
         SELECT e.estacion.id, COUNT(e),
                SUM(CASE WHEN e.esProgramada = true THEN 1 ELSE 0 END),
                SUM(CASE WHEN e.esProgramada = false THEN 1 ELSE 0 END),
                SUM(CASE WHEN e.tipoActividad = 'MANTENIMIENTO' THEN 1 ELSE 0 END),
-               SUM(CASE WHEN e.tipoActividad = 'INSPECCION' THEN 1 ELSE 0 END)
+               SUM(CASE WHEN e.tipoActividad = 'INSPECCION' THEN 1 ELSE 0 END),
+               SUM(CASE WHEN e.resultado <> 'CONFORME' THEN 1 ELSE 0 END)
         FROM EjecucionEntity e
         WHERE e.disciplina.codigo = :disciplina AND e.fecha BETWEEN :desde AND :hasta
         GROUP BY e.estacion.id
@@ -55,4 +56,17 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
         """)
     List<Object[]> contarPorActividad(@Param("disciplina") String disciplina,
             @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
+
+    /**
+     * Intervenciones por actividad en una estación (histórico): ejecuciones con actividad del
+     * catálogo. Columnas: actividadId, nombre, nombreCorto, intervenciones. De más a menos.
+     */
+    @Query("""
+        SELECT a.id, a.nombre, a.nombreCorto, COUNT(e)
+        FROM EjecucionEntity e JOIN e.actividad a
+        WHERE e.estacion.id = :estacionId AND e.disciplina.codigo = :disciplina
+        GROUP BY a.id, a.nombre, a.nombreCorto
+        ORDER BY COUNT(e) DESC, a.nombre
+        """)
+    List<Object[]> criticidadPorEstacion(@Param("estacionId") Long estacionId, @Param("disciplina") String disciplina);
 }

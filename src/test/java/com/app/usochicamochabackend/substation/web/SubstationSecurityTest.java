@@ -77,6 +77,7 @@ class SubstationSecurityTest {
             "GET,    /api/v1/substation/estaciones,                 OPERARIO,             true",
             "GET,    /api/v1/substation/indicadores/cumplimiento,   OPERARIO,             true",
             "GET,    /api/v1/substation/indicadores/por-estacion,   SUPERVISOR_OPERATIVO, true",
+            "GET,    /api/v1/substation/indicadores/criticidad?estacionId=1, SUPERVISOR_OPERATIVO, true",
             "GET,    /api/v1/substation/indicadores/por-actividad?disciplina=CIVIL, SUPERVISOR_OPERATIVO, true",
             "GET,    /api/v1/substation/cronograma?anio=2026,       SUPERVISOR_OPERATIVO, true",
             "GET,    /api/v1/substation/cronograma?anio=2026,       OPERARIO,             true",
