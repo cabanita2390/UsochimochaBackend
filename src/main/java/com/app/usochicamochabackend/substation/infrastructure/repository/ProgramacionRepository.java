@@ -21,5 +21,23 @@ public interface ProgramacionRepository extends JpaRepository<ProgramacionEntity
         """)
     List<Object[]> contarCitasPorActividad(@Param("anio") Integer anio);
 
+    /**
+     * Citas vigentes del año para la grilla del Cronograma (BORRADOR y PUBLICADA de estaciones
+     * activas), con su disciplina y su primera ejecución. Columnas: id, mes, estacionId,
+     * actividadId, disciplina, estado, pendienteRetiro, fechaPrimeraEjecucion, nEjecuciones.
+     */
+    @Query("""
+        SELECT p.id, p.mes, est.id, a.id, d.codigo, p.estado, p.pendienteRetiro, MIN(e.fecha), COUNT(e.id)
+        FROM ProgramacionEntity p
+        JOIN p.estacion est
+        JOIN p.actividad a
+        JOIN a.disciplina d
+        LEFT JOIN EjecucionEntity e ON e.programacion = p
+        WHERE p.anio = :anio AND p.status = true AND p.estado <> 'RETIRADA' AND est.status = true
+        GROUP BY p.id, p.mes, est.id, a.id, d.codigo, p.estado, p.pendienteRetiro
+        ORDER BY est.id, p.mes, p.id
+        """)
+    List<Object[]> citasDelCronograma(@Param("anio") Integer anio);
+
     int countByActividad_IdAndAnioAndStatusTrueAndEstado(Long actividadId, Integer anio, String estado);
 }

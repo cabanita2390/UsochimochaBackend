@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.BadRequestException;
 import com.app.usochicamochabackend.substation.application.dto.CambioCampo;
+import com.app.usochicamochabackend.substation.application.dto.CronogramaResponse;
 import com.app.usochicamochabackend.substation.application.dto.CumplimientoResponse;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionEditRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionRequest;
@@ -16,6 +17,7 @@ import com.app.usochicamochabackend.substation.application.dto.ResolverHallazgoR
 import com.app.usochicamochabackend.substation.application.dto.ResumenActividadResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogAdminUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogUseCase;
+import com.app.usochicamochabackend.substation.application.port.SubstationCronogramaUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationHallazgoUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
@@ -23,11 +25,13 @@ import com.app.usochicamochabackend.substation.infrastructure.entity.ActividadEn
 import com.app.usochicamochabackend.substation.infrastructure.entity.DisciplinaEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EstacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ProgramacionEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.PublicacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.DisciplinaRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EstacionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.HallazgoSeguimientoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ProgramacionRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.PublicacionRepository;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -108,6 +112,12 @@ class SubstationServiceIntegrationTest {
 
     @Autowired
     private ProgramacionRepository programacionRepository;
+
+    @Autowired
+    private SubstationCronogramaUseCase cronogramaUseCase;
+
+    @Autowired
+    private PublicacionRepository publicacionRepository;
 
     @Autowired
     private DataSource dataSource;
@@ -1049,5 +1059,135 @@ class SubstationServiceIntegrationTest {
                 .orElseThrow();
 
         assertEquals(2, actividad.citasPublicadasAnio());
+    }
+
+    // ---------------------------------------------------------------------
+    // SUB-08: cronograma anual (lectura)
+    // ---------------------------------------------------------------------
+
+    private CronogramaResponse.Cita citaDe(CronogramaResponse cronograma, Long id) {
+        return cronograma.citas().stream().filter(c -> c.id().equals(id)).findFirst().orElse(null);
+    }
+
+    private PublicacionEntity publicar(int anio, boolean inicial) {
+        return publicacionRepository.save(PublicacionEntity.builder()
+                .anio(anio)
+                .usuario(inicial ? null : userRepositoryJpa.findById(usuario.id()).orElseThrow())
+                .publicadoEn(java.time.LocalDateTime.of(anio, 1, 20, 16, 5))
+                .altas(3)
+                .bajas(1)
+                .inicial(inicial)
+                .build());
+    }
+
+    @Test
+    void cronograma_anioSinCitas_vieneVacioYSinPublicacion() {
+        CronogramaResponse cronograma = cronogramaUseCase.obtenerCronograma(2031, null);
+
+        assertEquals(2031, cronograma.anio());
+        assertTrue(cronograma.citas().isEmpty());
+        assertNull(cronograma.ultimaPublicacion());
+        assertEquals(0, cronograma.borrador().altas());
+        assertEquals(0, cronograma.borrador().bajas());
+        assertFalse(cronograma.puedeDeshacer());
+        int anioActual = java.time.Year.now(CalendarioMantenimiento.ZONA).getValue();
+        assertEquals(anioActual, cronograma.anioActual());
+        assertTrue(cronograma.mesActual() >= 1 && cronograma.mesActual() <= 12);
+    }
+
+    @Test
+    void cronograma_traeBorradorYPublicada_conEjecucion_ySinRetiradasNiInactivas() {
+        ProgramacionEntity ejecutada = programar(estacionUno, actividadUno, 2030, 2);
+        ProgramacionEntity borrador = programarEnEstado(estacionUno, actividadDos, 2030, 11, ProgramacionEntity.BORRADOR);
+        ProgramacionEntity porQuitar = programar(estacionDos, actividadUno, 2030, 10);
+        porQuitar.setPendienteRetiro(true);
+        programacionRepository.save(porQuitar);
+        ProgramacionEntity retirada = programarEnEstado(estacionDos, actividadDos, 2030, 3, ProgramacionEntity.RETIRADA);
+        ProgramacionEntity desactivada = programar(estacionDos, actividadDos, 2030, 4);
+        desactivada.setStatus(false);
+        programacionRepository.save(desactivada);
+        ProgramacionEntity deInactiva = programar(estacionTres, actividadUno, 2030, 5);
+        estacionTres.setStatus(false);
+        estacionRepository.save(estacionTres);
+
+        ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(2030, 2, 15), 2, 3, estacionUno.getId(), "CIVIL",
+                "PREVENTIVO", "MANTENIMIENTO",
+                actividadUno.getId(), ejecutada.getId(), null,
+                "CONFORME", "Todo en orden.", null,
+                UUID.randomUUID()), usuario);
+        entityManager.flush();
+        entityManager.clear();
+
+        CronogramaResponse cronograma = cronogramaUseCase.obtenerCronograma(2030, null);
+
+        assertEquals(3, cronograma.citas().size());
+        CronogramaResponse.Cita c1 = citaDe(cronograma, ejecutada.getId());
+        assertEquals(ProgramacionEntity.PUBLICADA, c1.estado());
+        assertTrue(c1.tieneEjecucion());
+        assertEquals(LocalDate.of(2030, 2, 15), c1.fechaEjecucion());
+        assertEquals(2, c1.mes());
+        assertEquals(estacionUno.getId(), c1.estacionId());
+        assertEquals(actividadUno.getId(), c1.actividadId());
+        assertEquals("CIVIL", c1.disciplina());
+
+        CronogramaResponse.Cita c2 = citaDe(cronograma, borrador.getId());
+        assertEquals(ProgramacionEntity.BORRADOR, c2.estado());
+        assertFalse(c2.tieneEjecucion());
+        assertNull(c2.fechaEjecucion());
+
+        assertTrue(citaDe(cronograma, porQuitar.getId()).pendienteRetiro());
+        assertNull(citaDe(cronograma, retirada.getId()));
+        assertNull(citaDe(cronograma, desactivada.getId()));
+        assertNull(citaDe(cronograma, deInactiva.getId()));
+
+        assertEquals(1, cronograma.borrador().altas());
+        assertEquals(1, cronograma.borrador().bajas());
+    }
+
+    @Test
+    void cronograma_filtroDisciplina_soloFiltraCitas_elBorradorSeCuentaCompleto() {
+        DisciplinaEntity electrico = disciplinaRepository.save(DisciplinaEntity.builder().codigo("ELECTRICO").build());
+        ActividadEntity actividadElectrica = actividadRepository.save(ActividadEntity.builder()
+                .nombre("Actividad Eléctrica").disciplina(electrico).capturaMovilHabilitada(true).status(true).build());
+        ProgramacionEntity civil = programar(estacionUno, actividadUno, 2030, 6);
+        programarEnEstado(estacionUno, actividadElectrica, 2030, 6, ProgramacionEntity.BORRADOR);
+        entityManager.flush();
+
+        CronogramaResponse soloCivil = cronogramaUseCase.obtenerCronograma(2030, "CIVIL");
+        CronogramaResponse todas = cronogramaUseCase.obtenerCronograma(2030, null);
+
+        assertEquals(List.of(civil.getId()), soloCivil.citas().stream().map(CronogramaResponse.Cita::id).toList());
+        assertEquals(1, soloCivil.borrador().altas());
+        assertEquals(2, todas.citas().size());
+    }
+
+    @Test
+    void cronograma_ultimaPublicacionYPuedeDeshacer() {
+        programar(estacionUno, actividadUno, 2030, 6);
+        publicar(2030, true);
+        entityManager.flush();
+
+        CronogramaResponse soloInicial = cronogramaUseCase.obtenerCronograma(2030, null);
+        assertTrue(soloInicial.ultimaPublicacion().inicial());
+        assertEquals("Carga inicial", soloInicial.ultimaPublicacion().usuario());
+        assertFalse(soloInicial.puedeDeshacer()); // la carga inicial nunca se deshace
+
+        PublicacionEntity normal = publicar(2030, false);
+        entityManager.flush();
+        CronogramaResponse conPublicacion = cronogramaUseCase.obtenerCronograma(2030, null);
+        assertEquals(normal.getId(), conPublicacion.ultimaPublicacion().id());
+        assertEquals("Técnico de Prueba", conPublicacion.ultimaPublicacion().usuario());
+        assertEquals(3, conPublicacion.ultimaPublicacion().altas());
+        assertTrue(conPublicacion.puedeDeshacer());
+
+        programarEnEstado(estacionDos, actividadUno, 2030, 12, ProgramacionEntity.BORRADOR);
+        entityManager.flush();
+        assertFalse(cronogramaUseCase.obtenerCronograma(2030, null).puedeDeshacer()); // hay borrador
+
+        normal.setRevertida(true);
+        publicacionRepository.save(normal);
+        entityManager.flush();
+        assertTrue(cronogramaUseCase.obtenerCronograma(2030, null).ultimaPublicacion().inicial());
     }
 }

@@ -22,8 +22,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.Year;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -37,6 +35,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     private final DisciplinaRepository disciplinaRepository;
     private final ProgramacionRepository programacionRepository;
     private final SaveActionUseCase saveActionUseCase;
+    private final CalendarioMantenimiento calendario;
 
     // ---------------------------------------------------------------------
     // Estaciones
@@ -120,7 +119,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
         }
 
         Map<Long, Integer> citasPorActividad = programacionRepository
-                .contarCitasPorActividad(Year.now(ZoneId.of("America/Bogota")).getValue()).stream()
+                .contarCitasPorActividad(calendario.anioActual()).stream()
                 .collect(Collectors.toMap(fila -> (Long) fila[0], fila -> ((Long) fila[1]).intValue()));
 
         return actividades.stream()
@@ -203,7 +202,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     private int citasDelAnio(Long actividadId) {
         return programacionRepository
                 .countByActividad_IdAndAnioAndStatusTrueAndEstado(actividadId,
-                        Year.now(ZoneId.of("America/Bogota")).getValue(), ProgramacionEntity.PUBLICADA);
+                        calendario.anioActual(), ProgramacionEntity.PUBLICADA);
     }
 
     /** Quita espacios al inicio/final y deja uno solo entre palabras ("  Dren   Cuche " → "Dren Cuche"). */
