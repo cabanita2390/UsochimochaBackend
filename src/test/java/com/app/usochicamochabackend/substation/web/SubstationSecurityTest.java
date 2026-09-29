@@ -8,6 +8,7 @@ import com.app.usochicamochabackend.substation.application.port.SubstationCatalo
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationHallazgoUseCase;
+import com.app.usochicamochabackend.substation.application.port.SubstationCronogramaUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,7 +36,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * significa que la seguridad deja pasar la petición (llega al 404/400/500 de la app) y
  * "denegado" que responde 403 antes de llegar al controller.
  */
-@WebMvcTest({SubstationController.class, SubstationCatalogAdminController.class, SubstationHallazgoController.class})
+@WebMvcTest({SubstationController.class, SubstationCatalogAdminController.class, SubstationHallazgoController.class,
+        SubstationCronogramaController.class})
 @AutoConfigureMockMvc
 @Import(SecurityConfig.class)
 class SubstationSecurityTest {
@@ -51,6 +53,9 @@ class SubstationSecurityTest {
 
     @MockBean
     private SubstationHallazgoUseCase hallazgoUseCase;
+
+    @MockBean
+    private SubstationCronogramaUseCase cronogramaUseCase;
 
     @MockBean
     private SubstationEjecucionUseCase ejecucionUseCase;
@@ -70,7 +75,8 @@ class SubstationSecurityTest {
             // Lecturas: móvil y web
             "GET,    /api/v1/substation/estaciones,                 OPERARIO,             true",
             "GET,    /api/v1/substation/indicadores/cumplimiento,   OPERARIO,             true",
-            "GET,    /api/v1/substation/cronograma,                 SUPERVISOR_OPERATIVO, true",
+            "GET,    /api/v1/substation/cronograma?anio=2026,       SUPERVISOR_OPERATIVO, true",
+            "GET,    /api/v1/substation/cronograma?anio=2026,       OPERARIO,             true",
             // Captura y edición desde el móvil
             "POST,   /api/v1/substation/ejecuciones,                OPERARIO,             true",
             "POST,   /api/v1/substation/ejecuciones/1/evidencia,    OPERARIO,             true",
@@ -87,6 +93,12 @@ class SubstationSecurityTest {
             "POST,   /api/v1/substation/cronograma/publicar,        SUPERVISOR_OPERATIVO, false",
             "DELETE, /api/v1/substation/cronograma/citas/1,         SUPERVISOR_OPERATIVO, false",
             "DELETE, /api/v1/substation/cronograma/citas/1,         ADMIN,                true",
+            "POST,   /api/v1/substation/cronograma/citas/1/restaurar, ADMIN,              true",
+            "POST,   /api/v1/substation/cronograma/citas/1/restaurar, SUPERVISOR_OPERATIVO, false",
+            "POST,   /api/v1/substation/cronograma/copiar,          ADMIN,                true",
+            "POST,   /api/v1/substation/cronograma/copiar,          OPERARIO,             false",
+            "DELETE, /api/v1/substation/cronograma/borrador?anio=2026, ADMIN,             true",
+            "DELETE, /api/v1/substation/cronograma/borrador?anio=2026, SUPERVISOR_OPERATIVO, false",
             // Catálogos: solo ADMIN
             "POST,   /api/v1/substation/estaciones,                 ADMIN,                true",
             "POST,   /api/v1/substation/estaciones,                 SUPERVISOR_OPERATIVO, false",

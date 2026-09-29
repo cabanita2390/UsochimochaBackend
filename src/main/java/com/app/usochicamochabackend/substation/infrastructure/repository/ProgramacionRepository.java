@@ -39,5 +39,14 @@ public interface ProgramacionRepository extends JpaRepository<ProgramacionEntity
         """)
     List<Object[]> citasDelCronograma(@Param("anio") Integer anio);
 
+    /** Citas vigentes (no RETIRADA) del año: para no duplicar al asignar o copiar. */
+    List<ProgramacionEntity> findByAnioAndStatusTrueAndEstadoNot(Integer anio, String estado);
+
+    List<ProgramacionEntity> findByAnioAndStatusTrueAndEstado(Integer anio, String estado);
+
+    List<ProgramacionEntity> findByAnioAndStatusTrueAndPendienteRetiroTrue(Integer anio);
+
+    boolean existsByAnioAndStatusTrueAndEstado(Integer anio, String estado);
+
     int countByActividad_IdAndAnioAndStatusTrueAndEstado(Long actividadId, Integer anio, String estado);
 }

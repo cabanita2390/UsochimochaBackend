@@ -5,6 +5,9 @@ import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.BadRequestException;
 import com.app.usochicamochabackend.substation.application.dto.CambioCampo;
+import com.app.usochicamochabackend.substation.application.dto.CopiarAnioRequest;
+import com.app.usochicamochabackend.substation.application.dto.AsignarCitasRequest;
+import com.app.usochicamochabackend.substation.application.dto.AsignacionResultado;
 import com.app.usochicamochabackend.substation.application.dto.CronogramaResponse;
 import com.app.usochicamochabackend.substation.application.dto.CumplimientoResponse;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionEditRequest;
@@ -1189,5 +1192,189 @@ class SubstationServiceIntegrationTest {
         publicacionRepository.save(normal);
         entityManager.flush();
         assertTrue(cronogramaUseCase.obtenerCronograma(2030, null).ultimaPublicacion().inicial());
+    }
+
+    // ---------------------------------------------------------------------
+    // SUB-09: asignar, quitar, restaurar, copiar año, descartar
+    // (2030+ = año futuro, todos los meses abiertos; 2020 = año pasado, todos cerrados)
+    // ---------------------------------------------------------------------
+
+    private ProgramacionEntity recargar(ProgramacionEntity cita) {
+        entityManager.flush();
+        entityManager.clear();
+        return programacionRepository.findById(cita.getId()).orElseThrow();
+    }
+
+    private void ejecutar(ProgramacionEntity cita, EstacionEntity estacion, ActividadEntity actividad) {
+        ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(cita.getAnio(), cita.getMes(), 10), cita.getMes(), 2, estacion.getId(), "CIVIL",
+                "PREVENTIVO", "MANTENIMIENTO", actividad.getId(), cita.getId(), null,
+                "CONFORME", "Hecho.", null, UUID.randomUUID()), usuario);
+    }
+
+    private ResponseStatusException conStatus(int status, org.junit.jupiter.api.function.Executable accion) {
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class, accion);
+        assertEquals(status, ex.getStatusCode().value());
+        return ex;
+    }
+
+    @Test
+    void asignar_3x3_conUnDuplicado_crea8EnBorrador_yElMovilNoLasVe() {
+        programar(estacionUno, actividadUno, 2030, 10); // ya publicada: se omite como duplicada
+
+        AsignacionResultado r = cronogramaUseCase.asignar(new AsignarCitasRequest(2030, actividadUno.getId(),
+                List.of(estacionUno.getId(), estacionDos.getId(), estacionTres.getId()), List.of(10, 11, 12)), usuario);
+
+        assertEquals(8, r.creadas());
+        assertEquals(1, r.omitidasDuplicadas());
+        assertEquals(0, r.omitidasMesCerrado());
+        assertEquals(0, r.omitidasEstacionInactiva());
+        entityManager.flush();
+        entityManager.clear();
+
+        CronogramaResponse cron = cronogramaUseCase.obtenerCronograma(2030, null);
+        assertEquals(8, cron.borrador().altas());
+        assertEquals(8, programacionRepository.findByAnioAndStatusTrueAndEstado(2030, ProgramacionEntity.BORRADOR).stream()
+                .filter(c -> c.getCreadaPor() != null && c.getCreadaPor().getId().equals(usuario.id())).count());
+        // El móvil solo ve la publicada
+        assertEquals(1, indicadoresUseCase.cumplimientoPorMes(2030, 10, "CIVIL").size());
+        assertTrue(indicadoresUseCase.cumplimientoPorMes(2030, 11, "CIVIL").isEmpty());
+    }
+
+    @Test
+    void asignar_omiteMesesCerradosYEstacionesInactivas() {
+        AsignacionResultado pasado = cronogramaUseCase.asignar(new AsignarCitasRequest(2020, actividadUno.getId(),
+                List.of(estacionUno.getId()), List.of(3, 4)), usuario);
+        assertEquals(0, pasado.creadas());
+        assertEquals(2, pasado.omitidasMesCerrado());
+
+        estacionDos.setStatus(false);
+        estacionRepository.save(estacionDos);
+        AsignacionResultado conInactiva = cronogramaUseCase.asignar(new AsignarCitasRequest(2030, actividadUno.getId(),
+                List.of(estacionUno.getId(), estacionDos.getId()), List.of(5)), usuario);
+        assertEquals(1, conInactiva.creadas());
+        assertEquals(1, conInactiva.omitidasEstacionInactiva());
+    }
+
+    @Test
+    void asignar_datosInvalidos_responde400() {
+        ActividadEntity inactiva = actividadRepository.save(ActividadEntity.builder()
+                .nombre("Actividad Inactiva").disciplina(civil).capturaMovilHabilitada(true).status(false).build());
+
+        conStatus(400, () -> cronogramaUseCase.asignar(new AsignarCitasRequest(2030, inactiva.getId(),
+                List.of(estacionUno.getId()), List.of(5)), usuario));
+        conStatus(400, () -> cronogramaUseCase.asignar(new AsignarCitasRequest(2030, 999999L,
+                List.of(estacionUno.getId()), List.of(5)), usuario));
+        conStatus(400, () -> cronogramaUseCase.asignar(new AsignarCitasRequest(2030, actividadUno.getId(),
+                List.of(estacionUno.getId()), List.of(13)), usuario));
+        conStatus(400, () -> cronogramaUseCase.asignar(new AsignarCitasRequest(2030, actividadUno.getId(),
+                List.of(999999L), List.of(5)), usuario));
+    }
+
+    @Test
+    void quitar_borradorSeDescarta_publicadaQuedaPendiente_yElMovilLaSigueViendo() {
+        ProgramacionEntity borrador = programarEnEstado(estacionUno, actividadUno, 2030, 5, ProgramacionEntity.BORRADOR);
+        ProgramacionEntity publicada = programar(estacionUno, actividadDos, 2030, 5);
+
+        cronogramaUseCase.quitar(borrador.getId(), usuario);
+        cronogramaUseCase.quitar(publicada.getId(), usuario);
+
+        assertFalse(recargar(borrador).getStatus());
+        ProgramacionEntity p = recargar(publicada);
+        assertTrue(p.getStatus());
+        assertTrue(p.getPendienteRetiro());
+        assertEquals(ProgramacionEntity.PUBLICADA, p.getEstado());
+        assertEquals(1, indicadoresUseCase.cumplimientoPorMes(2030, 5, "CIVIL").size());
+    }
+
+    @Test
+    void quitar_conEjecucionOMesCerrado_409_yCitaRetirada_404() {
+        ProgramacionEntity ejecutada = programar(estacionUno, actividadUno, 2030, 2);
+        ejecutar(ejecutada, estacionUno, actividadUno);
+        ProgramacionEntity cerrada = programar(estacionUno, actividadDos, 2020, 6);
+        ProgramacionEntity retirada = programarEnEstado(estacionDos, actividadUno, 2030, 3, ProgramacionEntity.RETIRADA);
+        entityManager.flush();
+
+        conStatus(409, () -> cronogramaUseCase.quitar(ejecutada.getId(), usuario));
+        conStatus(409, () -> cronogramaUseCase.quitar(cerrada.getId(), usuario));
+        assertThrows(com.app.usochicamochabackend.exception.ResourceNotFoundException.class,
+                () -> cronogramaUseCase.quitar(retirada.getId(), usuario));
+    }
+
+    @Test
+    void restaurar_soloSiEstabaMarcadaParaQuitar() {
+        ProgramacionEntity publicada = programar(estacionUno, actividadUno, 2030, 8);
+        conStatus(409, () -> cronogramaUseCase.restaurar(publicada.getId(), usuario));
+
+        cronogramaUseCase.quitar(publicada.getId(), usuario);
+        cronogramaUseCase.restaurar(publicada.getId(), usuario);
+
+        assertFalse(recargar(publicada).getPendienteRetiro());
+    }
+
+    @Test
+    void quitarYVolverAAsignarLaMismaCita_laCreaDeNuevo() {
+        AsignarCitasRequest req = new AsignarCitasRequest(2030, actividadUno.getId(), List.of(estacionUno.getId()), List.of(9));
+        cronogramaUseCase.asignar(req, usuario);
+        entityManager.flush();
+        ProgramacionEntity creada = programacionRepository.findByAnioAndStatusTrueAndEstado(2030, ProgramacionEntity.BORRADOR).get(0);
+        cronogramaUseCase.quitar(creada.getId(), usuario);
+        entityManager.flush();
+
+        assertEquals(1, cronogramaUseCase.asignar(req, usuario).creadas());
+    }
+
+    @Test
+    void copiarAnio_copiaSoloPublicadasActivasComoBorrador() {
+        programar(estacionUno, actividadUno, 2030, 3);
+        programar(estacionDos, actividadUno, 2030, 6);
+        programarEnEstado(estacionUno, actividadDos, 2030, 4, ProgramacionEntity.BORRADOR); // no se copia
+        programar(estacionTres, actividadUno, 2030, 7); // estación que se desactiva
+        estacionTres.setStatus(false);
+        estacionRepository.save(estacionTres);
+        ActividadEntity desactivada = actividadRepository.save(ActividadEntity.builder()
+                .nombre("Actividad Que Se Desactiva").disciplina(civil).capturaMovilHabilitada(true).status(true).build());
+        programar(estacionUno, desactivada, 2030, 8);
+        desactivada.setStatus(false);
+        actividadRepository.save(desactivada);
+        entityManager.flush();
+
+        AsignacionResultado r = cronogramaUseCase.copiarAnio(new CopiarAnioRequest(2030, 2031), usuario);
+
+        assertEquals(2, r.creadas());
+        assertEquals(1, r.omitidasEstacionInactiva());
+        entityManager.flush();
+        entityManager.clear();
+        assertEquals(2, programacionRepository.findByAnioAndStatusTrueAndEstado(2031, ProgramacionEntity.BORRADOR).size());
+        assertTrue(indicadoresUseCase.cumplimientoPorEstacion(estacionUno.getId(), 2031, "CIVIL").isEmpty());
+
+        // Repetir la copia no duplica
+        assertEquals(0, cronogramaUseCase.copiarAnio(new CopiarAnioRequest(2030, 2031), usuario).creadas());
+    }
+
+    @Test
+    void copiarAnio_destinoConPublicadas409_yMismoAnio400() {
+        programar(estacionUno, actividadUno, 2030, 3);
+        programar(estacionUno, actividadUno, 2032, 3);
+        entityManager.flush();
+
+        conStatus(409, () -> cronogramaUseCase.copiarAnio(new CopiarAnioRequest(2030, 2032), usuario));
+        conStatus(400, () -> cronogramaUseCase.copiarAnio(new CopiarAnioRequest(2030, 2030), usuario));
+    }
+
+    @Test
+    void descartarBorrador_bajaAltasYAnulaRetiros_peroNoTocaCitasConEjecucion() {
+        ProgramacionEntity alta = programarEnEstado(estacionUno, actividadUno, 2030, 5, ProgramacionEntity.BORRADOR);
+        ProgramacionEntity altaEjecutada = programarEnEstado(estacionDos, actividadUno, 2030, 5, ProgramacionEntity.BORRADOR);
+        ejecutar(altaEjecutada, estacionDos, actividadUno);
+        ProgramacionEntity publicada = programar(estacionUno, actividadDos, 2030, 6);
+        cronogramaUseCase.quitar(publicada.getId(), usuario);
+        entityManager.flush();
+
+        cronogramaUseCase.descartarBorrador(2030, usuario);
+
+        assertFalse(recargar(alta).getStatus());
+        assertTrue(recargar(altaEjecutada).getStatus());
+        assertFalse(recargar(publicada).getPendienteRetiro());
     }
 }
