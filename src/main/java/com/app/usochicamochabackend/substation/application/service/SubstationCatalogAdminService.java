@@ -11,6 +11,7 @@ import com.app.usochicamochabackend.substation.application.port.SubstationCatalo
 import com.app.usochicamochabackend.substation.infrastructure.entity.ActividadEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.DisciplinaEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EstacionEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.ProgramacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.DisciplinaRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EstacionRepository;
@@ -201,7 +202,8 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
 
     private int citasDelAnio(Long actividadId) {
         return programacionRepository
-                .countByActividad_IdAndAnioAndStatusTrue(actividadId, Year.now(ZoneId.of("America/Bogota")).getValue());
+                .countByActividad_IdAndAnioAndStatusTrueAndEstado(actividadId,
+                        Year.now(ZoneId.of("America/Bogota")).getValue(), ProgramacionEntity.PUBLICADA);
     }
 
     /** Quita espacios al inicio/final y deja uno solo entre palabras ("  Dren   Cuche " → "Dren Cuche"). */

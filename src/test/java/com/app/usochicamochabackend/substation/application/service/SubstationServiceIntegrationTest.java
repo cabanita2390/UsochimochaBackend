@@ -171,7 +171,8 @@ class SubstationServiceIntegrationTest {
             st.execute("DROP TABLE IF EXISTS v_mant_indicadores_estacion");
             st.execute("DROP TABLE IF EXISTS v_mant_cumplimiento");
 
-            // Copia literal de V37 (H2 2.x en modo PostgreSQL soporta COUNT(*) FILTER (WHERE ...)).
+            // Copia literal de V46 (v_mant_cumplimiento) y V37 (las otras dos). H2 2.x en modo
+            // PostgreSQL soporta COUNT(*) FILTER (WHERE ...).
             st.execute("""
                     CREATE VIEW v_mant_cumplimiento AS
                     SELECT
@@ -185,13 +186,15 @@ class SubstationServiceIntegrationTest {
                         a.nombre            AS actividad_nombre,
                         d.codigo            AS disciplina,
                         COUNT(ej.id)        AS ejecutado,
-                        (COUNT(ej.id) > 0)  AS cumple
+                        (COUNT(ej.id) > 0)  AS cumple,
+                        MIN(ej.fecha)       AS fecha_ejecucion
                     FROM mant_programacion p
                     JOIN mant_estacion e ON e.id = p.estacion_id
                     JOIN mant_actividad a ON a.id = p.actividad_id
                     JOIN mant_disciplina d ON d.id = a.disciplina_id
                     LEFT JOIN mant_ejecucion ej ON ej.programacion_id = p.id
                     WHERE p.status = TRUE
+                      AND p.estado = 'PUBLICADA'
                     GROUP BY p.id, p.anio, p.mes, e.id, e.nombre, e.tipo, a.id, a.nombre, d.codigo
                     """);
 
@@ -302,6 +305,13 @@ class SubstationServiceIntegrationTest {
                 .actividad(actividad)
                 .status(true)
                 .build());
+    }
+
+    private ProgramacionEntity programarEnEstado(EstacionEntity estacion, ActividadEntity actividad,
+            int anio, int mes, String estado) {
+        ProgramacionEntity cita = programar(estacion, actividad, anio, mes);
+        cita.setEstado(estado);
+        return programacionRepository.save(cita);
     }
 
     // ---------------------------------------------------------------------
@@ -956,5 +966,88 @@ class SubstationServiceIntegrationTest {
 
         assertEquals(List.of(new CambioCampo("actividad", actividadUno.getNombre(), actividadDos.getNombre())),
                 editada.ediciones().get(0).cambios());
+    }
+
+    // ---------------------------------------------------------------------
+    // SUB-07: borrador/publicado. Estos casos protegen al móvil.
+    // ---------------------------------------------------------------------
+
+    @Test
+    void citaNueva_quedaPublicadaPorDefecto() {
+        ProgramacionEntity cita = programar(estacionUno, actividadUno, 2030, 4);
+
+        assertEquals(ProgramacionEntity.PUBLICADA, cita.getEstado());
+        assertFalse(cita.getPendienteRetiro());
+    }
+
+    @Test
+    void borradorYRetirada_noLleganAlMovil_niPorCumplimientoNiPorProgramacion() {
+        ProgramacionEntity publicada = programar(estacionUno, actividadUno, 2030, 5);
+        ProgramacionEntity borrador = programarEnEstado(estacionUno, actividadDos, 2030, 5, ProgramacionEntity.BORRADOR);
+        ProgramacionEntity retirada = programarEnEstado(estacionDos, actividadUno, 2030, 5, ProgramacionEntity.RETIRADA);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Long> porMes = indicadoresUseCase.cumplimientoPorMes(2030, 5, "CIVIL").stream()
+                .map(CumplimientoResponse::programacionId).toList();
+        assertEquals(List.of(publicada.getId()), porMes);
+
+        List<Long> porEstacion = indicadoresUseCase.cumplimientoPorEstacion(estacionUno.getId(), 2030, "CIVIL").stream()
+                .map(CumplimientoResponse::programacionId).toList();
+        assertEquals(List.of(publicada.getId()), porEstacion);
+        assertTrue(indicadoresUseCase.cumplimientoPorEstacion(estacionDos.getId(), 2030, "CIVIL").isEmpty());
+
+        List<Long> programacion = catalogUseCase.listarProgramacion(estacionUno.getId(), 2030, 5, "CIVIL").stream()
+                .map(ProgramacionResponse::id).toList();
+        assertEquals(List.of(publicada.getId()), programacion);
+        assertFalse(programacion.contains(borrador.getId()));
+        assertFalse(programacion.contains(retirada.getId()));
+    }
+
+    @Test
+    void publicadaPendienteDeRetiro_sigueLlegandoAlMovilHastaPublicar() {
+        ProgramacionEntity cita = programar(estacionUno, actividadUno, 2030, 7);
+        cita.setPendienteRetiro(true);
+        programacionRepository.save(cita);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertTrue(indicadoresUseCase.cumplimientoPorMes(2030, 7, "CIVIL").stream()
+                .anyMatch(c -> c.programacionId().equals(cita.getId())));
+    }
+
+    @Test
+    void ejecucionDelMovil_paraUnaCitaRetirada_seRegistraIgual() {
+        // Técnico sin señal: ejecutó una cita que mientras tanto se quitó del cronograma.
+        // Si el backend la rechazara, la ejecución quedaría atascada en la cola del móvil.
+        ProgramacionEntity retirada = programarEnEstado(estacionUno, actividadUno, 2030, 3, ProgramacionEntity.RETIRADA);
+
+        EjecucionRequest request = new EjecucionRequest(
+                LocalDate.of(2030, 3, 10), 3, 2, estacionUno.getId(), "CIVIL",
+                "PREVENTIVO", "MANTENIMIENTO",
+                actividadUno.getId(), retirada.getId(), null,
+                "CONFORME", "Ejecutada sin señal.", null,
+                UUID.randomUUID());
+
+        EjecucionResponse guardada = ejecucionUseCase.registrarEjecucion(request, usuario);
+
+        assertNotNull(guardada.id());
+    }
+
+    @Test
+    void citasDelAnioEnConfiguracion_cuentaSoloLasPublicadas() {
+        int anioActual = java.time.Year.now(java.time.ZoneId.of("America/Bogota")).getValue();
+        programar(estacionUno, actividadUno, anioActual, 11);
+        programar(estacionDos, actividadUno, anioActual, 11);
+        programarEnEstado(estacionTres, actividadUno, anioActual, 12, ProgramacionEntity.BORRADOR);
+        programarEnEstado(estacionTres, actividadUno, anioActual, 11, ProgramacionEntity.RETIRADA);
+        entityManager.flush();
+
+        var actividad = catalogAdminUseCase.listarActividades("CIVIL", false).stream()
+                .filter(a -> a.id().equals(actividadUno.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(2, actividad.citasPublicadasAnio());
     }
 }

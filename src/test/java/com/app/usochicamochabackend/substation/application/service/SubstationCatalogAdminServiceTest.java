@@ -235,7 +235,7 @@ class SubstationCatalogAdminServiceTest {
         when(disciplinaRepository.findByCodigo("CIVIL")).thenReturn(Optional.of(CIVIL));
         when(actividadRepository.existsByNombreIgnoreCaseAndDisciplina_IdAndIdNot("Pintura", 1L, 5L)).thenReturn(false);
         when(actividadRepository.save(actual)).thenReturn(actual);
-        when(programacionRepository.countByActividad_IdAndAnioAndStatusTrue(eq(5L), anyInt())).thenReturn(12);
+        when(programacionRepository.countByActividad_IdAndAnioAndStatusTrueAndEstado(eq(5L), anyInt(), eq("PUBLICADA"))).thenReturn(12);
 
         ActividadResponse editada = service.actualizarActividad(5L, new ActividadRequest("Pintura", "CIVIL", false), ADMIN);
 

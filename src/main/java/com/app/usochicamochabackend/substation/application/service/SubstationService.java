@@ -83,7 +83,8 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     @Override
     public List<ProgramacionResponse> listarProgramacion(Long estacionId, Integer anio, Integer mes, String disciplina) {
         return programacionRepository
-                .findByEstacion_IdAndAnioAndMesAndActividad_Disciplina_CodigoAndStatusTrue(estacionId, anio, mes, disciplina)
+                .findByEstacion_IdAndAnioAndMesAndActividad_Disciplina_CodigoAndStatusTrueAndEstado(
+                        estacionId, anio, mes, disciplina, ProgramacionEntity.PUBLICADA)
                 .stream()
                 .map(ProgramacionResponse::fromEntity)
                 .toList();
