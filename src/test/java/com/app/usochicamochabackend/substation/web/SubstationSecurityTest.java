@@ -9,6 +9,7 @@ import com.app.usochicamochabackend.substation.application.port.SubstationCatalo
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationHallazgoUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationCronogramaUseCase;
+import com.app.usochicamochabackend.substation.application.service.CalendarioMantenimiento;
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,7 +40,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @WebMvcTest({SubstationController.class, SubstationCatalogAdminController.class, SubstationHallazgoController.class,
         SubstationCronogramaController.class})
 @AutoConfigureMockMvc
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, CalendarioMantenimiento.class})
 class SubstationSecurityTest {
 
     @Autowired
@@ -75,6 +76,8 @@ class SubstationSecurityTest {
             // Lecturas: móvil y web
             "GET,    /api/v1/substation/estaciones,                 OPERARIO,             true",
             "GET,    /api/v1/substation/indicadores/cumplimiento,   OPERARIO,             true",
+            "GET,    /api/v1/substation/indicadores/por-estacion,   SUPERVISOR_OPERATIVO, true",
+            "GET,    /api/v1/substation/indicadores/por-actividad?disciplina=CIVIL, SUPERVISOR_OPERATIVO, true",
             "GET,    /api/v1/substation/cronograma?anio=2026,       SUPERVISOR_OPERATIVO, true",
             "GET,    /api/v1/substation/cronograma?anio=2026,       OPERARIO,             true",
             // Captura y edición desde el móvil

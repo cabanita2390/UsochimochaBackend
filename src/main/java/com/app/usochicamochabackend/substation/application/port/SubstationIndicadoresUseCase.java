@@ -14,9 +14,9 @@ public interface SubstationIndicadoresUseCase {
     /** Cumplimiento de una estación a lo largo del año, mes a mes. */
     List<CumplimientoResponse> cumplimientoPorEstacion(Long estacionId, Integer anio, String disciplina);
 
-    /** Resumen de cumplimiento por estación (% cumplimiento, desglose programado/no programado, mantenimiento/inspección). */
-    List<IndicadorEstacionResponse> indicadoresPorEstacion();
+    /** Dashboard: una fila por estación activa, con lo publicado y lo ejecutado del año y la disciplina. */
+    List<IndicadorEstacionResponse> indicadoresPorEstacion(Integer anio, String disciplina);
 
-    /** Resumen anual por actividad, todas las estaciones — para ver qué actividad se salta más en la red. */
-    List<ResumenActividadResponse> resumenPorActividad(String disciplina);
+    /** Resumen por actividad del año (actividades activas de la disciplina), todas las estaciones. */
+    List<ResumenActividadResponse> resumenPorActividad(String disciplina, Integer anio);
 }

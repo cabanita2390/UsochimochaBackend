@@ -1,23 +1,26 @@
 package com.app.usochicamochabackend.substation.application.dto;
 
-import com.app.usochicamochabackend.substation.infrastructure.entity.ResumenActividadView;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.math.BigDecimal;
+
+/**
+ * Resumen por actividad: todo del año pedido y solo del cronograma publicado.
+ * % de cumplimiento con la misma fórmula del Dashboard (ejecutadasVencidas / vencidas).
+ */
 public record ResumenActividadResponse(
         @Schema(description = "ID de la actividad", example = "1") Long actividadId,
         @Schema(description = "Nombre de la actividad") String actividadNombre,
         @Schema(description = "Código de disciplina", example = "CIVIL") String disciplina,
-        @Schema(description = "Total de citas programadas para esta actividad, todas las estaciones") Integer programadoAnual,
-        @Schema(description = "Total de ejecuciones registradas para esta actividad") Integer ejecutadoAnual,
-        @Schema(description = "Ejecuciones sin cita asociada") Integer ejecutadoNoProgramado,
-        @Schema(description = "Ejecuciones de tipo MANTENIMIENTO") Integer mantenimiento,
-        @Schema(description = "Ejecuciones de tipo INSPECCION") Integer inspeccion,
-        @Schema(description = "Total de ejecuciones") Integer ejecutadoTotal
+        @Schema(description = "Citas publicadas del año para esta actividad, todas las estaciones") Integer programadoAnual,
+        @Schema(description = "Ejecuciones del año registradas para esta actividad") Integer ejecutadoAnual,
+        @Schema(description = "Ejecuciones del año sin cita asociada") Integer ejecutadoNoProgramado,
+        @Schema(description = "Ejecuciones del año de tipo MANTENIMIENTO") Integer mantenimiento,
+        @Schema(description = "Ejecuciones del año de tipo INSPECCION") Integer inspeccion,
+        @Schema(description = "Total de ejecuciones del año") Integer ejecutadoTotal,
+        @Schema(description = "Año consultado", example = "2026") Integer anio,
+        @Schema(description = "Citas publicadas del año con mes cerrado") Integer vencidas,
+        @Schema(description = "De las vencidas, las que tienen ejecución") Integer ejecutadasVencidas,
+        @Schema(description = "ejecutadasVencidas / vencidas × 100, 0-100; null si no hay citas vencidas") BigDecimal porcentajeCumplimiento
 ) {
-    public static ResumenActividadResponse fromEntity(ResumenActividadView v) {
-        return new ResumenActividadResponse(
-                v.getActividadId(), v.getActividadNombre(), v.getDisciplina(),
-                v.getProgramadoAnual(), v.getEjecutadoAnual(), v.getEjecutadoNoProgramado(),
-                v.getMantenimiento(), v.getInspeccion(), v.getEjecutadoTotal());
-    }
 }

@@ -183,12 +183,10 @@ class SubstationServiceIntegrationTest {
         }
         try (Connection conexion = dataSource.getConnection();
              Statement st = conexion.createStatement()) {
-            st.execute("DROP TABLE IF EXISTS v_mant_resumen_actividad");
-            st.execute("DROP TABLE IF EXISTS v_mant_indicadores_estacion");
             st.execute("DROP TABLE IF EXISTS v_mant_cumplimiento");
 
-            // Copia literal de V46 (v_mant_cumplimiento) y V37 (las otras dos). H2 2.x en modo
-            // PostgreSQL soporta COUNT(*) FILTER (WHERE ...).
+            // Copia literal de v_mant_cumplimiento de V46. Los indicadores ya no usan las otras dos
+            // vistas de V37 (se calculan en el servicio por año).
             st.execute("""
                     CREATE VIEW v_mant_cumplimiento AS
                     SELECT
@@ -214,80 +212,6 @@ class SubstationServiceIntegrationTest {
                     GROUP BY p.id, p.anio, p.mes, e.id, e.nombre, e.tipo, a.id, a.nombre, d.codigo
                     """);
 
-            st.execute("""
-                    CREATE VIEW v_mant_indicadores_estacion AS
-                    WITH cumplimiento AS (
-                        SELECT estacion_id,
-                               COUNT(*)                           AS programado,
-                               COUNT(*) FILTER (WHERE cumple)     AS cumple,
-                               COUNT(*) FILTER (WHERE NOT cumple) AS no_cumple
-                        FROM v_mant_cumplimiento
-                        GROUP BY estacion_id
-                    ),
-                    ejecuciones AS (
-                        SELECT estacion_id,
-                               COUNT(*) FILTER (WHERE es_programada)                    AS ejecutado_programado,
-                               COUNT(*) FILTER (WHERE NOT es_programada)                AS ejecutado_no_programado,
-                               COUNT(*) FILTER (WHERE tipo_actividad = 'MANTENIMIENTO') AS ejecutado_mantenimiento,
-                               COUNT(*) FILTER (WHERE tipo_actividad = 'INSPECCION')    AS ejecutado_inspeccion,
-                               COUNT(*)                                                  AS ejecutado_total
-                        FROM mant_ejecucion
-                        GROUP BY estacion_id
-                    )
-                    SELECT
-                        e.id                                                              AS estacion_id,
-                        e.nombre                                                          AS estacion_nombre,
-                        e.tipo                                                            AS estacion_tipo,
-                        COALESCE(c.programado, 0)                                         AS programado,
-                        COALESCE(c.cumple, 0)                                             AS cumple,
-                        COALESCE(c.no_cumple, 0)                                          AS no_cumple,
-                        ROUND(100.0 * COALESCE(c.cumple, 0) / NULLIF(c.programado, 0), 1) AS porcentaje_cumplimiento,
-                        COALESCE(ej.ejecutado_programado, 0)                              AS ejecutado_programado,
-                        COALESCE(ej.ejecutado_no_programado, 0)                           AS ejecutado_no_programado,
-                        COALESCE(ej.ejecutado_mantenimiento, 0)                           AS ejecutado_mantenimiento,
-                        COALESCE(ej.ejecutado_inspeccion, 0)                              AS ejecutado_inspeccion,
-                        COALESCE(ej.ejecutado_total, 0)                                   AS ejecutado_total
-                    FROM mant_estacion e
-                    LEFT JOIN cumplimiento c ON c.estacion_id = e.id
-                    LEFT JOIN ejecuciones ej ON ej.estacion_id = e.id
-                    WHERE e.status = TRUE
-                    """);
-
-            st.execute("""
-                    CREATE VIEW v_mant_resumen_actividad AS
-                    WITH cumplimiento AS (
-                        SELECT actividad_id,
-                               COUNT(*)                       AS programado,
-                               COUNT(*) FILTER (WHERE cumple) AS cumple
-                        FROM v_mant_cumplimiento
-                        GROUP BY actividad_id
-                    ),
-                    ejecuciones AS (
-                        SELECT actividad_id,
-                               COUNT(*) FILTER (WHERE NOT es_programada)                AS ejecutado_no_programado,
-                               COUNT(*) FILTER (WHERE tipo_actividad = 'MANTENIMIENTO') AS mantenimiento,
-                               COUNT(*) FILTER (WHERE tipo_actividad = 'INSPECCION')    AS inspeccion,
-                               COUNT(*)                                                  AS ejecutado_total
-                        FROM mant_ejecucion
-                        WHERE actividad_id IS NOT NULL
-                        GROUP BY actividad_id
-                    )
-                    SELECT
-                        a.id                                     AS actividad_id,
-                        a.nombre                                 AS actividad_nombre,
-                        d.codigo                                 AS disciplina,
-                        COALESCE(c.programado, 0)                AS programado_anual,
-                        COALESCE(ej.ejecutado_total, 0)          AS ejecutado_anual,
-                        COALESCE(ej.ejecutado_no_programado, 0)  AS ejecutado_no_programado,
-                        COALESCE(ej.mantenimiento, 0)            AS mantenimiento,
-                        COALESCE(ej.inspeccion, 0)               AS inspeccion,
-                        COALESCE(ej.ejecutado_total, 0)          AS ejecutado_total
-                    FROM mant_actividad a
-                    JOIN mant_disciplina d ON d.id = a.disciplina_id
-                    LEFT JOIN cumplimiento c ON c.actividad_id = a.id
-                    LEFT JOIN ejecuciones ej ON ej.actividad_id = a.id
-                    WHERE a.status = TRUE
-                    """);
         }
     }
 
@@ -763,7 +687,7 @@ class SubstationServiceIntegrationTest {
         programar(estacionUno, actividadUno, 2030, 2);
         // estacionDos y estacionTres quedan sin programación: deben seguir apareciendo con programado=0.
 
-        List<IndicadorEstacionResponse> indicadores = indicadoresUseCase.indicadoresPorEstacion();
+        List<IndicadorEstacionResponse> indicadores = indicadoresUseCase.indicadoresPorEstacion(2030, "CIVIL");
 
         assertEquals(3, indicadores.size());
         assertTrue(indicadores.stream().anyMatch(
@@ -779,7 +703,7 @@ class SubstationServiceIntegrationTest {
         programar(estacionTres, actividadUno, 2030, 3);
         // actividadDos no tiene ninguna cita programada: debe aparecer con programadoAnual=0.
 
-        List<ResumenActividadResponse> resumen = indicadoresUseCase.resumenPorActividad("CIVIL");
+        List<ResumenActividadResponse> resumen = indicadoresUseCase.resumenPorActividad("CIVIL", 2030);
 
         assertEquals(2, resumen.size());
         assertTrue(resumen.stream().anyMatch(r ->
@@ -1534,5 +1458,97 @@ class SubstationServiceIntegrationTest {
         assertEquals(List.of(3, 4, 11), dos.cambios().stream().map(ResumenBorradorResponse.Cambio::mes).toList());
         assertEquals("BAJA", dos.cambios().get(0).tipo());
         assertEquals(actividadDos.getNombre(), dos.cambios().get(0).actividadNombre());
+    }
+
+    // ---------------------------------------------------------------------
+    // SUB-05 (reducido) y SUB-12: Dashboard y Resumen por actividad del año
+    // (2020 = año pasado, todos los meses vencidos; 2030 = futuro, ninguno vencido)
+    // ---------------------------------------------------------------------
+
+    private IndicadorEstacionResponse filaDe(List<IndicadorEstacionResponse> filas, EstacionEntity estacion) {
+        return filas.stream().filter(f -> f.estacionId().equals(estacion.getId())).findFirst().orElseThrow();
+    }
+
+    private ResumenActividadResponse filaDe(List<ResumenActividadResponse> filas, ActividadEntity actividad) {
+        return filas.stream().filter(f -> f.actividadId().equals(actividad.getId())).findFirst().orElseThrow();
+    }
+
+    @Test
+    void dashboard_4VencidasY3Ejecutadas_da75_ySoloCuentaElAnioYLoPublicado() {
+        for (int mes = 1; mes <= 4; mes++) {
+            ProgramacionEntity c = programar(estacionUno, actividadUno, 2020, mes);
+            if (mes <= 3) {
+                ejecutar(c, estacionUno, actividadUno);
+            }
+        }
+        programarEnEstado(estacionUno, actividadDos, 2020, 5, ProgramacionEntity.BORRADOR); // no cuenta
+        ejecutar(programar(estacionUno, actividadDos, 2021, 2), estacionUno, actividadDos);  // otro año
+        entityManager.flush();
+        entityManager.clear();
+
+        List<IndicadorEstacionResponse> filas = indicadoresUseCase.indicadoresPorEstacion(2020, "CIVIL");
+
+        IndicadorEstacionResponse uno = filaDe(filas, estacionUno);
+        assertEquals(2020, uno.anio());
+        assertEquals(4, uno.programado());
+        assertEquals(3, uno.cumple());
+        assertEquals(1, uno.noCumple());
+        assertEquals(4, uno.vencidas());
+        assertEquals(3, uno.ejecutadasVencidas());
+        assertEquals(0, new java.math.BigDecimal("75.0").compareTo(uno.porcentajeCumplimiento()));
+        assertEquals(3, uno.ejecutadoTotal()); // la ejecución de 2021 no entra
+        assertEquals(3, uno.ejecutadoProgramado());
+
+        IndicadorEstacionResponse dos = filaDe(filas, estacionDos);
+        assertEquals(0, dos.programado());
+        assertNull(dos.porcentajeCumplimiento());
+    }
+
+    @Test
+    void dashboard_citasFuturasNoCuentanComoIncumplidas() {
+        programar(estacionUno, actividadUno, 2030, 3);
+        programar(estacionUno, actividadUno, 2030, 9);
+        entityManager.flush();
+
+        IndicadorEstacionResponse uno = filaDe(indicadoresUseCase.indicadoresPorEstacion(2030, "CIVIL"), estacionUno);
+
+        assertEquals(2, uno.programado());
+        assertEquals(0, uno.vencidas());
+        assertNull(uno.porcentajeCumplimiento());
+    }
+
+    @Test
+    void dashboard_soloEstacionesActivas() {
+        estacionTres.setStatus(false);
+        estacionRepository.save(estacionTres);
+
+        List<IndicadorEstacionResponse> filas = indicadoresUseCase.indicadoresPorEstacion(2030, "CIVIL");
+
+        assertEquals(2, filas.size());
+        assertTrue(filas.stream().noneMatch(f -> f.estacionId().equals(estacionTres.getId())));
+    }
+
+    @Test
+    void resumenPorActividad_soloElAnioPedido_soloPublicado_yMismoPorcentaje() {
+        ejecutar(programar(estacionUno, actividadUno, 2020, 1), estacionUno, actividadUno);
+        programar(estacionDos, actividadUno, 2020, 2);
+        programarEnEstado(estacionTres, actividadUno, 2020, 3, ProgramacionEntity.BORRADOR); // no cuenta
+        ejecutar(programar(estacionUno, actividadUno, 2021, 1), estacionUno, actividadUno);  // otro año
+        ActividadEntity inactiva = actividadRepository.save(ActividadEntity.builder()
+                .nombre("Actividad Inactiva Resumen").disciplina(civil).capturaMovilHabilitada(true).status(false).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        List<ResumenActividadResponse> filas = indicadoresUseCase.resumenPorActividad("CIVIL", 2020);
+
+        ResumenActividadResponse uno = filaDe(filas, actividadUno);
+        assertEquals(2020, uno.anio());
+        assertEquals(2, uno.programadoAnual());
+        assertEquals(1, uno.ejecutadoAnual());
+        assertEquals(2, uno.vencidas());
+        assertEquals(1, uno.ejecutadasVencidas());
+        assertEquals(0, new java.math.BigDecimal("50.0").compareTo(uno.porcentajeCumplimiento()));
+        assertTrue(filas.stream().noneMatch(f -> f.actividadId().equals(inactiva.getId())));
+        assertNull(filaDe(filas, actividadDos).porcentajeCumplimiento());
     }
 }

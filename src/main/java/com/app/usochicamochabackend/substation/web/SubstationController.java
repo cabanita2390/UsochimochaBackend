@@ -12,6 +12,7 @@ import com.app.usochicamochabackend.substation.application.dto.ResumenActividadR
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
+import com.app.usochicamochabackend.substation.application.service.CalendarioMantenimiento;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class SubstationController {
     private final SubstationCatalogUseCase catalogUseCase;
     private final SubstationEjecucionUseCase ejecucionUseCase;
     private final SubstationIndicadoresUseCase indicadoresUseCase;
+    private final CalendarioMantenimiento calendario;
 
     @GetMapping("/programacion")
     @Operation(summary = "Citas del cronograma para una estación+mes+disciplina")
@@ -129,14 +131,25 @@ public class SubstationController {
     }
 
     @GetMapping("/indicadores/por-estacion")
-    @Operation(summary = "Resumen de cumplimiento por estación (% cumplimiento, desglose programado/no programado)")
-    public ResponseEntity<List<IndicadorEstacionResponse>> indicadoresPorEstacion() {
-        return ResponseEntity.ok(indicadoresUseCase.indicadoresPorEstacion());
+    @Operation(summary = "Dashboard de estaciones",
+            description = "Una fila por estación activa con lo publicado y lo ejecutado del año y la disciplina. "
+                    + "% de cumplimiento = ejecutadasVencidas / vencidas (null si aún no hay citas vencidas). "
+                    + "anio: por defecto el actual; disciplina: por defecto CIVIL.")
+    public ResponseEntity<List<IndicadorEstacionResponse>> indicadoresPorEstacion(
+            @RequestParam(required = false) Integer anio,
+            @RequestParam(defaultValue = "CIVIL") String disciplina) {
+        return ResponseEntity.ok(indicadoresUseCase.indicadoresPorEstacion(
+                anio != null ? anio : calendario.anioActual(), disciplina));
     }
 
     @GetMapping("/indicadores/por-actividad")
-    @Operation(summary = "Resumen anual por actividad, todas las estaciones")
-    public ResponseEntity<List<ResumenActividadResponse>> resumenPorActividad(@RequestParam String disciplina) {
-        return ResponseEntity.ok(indicadoresUseCase.resumenPorActividad(disciplina));
+    @Operation(summary = "Resumen por actividad",
+            description = "Una fila por actividad activa de la disciplina, con lo publicado y lo ejecutado del año. "
+                    + "Mismo % de cumplimiento que el Dashboard. anio: por defecto el actual.")
+    public ResponseEntity<List<ResumenActividadResponse>> resumenPorActividad(
+            @RequestParam String disciplina,
+            @RequestParam(required = false) Integer anio) {
+        return ResponseEntity.ok(indicadoresUseCase.resumenPorActividad(
+                disciplina, anio != null ? anio : calendario.anioActual()));
     }
 }

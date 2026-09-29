@@ -26,9 +26,7 @@ import com.app.usochicamochabackend.substation.infrastructure.repository.Ejecuci
 import com.app.usochicamochabackend.substation.infrastructure.repository.EstacionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EvidenciaRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.HallazgoSeguimientoRepository;
-import com.app.usochicamochabackend.substation.infrastructure.repository.IndicadorEstacionViewRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ProgramacionRepository;
-import com.app.usochicamochabackend.substation.infrastructure.repository.ResumenActividadViewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,7 +36,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.app.usochicamochabackend.substation.infrastructure.entity.CumplimientoView;
+
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -60,8 +66,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     private final EvidenciaStorageService evidenciaStorageService;
     private final SaveActionUseCase saveActionUseCase;
     private final CumplimientoViewRepository cumplimientoViewRepository;
-    private final IndicadorEstacionViewRepository indicadorEstacionViewRepository;
-    private final ResumenActividadViewRepository resumenActividadViewRepository;
+    private final CalendarioMantenimiento calendario;
     private final EjecucionEdicionRepository ejecucionEdicionRepository;
     private final HallazgoSeguimientoRepository hallazgoSeguimientoRepository;
 
@@ -417,16 +422,77 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     }
 
     @Override
-    public List<IndicadorEstacionResponse> indicadoresPorEstacion() {
-        return indicadorEstacionViewRepository.findAllByOrderByEstacionNombreAsc().stream()
-                .map(IndicadorEstacionResponse::fromEntity)
+    @Transactional(readOnly = true)
+    public List<IndicadorEstacionResponse> indicadoresPorEstacion(Integer anio, String disciplina) {
+        Map<Long, Citas> citas = contarCitas(anio, disciplina, CumplimientoView::getEstacionId);
+        Map<Long, Object[]> ejecuciones = porId(ejecucionRepository.contarPorEstacion(
+                disciplina, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31)));
+        return estacionRepository.findByStatusTrueOrderByNombreAsc().stream()
+                .map(e -> {
+                    Citas c = citas.getOrDefault(e.getId(), new Citas());
+                    Object[] ej = ejecuciones.get(e.getId());
+                    return new IndicadorEstacionResponse(
+                            e.getId(), e.getNombre(), e.getTipo(),
+                            c.programado, c.cumple, c.programado - c.cumple, c.porcentaje(),
+                            entero(ej, 2), entero(ej, 3), entero(ej, 4), entero(ej, 5), entero(ej, 1),
+                            anio, c.vencidas, c.ejecutadasVencidas);
+                })
                 .toList();
     }
 
     @Override
-    public List<ResumenActividadResponse> resumenPorActividad(String disciplina) {
-        return resumenActividadViewRepository.findByDisciplinaOrderByActividadNombreAsc(disciplina).stream()
-                .map(ResumenActividadResponse::fromEntity)
+    @Transactional(readOnly = true)
+    public List<ResumenActividadResponse> resumenPorActividad(String disciplina, Integer anio) {
+        Map<Long, Citas> citas = contarCitas(anio, disciplina, CumplimientoView::getActividadId);
+        Map<Long, Object[]> ejecuciones = porId(ejecucionRepository.contarPorActividad(
+                disciplina, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31)));
+        return actividadRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina).stream()
+                .filter(ActividadEntity::getStatus)
+                .map(a -> {
+                    Citas c = citas.getOrDefault(a.getId(), new Citas());
+                    Object[] ej = ejecuciones.get(a.getId());
+                    return new ResumenActividadResponse(
+                            a.getId(), a.getNombre(), disciplina,
+                            c.programado, entero(ej, 1), entero(ej, 3), entero(ej, 4), entero(ej, 5), entero(ej, 1),
+                            anio, c.vencidas, c.ejecutadasVencidas, c.porcentaje());
+                })
                 .toList();
+    }
+
+    /** Citas publicadas del año agrupadas por la clave dada (estación o actividad). */
+    private Map<Long, Citas> contarCitas(Integer anio, String disciplina, Function<CumplimientoView, Long> clave) {
+        Map<Long, Citas> porClave = new HashMap<>();
+        for (CumplimientoView v : cumplimientoViewRepository.findByAnioAndDisciplina(anio, disciplina)) {
+            Citas c = porClave.computeIfAbsent(clave.apply(v), k -> new Citas());
+            c.programado++;
+            if (Boolean.TRUE.equals(v.getCumple())) {
+                c.cumple++;
+            }
+            if (calendario.mesCerrado(v.getAnio(), v.getMes())) {
+                c.vencidas++;
+                if (Boolean.TRUE.equals(v.getCumple())) {
+                    c.ejecutadasVencidas++;
+                }
+            }
+        }
+        return porClave;
+    }
+
+    private static Map<Long, Object[]> porId(List<Object[]> filas) {
+        return filas.stream().collect(Collectors.toMap(f -> (Long) f[0], Function.identity()));
+    }
+
+    private static int entero(Object[] fila, int columna) {
+        return fila == null || fila[columna] == null ? 0 : ((Number) fila[columna]).intValue();
+    }
+
+    private static final class Citas {
+        int programado, cumple, vencidas, ejecutadasVencidas;
+
+        /** ejecutadas / vencidas × 100 con un decimal; null si todavía no hay citas vencidas. */
+        BigDecimal porcentaje() {
+            return vencidas == 0 ? null
+                    : BigDecimal.valueOf(100.0 * ejecutadasVencidas / vencidas).setScale(1, RoundingMode.HALF_UP);
+        }
     }
 }
