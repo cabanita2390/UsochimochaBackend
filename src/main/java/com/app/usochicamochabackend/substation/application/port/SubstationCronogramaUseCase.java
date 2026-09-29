@@ -5,6 +5,11 @@ import com.app.usochicamochabackend.substation.application.dto.AsignacionResulta
 import com.app.usochicamochabackend.substation.application.dto.AsignarCitasRequest;
 import com.app.usochicamochabackend.substation.application.dto.CopiarAnioRequest;
 import com.app.usochicamochabackend.substation.application.dto.CronogramaResponse;
+import com.app.usochicamochabackend.substation.application.dto.PublicacionResponse;
+import com.app.usochicamochabackend.substation.application.dto.PublicacionResultado;
+import com.app.usochicamochabackend.substation.application.dto.ResumenBorradorResponse;
+
+import java.util.List;
 
 /** Cronograma anual editable (borrador → publicación al móvil). */
 public interface SubstationCronogramaUseCase {
@@ -26,4 +31,16 @@ public interface SubstationCronogramaUseCase {
 
     /** Descarta el borrador del año: altas dadas de baja y retiros pendientes anulados. No toca citas con ejecución. */
     void descartarBorrador(Integer anio, UserPrincipal usuario);
+
+    /** Qué se va a publicar, por estación (modal "Publicar cronograma a móvil"). */
+    ResumenBorradorResponse resumenBorrador(Integer anio);
+
+    /** Publica el borrador del año al móvil. 409 si no hay cambios. */
+    PublicacionResultado publicar(Integer anio, UserPrincipal usuario);
+
+    /** Revierte la última publicación (no inicial) del año. 409 si no hay qué deshacer o hay borrador pendiente. */
+    PublicacionResultado deshacerUltimaPublicacion(Integer anio, UserPrincipal usuario);
+
+    /** Historial de publicaciones del año, la más reciente primero. */
+    List<PublicacionResponse> historialPublicaciones(Integer anio);
 }

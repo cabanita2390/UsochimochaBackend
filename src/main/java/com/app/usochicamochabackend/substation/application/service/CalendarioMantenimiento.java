@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 
 /**
@@ -30,6 +31,10 @@ public class CalendarioMantenimiento {
 
     public LocalDate hoy() {
         return LocalDate.now(reloj.withZone(ZONA));
+    }
+
+    public LocalDateTime ahora() {
+        return LocalDateTime.now(reloj.withZone(ZONA));
     }
 
     public int anioActual() {

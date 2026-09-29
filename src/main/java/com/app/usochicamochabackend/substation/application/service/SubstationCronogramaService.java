@@ -9,6 +9,9 @@ import com.app.usochicamochabackend.substation.application.dto.AsignacionResulta
 import com.app.usochicamochabackend.substation.application.dto.AsignarCitasRequest;
 import com.app.usochicamochabackend.substation.application.dto.CopiarAnioRequest;
 import com.app.usochicamochabackend.substation.application.dto.CronogramaResponse;
+import com.app.usochicamochabackend.substation.application.dto.PublicacionResponse;
+import com.app.usochicamochabackend.substation.application.dto.PublicacionResultado;
+import com.app.usochicamochabackend.substation.application.dto.ResumenBorradorResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationCronogramaUseCase;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ActividadEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EstacionEntity;
@@ -25,6 +28,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -207,6 +212,138 @@ public class SubstationCronogramaService implements SubstationCronogramaUseCase 
                 + anio + " (" + altas + " altas, " + retiros.size() + " retiros)");
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public ResumenBorradorResponse resumenBorrador(Integer anio) {
+        List<ProgramacionEntity> cambios = programacionRepository.cambiosPendientes(anio);
+        Map<EstacionEntity, List<ProgramacionEntity>> porEstacion = cambios.stream()
+                .collect(Collectors.groupingBy(ProgramacionEntity::getEstacion));
+        List<ResumenBorradorResponse.Estacion> estaciones = porEstacion.entrySet().stream()
+                .sorted(Comparator.comparing(e -> e.getKey().getNombre()))
+                .map(e -> new ResumenBorradorResponse.Estacion(
+                        e.getKey().getId(),
+                        e.getKey().getNombre(),
+                        e.getValue().stream()
+                                .map(c -> new ResumenBorradorResponse.Cambio(c.getId(), c.getMes(),
+                                        c.getActividad().getNombre(), esAlta(c) ? "ALTA" : "BAJA"))
+                                .sorted(Comparator.comparing(ResumenBorradorResponse.Cambio::mes)
+                                        .thenComparing(ResumenBorradorResponse.Cambio::tipo)
+                                        .thenComparing(ResumenBorradorResponse.Cambio::actividadNombre))
+                                .toList()))
+                .toList();
+        int altas = (int) cambios.stream().filter(SubstationCronogramaService::esAlta).count();
+        return new ResumenBorradorResponse(altas, cambios.size() - altas, estaciones.size(), estaciones);
+    }
+
+    @Override
+    @Transactional
+    public PublicacionResultado publicar(Integer anio, UserPrincipal usuario) {
+        List<ProgramacionEntity> cambios = programacionRepository.cambiosPendientesParaPublicar(anio);
+        if (cambios.isEmpty()) {
+            throw conflicto("No hay cambios en borrador para publicar");
+        }
+        UserEntity autor = userRepositoryJpa.getUserEntityById(usuario.id());
+        PublicacionEntity publicacion = publicacionRepository.save(PublicacionEntity.builder()
+                .anio(anio)
+                .usuario(autor)
+                .publicadoEn(calendario.ahora())
+                .altas(0)
+                .bajas(0)
+                .build());
+
+        int altas = 0, bajas = 0;
+        List<PublicacionResultado.NoAplicada> noAplicadas = new ArrayList<>();
+        for (ProgramacionEntity c : cambios) {
+            if (esAlta(c)) {
+                c.setEstado(ProgramacionEntity.PUBLICADA);
+                c.setPublicadaEn(publicacion);
+                altas++;
+            } else if (ejecucionRepository.existsByProgramacion_Id(c.getId())) {
+                // El técnico la ejecutó mientras estaba marcada para quitar: se conserva.
+                c.setPendienteRetiro(false);
+                noAplicadas.add(new PublicacionResultado.NoAplicada(c.getId(), "Tiene ejecución registrada"));
+            } else {
+                c.setEstado(ProgramacionEntity.RETIRADA);
+                c.setPendienteRetiro(false);
+                c.setRetiradaEn(publicacion);
+                bajas++;
+            }
+        }
+        programacionRepository.saveAll(cambios);
+        publicacion.setAltas(altas);
+        publicacion.setBajas(bajas);
+        publicacionRepository.save(publicacion);
+
+        saveActionUseCase.save("El usuario " + autor.getUsername() + " ha publicado a móvil el cronograma "
+                + anio + ": +" + altas + " −" + bajas);
+        return new PublicacionResultado(publicacion.getId(), altas, bajas, noAplicadas);
+    }
+
+    @Override
+    @Transactional
+    public PublicacionResultado deshacerUltimaPublicacion(Integer anio, UserPrincipal usuario) {
+        PublicacionEntity publicacion = publicacionRepository
+                .findFirstByAnioAndRevertidaFalseAndInicialFalseOrderByIdDesc(anio)
+                .orElseThrow(() -> conflicto("No hay publicaciones para deshacer"));
+        if (!programacionRepository.cambiosPendientes(anio).isEmpty()) {
+            throw conflicto("Hay cambios en borrador: publíquelos o descártelos antes de deshacer");
+        }
+
+        int altas = 0, bajas = 0;
+        List<PublicacionResultado.NoAplicada> noAplicadas = new ArrayList<>();
+        List<ProgramacionEntity> modificadas = new ArrayList<>();
+        // Altas de esa publicación: vuelven al borrador, salvo las que ya se ejecutaron.
+        for (ProgramacionEntity c : programacionRepository
+                .findByPublicadaEn_IdAndStatusTrueAndEstado(publicacion.getId(), ProgramacionEntity.PUBLICADA)) {
+            if (ejecucionRepository.existsByProgramacion_Id(c.getId())) {
+                noAplicadas.add(new PublicacionResultado.NoAplicada(c.getId(), "Tiene ejecución registrada"));
+                continue;
+            }
+            c.setEstado(ProgramacionEntity.BORRADOR);
+            c.setPublicadaEn(null);
+            modificadas.add(c);
+            altas++;
+        }
+        // Bajas de esa publicación: el móvil las vuelve a ver y quedan en el borrador como "se quitará".
+        for (ProgramacionEntity c : programacionRepository
+                .findByRetiradaEn_IdAndStatusTrueAndEstado(publicacion.getId(), ProgramacionEntity.RETIRADA)) {
+            if (programacionRepository.existsByAnioAndMesAndEstacion_IdAndActividad_IdAndStatusTrueAndEstadoNot(
+                    c.getAnio(), c.getMes(), c.getEstacion().getId(), c.getActividad().getId(), ProgramacionEntity.RETIRADA)) {
+                noAplicadas.add(new PublicacionResultado.NoAplicada(c.getId(), "Ya hay una cita vigente igual"));
+                continue;
+            }
+            c.setEstado(ProgramacionEntity.PUBLICADA);
+            c.setRetiradaEn(null);
+            c.setPendienteRetiro(true);
+            modificadas.add(c);
+            bajas++;
+        }
+        programacionRepository.saveAll(modificadas);
+
+        UserEntity autor = userRepositoryJpa.getUserEntityById(usuario.id());
+        publicacion.setRevertida(true);
+        publicacion.setRevertidaPor(autor);
+        publicacion.setRevertidaEn(calendario.ahora());
+        publicacionRepository.save(publicacion);
+
+        saveActionUseCase.save("El usuario " + autor.getUsername() + " ha deshecho la publicación #"
+                + publicacion.getId() + " del cronograma " + anio + ": " + altas + " altas y " + bajas
+                + " bajas vuelven al borrador");
+        return new PublicacionResultado(publicacion.getId(), altas, bajas, noAplicadas);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<PublicacionResponse> historialPublicaciones(Integer anio) {
+        return publicacionRepository.findByAnioOrderByIdDesc(anio).stream()
+                .map(PublicacionResponse::fromEntity)
+                .toList();
+    }
+
+    private static boolean esAlta(ProgramacionEntity c) {
+        return ProgramacionEntity.BORRADOR.equals(c.getEstado());
+    }
+
     private ProgramacionEntity citaVigente(Long citaId) {
         return programacionRepository.findById(citaId)
                 .filter(c -> c.getStatus() && !ProgramacionEntity.RETIRADA.equals(c.getEstado()))
@@ -264,7 +401,7 @@ public class SubstationCronogramaService implements SubstationCronogramaUseCase 
 
     private static CronogramaResponse.UltimaPublicacion aUltimaPublicacion(PublicacionEntity p) {
         String usuario = p.getInicial() || p.getUsuario() == null
-                ? "Carga inicial"
+                ? PublicacionResponse.CARGA_INICIAL
                 : p.getUsuario().getFullName();
         return new CronogramaResponse.UltimaPublicacion(
                 p.getId(), p.getPublicadoEn(), usuario, p.getAltas(), p.getBajas(), p.getInicial());

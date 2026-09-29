@@ -5,6 +5,9 @@ import com.app.usochicamochabackend.substation.application.dto.AsignacionResulta
 import com.app.usochicamochabackend.substation.application.dto.AsignarCitasRequest;
 import com.app.usochicamochabackend.substation.application.dto.CopiarAnioRequest;
 import com.app.usochicamochabackend.substation.application.dto.CronogramaResponse;
+import com.app.usochicamochabackend.substation.application.dto.PublicacionResponse;
+import com.app.usochicamochabackend.substation.application.dto.PublicacionResultado;
+import com.app.usochicamochabackend.substation.application.dto.ResumenBorradorResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationCronogramaUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +23,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/substation/cronograma")
@@ -86,6 +91,39 @@ public class SubstationCronogramaController {
     public ResponseEntity<Void> descartarBorrador(@RequestParam Integer anio, Authentication authentication) {
         cronogramaUseCase.descartarBorrador(anio, usuario(authentication));
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/borrador/resumen")
+    @Operation(summary = "Resumen del borrador (modal de publicar)",
+            description = "Altas (+) y bajas (−) pendientes del año, agrupadas por estación y en orden de mes. "
+                    + "Solo estaciones activas, igual que la grilla.")
+    public ResponseEntity<ResumenBorradorResponse> resumenBorrador(@RequestParam Integer anio) {
+        return ResponseEntity.ok(cronogramaUseCase.resumenBorrador(anio));
+    }
+
+    @PostMapping("/publicar")
+    @Operation(summary = "Publicar el borrador a móvil",
+            description = "Solo ADMIN. BORRADOR → PUBLICADA; las marcadas para quitar → RETIRADA, salvo las que "
+                    + "recibieron una ejecución mientras tanto (siguen publicadas y vienen en noAplicadas). El móvil "
+                    + "ve los cambios en su siguiente sincronización. 409 si no hay cambios.")
+    public ResponseEntity<PublicacionResultado> publicar(@RequestParam Integer anio, Authentication authentication) {
+        return ResponseEntity.ok(cronogramaUseCase.publicar(anio, usuario(authentication)));
+    }
+
+    @PostMapping("/publicaciones/deshacer")
+    @Operation(summary = "Deshacer la última publicación",
+            description = "Solo ADMIN. Sus altas sin ejecución vuelven a BORRADOR (el móvil deja de verlas) y sus "
+                    + "bajas vuelven a PUBLICADA marcadas para quitar (el móvil las vuelve a ver). Se puede repetir, "
+                    + "una publicación por vez; la carga inicial nunca se deshace. 409 si no hay qué deshacer o si "
+                    + "hay borrador pendiente.")
+    public ResponseEntity<PublicacionResultado> deshacer(@RequestParam Integer anio, Authentication authentication) {
+        return ResponseEntity.ok(cronogramaUseCase.deshacerUltimaPublicacion(anio, usuario(authentication)));
+    }
+
+    @GetMapping("/publicaciones")
+    @Operation(summary = "Historial de publicaciones del año", description = "La más reciente primero.")
+    public ResponseEntity<List<PublicacionResponse>> historial(@RequestParam Integer anio) {
+        return ResponseEntity.ok(cronogramaUseCase.historialPublicaciones(anio));
     }
 
     private UserPrincipal usuario(Authentication authentication) {

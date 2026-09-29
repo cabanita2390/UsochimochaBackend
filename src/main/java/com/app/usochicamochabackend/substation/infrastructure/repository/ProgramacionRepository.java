@@ -2,6 +2,8 @@ package com.app.usochicamochabackend.substation.infrastructure.repository;
 
 import com.app.usochicamochabackend.substation.infrastructure.entity.ProgramacionEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -47,6 +49,36 @@ public interface ProgramacionRepository extends JpaRepository<ProgramacionEntity
     List<ProgramacionEntity> findByAnioAndStatusTrueAndPendienteRetiroTrue(Integer anio);
 
     boolean existsByAnioAndStatusTrueAndEstado(Integer anio, String estado);
+
+    /**
+     * Cambios pendientes de publicar del año (altas en BORRADOR o PUBLICADA pendientes de retiro),
+     * de estaciones activas, bloqueados para escritura: si dos publicaciones llegan a la vez, la
+     * segunda espera y ya no los encuentra.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT p FROM ProgramacionEntity p
+        WHERE p.anio = :anio AND p.status = true AND p.estacion.status = true
+          AND (p.estado = 'BORRADOR' OR p.pendienteRetiro = true)
+        ORDER BY p.id
+        """)
+    List<ProgramacionEntity> cambiosPendientesParaPublicar(@Param("anio") Integer anio);
+
+    /** Lo mismo sin bloqueo, para el resumen del modal. */
+    @Query("""
+        SELECT p FROM ProgramacionEntity p
+        WHERE p.anio = :anio AND p.status = true AND p.estacion.status = true
+          AND (p.estado = 'BORRADOR' OR p.pendienteRetiro = true)
+        ORDER BY p.id
+        """)
+    List<ProgramacionEntity> cambiosPendientes(@Param("anio") Integer anio);
+
+    List<ProgramacionEntity> findByPublicadaEn_IdAndStatusTrueAndEstado(Long publicacionId, String estado);
+
+    List<ProgramacionEntity> findByRetiradaEn_IdAndStatusTrueAndEstado(Long publicacionId, String estado);
+
+    boolean existsByAnioAndMesAndEstacion_IdAndActividad_IdAndStatusTrueAndEstadoNot(
+            Integer anio, Integer mes, Long estacionId, Long actividadId, String estado);
 
     int countByActividad_IdAndAnioAndStatusTrueAndEstado(Long actividadId, Integer anio, String estado);
 }
