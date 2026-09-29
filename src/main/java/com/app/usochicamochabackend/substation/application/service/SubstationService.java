@@ -33,6 +33,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -40,6 +42,8 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
+import java.util.ArrayList;
 import java.util.Set;
 
 @Service
@@ -155,6 +159,40 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     }
 
     /**
+     * Compara el registro guardado con lo que llega en la edición, campo por campo, con los
+     * mismos valores que quedarían guardados (motivoNoCatalogado y descripcionLibre solo aplican
+     * sin actividad). La actividad se guarda por nombre para que el historial se lea sin
+     * consultar el catálogo.
+     */
+    private List<CambioCampo> calcularCambios(EjecucionEntity actual, EjecucionEditRequest request,
+            ActividadEntity nuevaActividad) {
+        List<CambioCampo> cambios = new ArrayList<>();
+        agregarSiCambio(cambios, "fecha", actual.getFecha(), request.fecha());
+        agregarSiCambio(cambios, "mesEjecucion", actual.getMesEjecucion(), request.mesEjecucion());
+        agregarSiCambio(cambios, "semanaEjecucion", actual.getSemanaEjecucion(), request.semanaEjecucion());
+        agregarSiCambio(cambios, "tipoMantenimiento", actual.getTipoMantenimiento(), request.tipoMantenimiento());
+        agregarSiCambio(cambios, "tipoActividad", actual.getTipoActividad(), request.tipoActividad());
+        agregarSiCambio(cambios, "actividad",
+                actual.getActividad() != null ? actual.getActividad().getNombre() : null,
+                nuevaActividad != null ? nuevaActividad.getNombre() : null);
+        agregarSiCambio(cambios, "motivoNoCatalogado", actual.getMotivoNoCatalogado(),
+                nuevaActividad == null ? request.motivoNoCatalogado() : null);
+        agregarSiCambio(cambios, "resultado", actual.getResultado(), request.resultado());
+        agregarSiCambio(cambios, "observaciones", actual.getObservaciones(), request.observaciones());
+        agregarSiCambio(cambios, "descripcionLibre", actual.getDescripcionLibre(),
+                nuevaActividad == null ? request.descripcionLibre() : null);
+        return cambios;
+    }
+
+    private void agregarSiCambio(List<CambioCampo> cambios, String campo, Object antes, Object despues) {
+        if (!Objects.equals(antes, despues)) {
+            cambios.add(new CambioCampo(campo,
+                    antes != null ? antes.toString() : null,
+                    despues != null ? despues.toString() : null));
+        }
+    }
+
+    /**
      * mantiene el seguimiento alineado con el resultado editado.
      * hallazgo → CONFORME: se desactiva. CONFORME → hallazgo: se crea, o se reactiva en ABIERTO
      * con los datos de cierre limpios. hallazgo → hallazgo: no cambia.
@@ -239,6 +277,13 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         EjecucionEntity entity = ejecucionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ejecución no encontrada: id=" + id));
 
+        // Un registro que viene de una cita del cronograma conserva su actividad.
+        Long actividadActualId = entity.getActividad() != null ? entity.getActividad().getId() : null;
+        if (entity.getProgramacion() != null && !Objects.equals(request.actividadId(), actividadActualId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La actividad de un registro del cronograma no se puede cambiar");
+        }
+
         String disciplina = entity.getDisciplina().getCodigo();
         validarCoherencia(disciplina, request.tipoMantenimiento(), request.tipoActividad(),
                 request.actividadId(), request.motivoNoCatalogado(), request.resultado(),
@@ -248,6 +293,11 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         if (request.actividadId() != null) {
             actividad = actividadRepository.findById(request.actividadId())
                     .orElseThrow(() -> new ResourceNotFoundException("Actividad no encontrada: id=" + request.actividadId()));
+        }
+
+        List<CambioCampo> cambios = calcularCambios(entity, request, actividad);
+        if (cambios.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La edición no modifica ningún campo");
         }
 
         String resultadoAnterior = entity.getResultado();
@@ -270,6 +320,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .ejecucion(entity)
                 .usuario(usuarioEntity)
                 .motivo(request.motivoEdicion().trim())
+                .cambios(CambioCampo.aJson(cambios))
                 .build());
 
         saveActionUseCase.save("El usuario " + usuarioEntity.getUsername()

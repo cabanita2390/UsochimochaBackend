@@ -32,6 +32,10 @@ public class EjecucionEdicionEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String motivo;
 
+    /** JSON: [{"campo":"fecha","antes":"...","despues":"..."}]. NULL en ediciones anteriores a V45. */
+    @Column(columnDefinition = "TEXT")
+    private String cambios;
+
     @Column(name = "editado_en", nullable = false)
     @Builder.Default
     private LocalDateTime editadoEn = LocalDateTime.now();

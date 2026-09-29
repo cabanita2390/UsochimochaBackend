@@ -4,6 +4,7 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.BadRequestException;
+import com.app.usochicamochabackend.substation.application.dto.CambioCampo;
 import com.app.usochicamochabackend.substation.application.dto.CumplimientoResponse;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionEditRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionRequest;
@@ -37,6 +38,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -865,5 +867,94 @@ class SubstationServiceIntegrationTest {
         assertEquals(2, pagina.getTotalElements());
         assertTrue(pagina.getContent().stream().map(EjecucionResponse::id).toList()
                 .containsAll(List.of(abierto.id(), enProceso.id())));
+    }
+
+    // ---------------------------------------------------------------------
+    // Edición: campos cambiados, actividad bloqueada en registros de cita, "sin cambios"
+    // ---------------------------------------------------------------------
+
+    private EjecucionResponse registrarDeCita(ProgramacionEntity cita, ActividadEntity actividad) {
+        return ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(2030, 3, 10), 3, 2, cita.getEstacion().getId(), "CIVIL",
+                "PREVENTIVO", "MANTENIMIENTO",
+                actividad.getId(), cita.getId(), null,
+                "CONFORME", "Todo en orden.", null,
+                UUID.randomUUID()), usuario);
+    }
+
+    private EjecucionEditRequest edicionDe(EjecucionResponse e, LocalDate fecha, Long actividadId, String resultado) {
+        return new EjecucionEditRequest(
+                fecha, e.mesEjecucion(), e.semanaEjecucion(),
+                e.tipoMantenimiento(), e.tipoActividad(), actividadId, e.motivoNoCatalogado(),
+                resultado, e.observaciones(), e.descripcionLibre(),
+                "Corrección tras revisar la planilla de campo.");
+    }
+
+    @Test
+    void editarEjecucion_guardaQueCamposCambiaronConAntesYDespues() {
+        EjecucionResponse creada = registrarDeCita(programar(estacionUno, actividadUno, 2030, 3), actividadUno);
+
+        EjecucionResponse editada = ejecucionUseCase.editarEjecucion(creada.id(),
+                edicionDe(creada, LocalDate.of(2030, 3, 12), actividadUno.getId(), "CON_HALLAZGOS"), usuario);
+
+        var ultima = editada.ediciones().get(editada.ediciones().size() - 1);
+        assertEquals(2, ultima.cambios().size());
+        assertTrue(ultima.cambios().contains(new CambioCampo("fecha", "2030-03-10", "2030-03-12")));
+        assertTrue(ultima.cambios().contains(new CambioCampo("resultado", "CONFORME", "CON_HALLAZGOS")));
+        // Y el hallazgo nuevo abre su seguimiento.
+        assertEquals("ABIERTO", editada.seguimiento().estado());
+    }
+
+    @Test
+    void editarEjecucion_deCita_noPermiteCambiarLaActividad() {
+        EjecucionResponse creada = registrarDeCita(programar(estacionUno, actividadUno, 2030, 3), actividadUno);
+
+        var otraActividad = assertThrows(ResponseStatusException.class, () -> ejecucionUseCase.editarEjecucion(
+                creada.id(), edicionDe(creada, creada.fecha(), actividadDos.getId(), "CON_HALLAZGOS"), usuario));
+        assertEquals(400, otraActividad.getStatusCode().value());
+        assertEquals("La actividad de un registro del cronograma no se puede cambiar", otraActividad.getReason());
+
+        var sinActividad = assertThrows(ResponseStatusException.class, () -> ejecucionUseCase.editarEjecucion(
+                creada.id(), edicionDe(creada, creada.fecha(), null, "CON_HALLAZGOS"), usuario));
+        assertEquals(400, sinActividad.getStatusCode().value());
+    }
+
+    @Test
+    void editarEjecucion_deCita_conLaMismaActividad_comoElMovil_funciona() {
+        EjecucionResponse creada = registrarDeCita(programar(estacionUno, actividadUno, 2030, 3), actividadUno);
+
+        EjecucionResponse editada = ejecucionUseCase.editarEjecucion(creada.id(),
+                edicionDe(creada, creada.fecha(), actividadUno.getId(), "REQUIERE_INTERVENCION"), usuario);
+
+        assertEquals("REQUIERE_INTERVENCION", editada.resultado());
+        assertEquals(actividadUno.getId(), editada.actividadId());
+    }
+
+    @Test
+    void editarEjecucion_sinNingunCambio_responde400() {
+        EjecucionResponse creada = registrarDeCita(programar(estacionUno, actividadUno, 2030, 3), actividadUno);
+
+        var ex = assertThrows(ResponseStatusException.class, () -> ejecucionUseCase.editarEjecucion(
+                creada.id(), edicionDe(creada, creada.fecha(), actividadUno.getId(), creada.resultado()), usuario));
+
+        assertEquals(400, ex.getStatusCode().value());
+        assertEquals("La edición no modifica ningún campo", ex.getReason());
+        assertTrue(ejecucionUseCase.obtenerEjecucion(creada.id()).ediciones().isEmpty());
+    }
+
+    @Test
+    void editarEjecucion_libre_puedeCambiarDeActividadYGuardaSuNombre() {
+        EjecucionResponse creada = ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(2030, 3, 10), 3, 2, estacionUno.getId(), "CIVIL",
+                "NO_PROGRAMADO", "INSPECCION",
+                actividadUno.getId(), null, null,
+                "CONFORME", "Todo en orden.", null,
+                UUID.randomUUID()), usuario);
+
+        EjecucionResponse editada = ejecucionUseCase.editarEjecucion(creada.id(),
+                edicionDe(creada, creada.fecha(), actividadDos.getId(), "CONFORME"), usuario);
+
+        assertEquals(List.of(new CambioCampo("actividad", actividadUno.getNombre(), actividadDos.getNombre())),
+                editada.ediciones().get(0).cambios());
     }
 }
