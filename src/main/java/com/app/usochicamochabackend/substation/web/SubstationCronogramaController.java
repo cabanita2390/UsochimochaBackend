@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.substation.application.dto.AsignacionResulta
 import com.app.usochicamochabackend.substation.application.dto.AsignarCitasRequest;
 import com.app.usochicamochabackend.substation.application.dto.CopiarAnioRequest;
 import com.app.usochicamochabackend.substation.application.dto.CronogramaResponse;
+import com.app.usochicamochabackend.substation.application.dto.DescarteResultado;
 import com.app.usochicamochabackend.substation.application.dto.PublicacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.PublicacionResultado;
 import com.app.usochicamochabackend.substation.application.dto.ResumenBorradorResponse;
@@ -51,7 +52,8 @@ public class SubstationCronogramaController {
             description = "Solo ADMIN. Crea las citas estación × mes en BORRADOR (el móvil no las ve hasta publicar). "
                     + "Omite sin fallar los duplicados, los meses cerrados y las estaciones inactivas, y los cuenta en "
                     + "la respuesta. 400 si la actividad no existe o está inactiva, si alguna estación no existe o si "
-                    + "un mes está fuera de 1..12.")
+                    + "un mes está fuera de 1..12, o si el año no es el actual o el siguiente; 409 si otro usuario asigna "
+                    + "lo mismo al mismo tiempo.")
     public ResponseEntity<AsignacionResultado> asignar(
             @RequestBody @Valid AsignarCitasRequest request, Authentication authentication) {
         return ResponseEntity.ok(cronogramaUseCase.asignar(request, usuario(authentication)));
@@ -87,10 +89,9 @@ public class SubstationCronogramaController {
     @DeleteMapping("/borrador")
     @Operation(summary = "Descartar el borrador del año",
             description = "Solo ADMIN. Las altas en BORRADOR se dan de baja y las citas marcadas para quitar vuelven "
-                    + "a la normalidad. Nunca toca citas con ejecución.")
-    public ResponseEntity<Void> descartarBorrador(@RequestParam Integer anio, Authentication authentication) {
-        cronogramaUseCase.descartarBorrador(anio, usuario(authentication));
-        return ResponseEntity.noContent().build();
+                    + "a la normalidad. Nunca toca citas con ejecución (se cuentan en conservadasConEjecucion).")
+    public ResponseEntity<DescarteResultado> descartarBorrador(@RequestParam Integer anio, Authentication authentication) {
+        return ResponseEntity.ok(cronogramaUseCase.descartarBorrador(anio, usuario(authentication)));
     }
 
     @GetMapping("/borrador/resumen")

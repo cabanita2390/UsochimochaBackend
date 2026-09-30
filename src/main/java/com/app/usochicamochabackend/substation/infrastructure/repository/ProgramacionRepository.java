@@ -51,15 +51,16 @@ public interface ProgramacionRepository extends JpaRepository<ProgramacionEntity
     boolean existsByAnioAndStatusTrueAndEstado(Integer anio, String estado);
 
     /**
-     * Cambios pendientes de publicar del año (altas en BORRADOR o PUBLICADA pendientes de retiro),
-     * de estaciones activas, bloqueados para escritura: si dos publicaciones llegan a la vez, la
+     * Cambios pendientes de publicar del año: altas en BORRADOR de estaciones activas y
+     * PUBLICADA pendientes de retiro (de cualquier estación: al desactivar una estación sus
+     * citas futuras quedan para quitar), bloqueados para escritura: si dos publicaciones llegan a la vez, la
      * segunda espera y ya no los encuentra.
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         SELECT p FROM ProgramacionEntity p
-        WHERE p.anio = :anio AND p.status = true AND p.estacion.status = true
-          AND (p.estado = 'BORRADOR' OR p.pendienteRetiro = true)
+        WHERE p.anio = :anio AND p.status = true
+          AND ((p.estado = 'BORRADOR' AND p.estacion.status = true) OR p.pendienteRetiro = true)
         ORDER BY p.id
         """)
     List<ProgramacionEntity> cambiosPendientesParaPublicar(@Param("anio") Integer anio);
@@ -67,11 +68,16 @@ public interface ProgramacionRepository extends JpaRepository<ProgramacionEntity
     /** Lo mismo sin bloqueo, para el resumen del modal. */
     @Query("""
         SELECT p FROM ProgramacionEntity p
-        WHERE p.anio = :anio AND p.status = true AND p.estacion.status = true
-          AND (p.estado = 'BORRADOR' OR p.pendienteRetiro = true)
+        WHERE p.anio = :anio AND p.status = true
+          AND ((p.estado = 'BORRADOR' AND p.estacion.status = true) OR p.pendienteRetiro = true)
         ORDER BY p.id
         """)
     List<ProgramacionEntity> cambiosPendientes(@Param("anio") Integer anio);
+
+    /** La cita bloqueada para escritura: quitar/restaurar esperan a una publicación en curso. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM ProgramacionEntity p WHERE p.id = :id")
+    java.util.Optional<ProgramacionEntity> findByIdParaActualizar(@Param("id") Long id);
 
     List<ProgramacionEntity> findByPublicadaEn_IdAndStatusTrueAndEstado(Long publicacionId, String estado);
 
@@ -79,6 +85,19 @@ public interface ProgramacionRepository extends JpaRepository<ProgramacionEntity
 
     boolean existsByAnioAndMesAndEstacion_IdAndActividad_IdAndStatusTrueAndEstadoNot(
             Integer anio, Integer mes, Long estacionId, Long actividadId, String estado);
+
+    /** Citas vigentes (no RETIRADA) de una estación / actividad: para retirarlas al desactivarla. */
+    List<ProgramacionEntity> findByEstacion_IdAndStatusTrueAndEstadoNot(Long estacionId, String estado);
+
+    List<ProgramacionEntity> findByActividad_IdAndStatusTrueAndEstadoNot(Long actividadId, String estado);
+
+    /** Actividades que alguna vez se programaron (su disciplina ya no se puede cambiar). */
+    @Query("SELECT DISTINCT p.actividad.id FROM ProgramacionEntity p")
+    List<Long> actividadesProgramadas();
+
+    boolean existsByActividad_Id(Long actividadId);
+
+    int countByAnioAndStatusTrueAndPendienteRetiroTrue(Integer anio);
 
     int countByActividad_IdAndAnioAndStatusTrueAndEstado(Long actividadId, Integer anio, String estado);
 }

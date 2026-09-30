@@ -57,6 +57,9 @@ class SubstationCatalogAdminServiceTest {
     @Mock
     private SaveActionUseCase saveActionUseCase;
 
+    @Mock
+    private com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionRepository ejecucionRepository;
+
     @Spy
     private CalendarioMantenimiento calendario = new CalendarioMantenimiento();
 

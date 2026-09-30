@@ -133,4 +133,24 @@ class SubstationSecurityTest {
             assertThat(status).as("%s %s como %s debe dar 403", metodo, ruta, rol).isEqualTo(403);
         }
     }
+
+    @ParameterizedTest(name = "{0} {1} → 400")
+    @DisplayName("Parámetros faltantes, de tipo inválido o JSON ilegible responden 400 (no 500)")
+    @CsvSource({
+            "GET,    /api/v1/substation/cronograma,                 Falta el parámetro obligatorio 'anio'.",
+            "GET,    /api/v1/substation/cronograma?anio=abc,        Valor inválido para 'anio': abc",
+            "DELETE, /api/v1/substation/cronograma/citas/abc,       Valor inválido para 'id': abc",
+            "POST,   /api/v1/substation/cronograma/citas,           El cuerpo de la petición no es un JSON válido o tiene datos del tipo incorrecto.",
+    })
+    void erroresDeEntradaResponden400(String metodo, String ruta, String mensaje) throws Exception {
+        var auth = new UsernamePasswordAuthenticationToken(
+                new UserPrincipal(1L, "admin"), null, List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+        var respuesta = mockMvc.perform(request(HttpMethod.valueOf(metodo), ruta)
+                        .with(authentication(auth))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"anio\": \"dos mil\""))
+                .andReturn().getResponse();
+        assertThat(respuesta.getStatus()).isEqualTo(400);
+        assertThat(respuesta.getContentAsString(java.nio.charset.StandardCharsets.UTF_8)).isEqualTo(mensaje);
+    }
 }

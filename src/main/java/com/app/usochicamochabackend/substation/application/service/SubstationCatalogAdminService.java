@@ -14,6 +14,7 @@ import com.app.usochicamochabackend.substation.infrastructure.entity.EstacionEnt
 import com.app.usochicamochabackend.substation.infrastructure.entity.ProgramacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.DisciplinaRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EstacionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ProgramacionRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     private final ProgramacionRepository programacionRepository;
     private final SaveActionUseCase saveActionUseCase;
     private final CalendarioMantenimiento calendario;
+    private final EjecucionRepository ejecucionRepository;
 
     // ---------------------------------------------------------------------
     // Estaciones
@@ -94,10 +96,13 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
         EstacionEntity estacion = buscarEstacion(id);
         estacion.setStatus(activa);
         EstacionEntity guardada = estacionRepository.save(estacion);
+        Integer retiradas = activa ? null
+                : retirarCitasFuturas(programacionRepository.findByEstacion_IdAndStatusTrueAndEstadoNot(id, ProgramacionEntity.RETIRADA));
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha "
-                + (activa ? "reactivado" : "desactivado") + " la estación " + estacion.getNombre());
-        return EstacionResponse.fromEntity(guardada);
+                + (activa ? "reactivado" : "desactivado") + " la estación " + estacion.getNombre()
+                + (retiradas != null && retiradas > 0 ? " (" + retiradas + " citas futuras quedan para quitar al publicar)" : ""));
+        return EstacionResponse.fromEntity(guardada, retiradas);
     }
 
     // ---------------------------------------------------------------------
@@ -122,8 +127,11 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
                 .contarCitasPorActividad(calendario.anioActual()).stream()
                 .collect(Collectors.toMap(fila -> (Long) fila[0], fila -> ((Long) fila[1]).intValue()));
 
+        java.util.Set<Long> usadas = new java.util.HashSet<>(programacionRepository.actividadesProgramadas());
+        usadas.addAll(ejecucionRepository.actividadesEjecutadas());
         return actividades.stream()
-                .map(a -> ActividadResponse.fromEntity(a, citasPorActividad.getOrDefault(a.getId(), 0)))
+                .map(a -> ActividadResponse.fromEntity(a, citasPorActividad.getOrDefault(a.getId(), 0),
+                        usadas.contains(a.getId()), null))
                 .toList();
     }
 
@@ -159,6 +167,12 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
             throw conflicto("Ya existe la actividad \"" + nombre + "\" en " + disciplina.getCodigo());
         }
 
+        // Una actividad ya usada no cambia de disciplina: sus citas desaparecerían del móvil
+        // (que filtra por disciplina) y sus ejecuciones quedarían en otra.
+        if (!actividad.getDisciplina().getId().equals(disciplina.getId()) && enUso(id)) {
+            throw conflicto("No se puede cambiar la disciplina: la actividad ya tiene citas o ejecuciones registradas");
+        }
+
         actividad.setNombre(nombre);
         actividad.setDisciplina(disciplina);
         actividad.setCapturaMovilHabilitada(request.capturaMovilHabilitada());
@@ -167,7 +181,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha editado la actividad " + nombre
                 + " (" + disciplina.getCodigo() + ")");
-        return ActividadResponse.fromEntity(guardada, citasDelAnio(id));
+        return ActividadResponse.fromEntity(guardada, citasDelAnio(id), enUso(id), null);
     }
 
     @Override
@@ -176,10 +190,13 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
         ActividadEntity actividad = buscarActividad(id);
         actividad.setStatus(activa);
         ActividadEntity guardada = actividadRepository.save(actividad);
+        Integer retiradas = activa ? null
+                : retirarCitasFuturas(programacionRepository.findByActividad_IdAndStatusTrueAndEstadoNot(id, ProgramacionEntity.RETIRADA));
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha "
-                + (activa ? "reactivado" : "desactivado") + " la actividad " + actividad.getNombre());
-        return ActividadResponse.fromEntity(guardada, citasDelAnio(id));
+                + (activa ? "reactivado" : "desactivado") + " la actividad " + actividad.getNombre()
+                + (retiradas != null && retiradas > 0 ? " (" + retiradas + " citas futuras quedan para quitar al publicar)" : ""));
+        return ActividadResponse.fromEntity(guardada, citasDelAnio(id), enUso(id), retiradas);
     }
 
     // ---------------------------------------------------------------------
@@ -199,6 +216,34 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     private DisciplinaEntity buscarDisciplina(String codigo) {
         return disciplinaRepository.findByCodigo(codigo)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Disciplina inexistente: " + codigo));
+    }
+
+    /**
+     * Al desactivar una estación o actividad: sus citas futuras (mes no cerrado) dejan de estar
+     * en el cronograma. Las publicadas sin ejecución quedan "se quitará al publicar" (el móvil las
+     * deja de ver al publicar); los borradores se descartan. No se tocan citas con ejecución ni
+     * de meses cerrados. Devuelve cuántas citas se retiraron.
+     */
+    private int retirarCitasFuturas(List<ProgramacionEntity> citas) {
+        int retiradas = 0;
+        for (ProgramacionEntity c : citas) {
+            if (calendario.mesCerrado(c.getAnio(), c.getMes()) || c.getPendienteRetiro()
+                    || ejecucionRepository.existsByProgramacion_Id(c.getId())) {
+                continue;
+            }
+            if (ProgramacionEntity.BORRADOR.equals(c.getEstado())) {
+                c.setStatus(false);
+            } else {
+                c.setPendienteRetiro(true);
+            }
+            programacionRepository.save(c);
+            retiradas++;
+        }
+        return retiradas;
+    }
+
+    private boolean enUso(Long actividadId) {
+        return programacionRepository.existsByActividad_Id(actividadId) || ejecucionRepository.existsByActividad_Id(actividadId);
     }
 
     private int citasDelAnio(Long actividadId) {

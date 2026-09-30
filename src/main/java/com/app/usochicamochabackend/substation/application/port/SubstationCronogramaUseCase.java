@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.substation.application.dto.AsignacionResulta
 import com.app.usochicamochabackend.substation.application.dto.AsignarCitasRequest;
 import com.app.usochicamochabackend.substation.application.dto.CopiarAnioRequest;
 import com.app.usochicamochabackend.substation.application.dto.CronogramaResponse;
+import com.app.usochicamochabackend.substation.application.dto.DescarteResultado;
 import com.app.usochicamochabackend.substation.application.dto.PublicacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.PublicacionResultado;
 import com.app.usochicamochabackend.substation.application.dto.ResumenBorradorResponse;
@@ -30,7 +31,7 @@ public interface SubstationCronogramaUseCase {
     AsignacionResultado copiarAnio(CopiarAnioRequest request, UserPrincipal usuario);
 
     /** Descarta el borrador del año: altas dadas de baja y retiros pendientes anulados. No toca citas con ejecución. */
-    void descartarBorrador(Integer anio, UserPrincipal usuario);
+    DescarteResultado descartarBorrador(Integer anio, UserPrincipal usuario);
 
     /** Qué se va a publicar, por estación (modal "Publicar cronograma a móvil"). */
     ResumenBorradorResponse resumenBorrador(Integer anio);

@@ -25,6 +25,12 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
 
     boolean existsByProgramacion_Id(Long programacionId);
 
+    boolean existsByActividad_Id(Long actividadId);
+
+    /** Actividades con al menos una ejecución (su disciplina ya no se puede cambiar). */
+    @Query("SELECT DISTINCT e.actividad.id FROM EjecucionEntity e WHERE e.actividad IS NOT NULL")
+    List<Long> actividadesEjecutadas();
+
     /**
      * Ejecuciones de la disciplina entre dos fechas, agrupadas por estación. Columnas:
      * estacionId, total, programadas, noProgramadas, mantenimiento, inspeccion, conHallazgos.

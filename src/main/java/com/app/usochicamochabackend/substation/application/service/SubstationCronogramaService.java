@@ -9,6 +9,7 @@ import com.app.usochicamochabackend.substation.application.dto.AsignacionResulta
 import com.app.usochicamochabackend.substation.application.dto.AsignarCitasRequest;
 import com.app.usochicamochabackend.substation.application.dto.CopiarAnioRequest;
 import com.app.usochicamochabackend.substation.application.dto.CronogramaResponse;
+import com.app.usochicamochabackend.substation.application.dto.DescarteResultado;
 import com.app.usochicamochabackend.substation.application.dto.PublicacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.PublicacionResultado;
 import com.app.usochicamochabackend.substation.application.dto.ResumenBorradorResponse;
@@ -23,6 +24,7 @@ import com.app.usochicamochabackend.substation.infrastructure.repository.Estacio
 import com.app.usochicamochabackend.substation.infrastructure.repository.ProgramacionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.PublicacionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,7 +63,8 @@ public class SubstationCronogramaService implements SubstationCronogramaUseCase 
         // El borrador se publica completo (todas las disciplinas), así que la barra lo cuenta
         // entero aunque la grilla esté filtrada.
         int altas = (int) todas.stream().filter(c -> ProgramacionEntity.BORRADOR.equals(c.estado())).count();
-        int bajas = (int) todas.stream().filter(CronogramaResponse.Cita::pendienteRetiro).count();
+        // Las bajas incluyen las de estaciones desactivadas (no salen en la grilla, pero se publican).
+        int bajas = programacionRepository.countByAnioAndStatusTrueAndPendienteRetiroTrue(anio);
 
         PublicacionEntity ultima = publicacionRepository.findFirstByAnioAndRevertidaFalseOrderByIdDesc(anio)
                 .orElse(null);
@@ -84,6 +87,7 @@ public class SubstationCronogramaService implements SubstationCronogramaUseCase 
     @Override
     @Transactional
     public AsignacionResultado asignar(AsignarCitasRequest request, UserPrincipal usuario) {
+        validarAnioProgramable(request.anio());
         ActividadEntity actividad = actividadRepository.findById(request.actividadId())
                 .filter(ActividadEntity::getStatus)
                 .orElseThrow(() -> badRequest("Actividad inexistente o inactiva: id=" + request.actividadId()));
@@ -111,7 +115,7 @@ public class SubstationCronogramaService implements SubstationCronogramaUseCase 
                 } else if (!vigentes.add(clave(estacionId, actividad.getId(), mes))) {
                     duplicadas++;
                 } else {
-                    programacionRepository.save(nuevoBorrador(request.anio(), mes, estacion, actividad, autor));
+                    guardarNueva(nuevoBorrador(request.anio(), mes, estacion, actividad, autor));
                     creadas++;
                 }
             }
@@ -161,6 +165,7 @@ public class SubstationCronogramaService implements SubstationCronogramaUseCase 
     @Transactional
     public AsignacionResultado copiarAnio(CopiarAnioRequest request, UserPrincipal usuario) {
         int origen = request.anioOrigen(), destino = request.anioDestino();
+        validarAnioProgramable(destino);
         if (origen == destino) {
             throw badRequest("El año de destino debe ser distinto al de origen");
         }
@@ -182,7 +187,7 @@ public class SubstationCronogramaService implements SubstationCronogramaUseCase 
             } else if (!vigentes.add(clave(c.getEstacion().getId(), c.getActividad().getId(), c.getMes()))) {
                 duplicadas++;
             } else {
-                programacionRepository.save(nuevoBorrador(destino, c.getMes(), c.getEstacion(), c.getActividad(), autor));
+                guardarNueva(nuevoBorrador(destino, c.getMes(), c.getEstacion(), c.getActividad(), autor));
                 creadas++;
             }
         }
@@ -194,11 +199,12 @@ public class SubstationCronogramaService implements SubstationCronogramaUseCase 
 
     @Override
     @Transactional
-    public void descartarBorrador(Integer anio, UserPrincipal usuario) {
-        int altas = 0;
+    public DescarteResultado descartarBorrador(Integer anio, UserPrincipal usuario) {
+        int altas = 0, conservadas = 0;
         for (ProgramacionEntity c : programacionRepository.findByAnioAndStatusTrueAndEstado(anio, ProgramacionEntity.BORRADOR)) {
             if (ejecucionRepository.existsByProgramacion_Id(c.getId())) {
-                continue; // nunca se toca una cita con ejecución
+                conservadas++; // nunca se toca una cita con ejecución
+                continue;
             }
             c.setStatus(false);
             programacionRepository.save(c);
@@ -210,6 +216,7 @@ public class SubstationCronogramaService implements SubstationCronogramaUseCase 
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha descartado el borrador del cronograma "
                 + anio + " (" + altas + " altas, " + retiros.size() + " retiros)");
+        return new DescarteResultado(altas, retiros.size(), conservadas);
     }
 
     @Override
@@ -344,8 +351,29 @@ public class SubstationCronogramaService implements SubstationCronogramaUseCase 
         return ProgramacionEntity.BORRADOR.equals(c.getEstado());
     }
 
+    /** Solo el año actual y el siguiente se programan (la grilla ofrece esos dos). */
+    private void validarAnioProgramable(Integer anio) {
+        int actual = calendario.anioActual();
+        if (anio == null || anio < actual || anio > actual + 1) {
+            throw badRequest("Solo se puede programar el año actual (" + actual + ") o el siguiente (" + (actual + 1) + ")");
+        }
+    }
+
+    /**
+     * Inserta una cita nueva. Si otro usuario asignó la misma cita al mismo tiempo, el índice
+     * único salta aquí (no al confirmar) y se responde un 409 que se entiende.
+     */
+    private void guardarNueva(ProgramacionEntity cita) {
+        try {
+            programacionRepository.saveAndFlush(cita);
+        } catch (DataIntegrityViolationException e) {
+            throw conflicto("Otro usuario modificó el cronograma al mismo tiempo: recargue e intente de nuevo");
+        }
+    }
+
+    /** Con bloqueo: si hay una publicación en curso, espera a que termine y lee el estado nuevo. */
     private ProgramacionEntity citaVigente(Long citaId) {
-        return programacionRepository.findById(citaId)
+        return programacionRepository.findByIdParaActualizar(citaId)
                 .filter(c -> c.getStatus() && !ProgramacionEntity.RETIRADA.equals(c.getEstado()))
                 .orElseThrow(() -> new ResourceNotFoundException("Cita no encontrada en el cronograma: id=" + citaId));
     }

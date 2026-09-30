@@ -7,7 +7,10 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -124,6 +127,27 @@ public class GlobalExceptionHandler {
                 .map(e -> e.getField() + ": " + e.getDefaultMessage())
                 .collect(Collectors.joining(", "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
+    }
+
+    /** Parámetro obligatorio ausente (ej. ?anio=): antes caía en el 500 genérico. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<String> handleMissingParameter(MissingServletRequestParameterException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("Falta el parámetro obligatorio '" + ex.getParameterName() + "'.");
+    }
+
+    /** Parámetro o variable de ruta con un tipo inválido (ej. ?anio=abc, /citas/abc). */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<String> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("Valor inválido para '" + ex.getName() + "': " + ex.getValue());
+    }
+
+    /** Cuerpo JSON ilegible o con tipos incorrectos: no se expone el detalle del parser. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<String> handleNotReadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("El cuerpo de la petición no es un JSON válido o tiene datos del tipo incorrecto.");
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
