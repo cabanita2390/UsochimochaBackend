@@ -135,10 +135,10 @@ public class SubstationController {
     @Operation(summary = "Dashboard de estaciones",
             description = "Una fila por estación activa con lo publicado y lo ejecutado del año y la disciplina. "
                     + "% de cumplimiento = ejecutadasVencidas / vencidas (null si aún no hay citas vencidas). "
-                    + "anio: por defecto el actual; disciplina: por defecto CIVIL.")
+                    + "anio: por defecto el actual; disciplina: sin ella, todas las disciplinas.")
     public ResponseEntity<List<IndicadorEstacionResponse>> indicadoresPorEstacion(
             @RequestParam(required = false) Integer anio,
-            @RequestParam(defaultValue = "CIVIL") String disciplina) {
+            @RequestParam(required = false) String disciplina) {
         return ResponseEntity.ok(indicadoresUseCase.indicadoresPorEstacion(
                 anio != null ? anio : calendario.anioActual(), disciplina));
     }
@@ -146,9 +146,10 @@ public class SubstationController {
     @GetMapping("/indicadores/por-actividad")
     @Operation(summary = "Resumen por actividad",
             description = "Una fila por actividad activa de la disciplina, con lo publicado y lo ejecutado del año. "
-                    + "Mismo % de cumplimiento que el Dashboard. anio: por defecto el actual.")
+                    + "Mismo % de cumplimiento que el Dashboard. anio: por defecto el actual; "
+                    + "disciplina: sin ella, las actividades de todas las disciplinas.")
     public ResponseEntity<List<ResumenActividadResponse>> resumenPorActividad(
-            @RequestParam String disciplina,
+            @RequestParam(required = false) String disciplina,
             @RequestParam(required = false) Integer anio) {
         return ResponseEntity.ok(indicadoresUseCase.resumenPorActividad(
                 disciplina, anio != null ? anio : calendario.anioActual()));
@@ -158,10 +159,11 @@ public class SubstationController {
     @Operation(summary = "Actividades más críticas de una estación",
             description = "Intervenciones acumuladas (todos los años) por actividad en la estación, de más a menos. "
                     + "Intervención = ejecución con actividad del catálogo; las libres no cuentan. "
-                    + "Para el bloque \"Actividades más críticas\" del Detalle por estación.")
+                    + "Para el bloque \"Actividades más críticas\" del Detalle por estación. "
+                    + "disciplina: sin ella, todas.")
     public ResponseEntity<List<CriticidadResponse>> criticidadPorEstacion(
             @RequestParam Long estacionId,
-            @RequestParam(defaultValue = "CIVIL") String disciplina) {
+            @RequestParam(required = false) String disciplina) {
         return ResponseEntity.ok(indicadoresUseCase.criticidadPorEstacion(estacionId, disciplina));
     }
 }

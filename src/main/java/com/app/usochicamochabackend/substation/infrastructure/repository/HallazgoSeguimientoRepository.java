@@ -18,7 +18,7 @@ public interface HallazgoSeguimientoRepository extends JpaRepository<HallazgoSeg
         SELECT h.ejecucion.estacion.id, COUNT(h)
         FROM HallazgoSeguimientoEntity h
         WHERE h.status = true AND h.estado IN ('ABIERTO', 'EN_PROCESO')
-          AND h.ejecucion.disciplina.codigo = :disciplina
+          AND (:disciplina IS NULL OR h.ejecucion.disciplina.codigo = :disciplina)
         GROUP BY h.ejecucion.estacion.id
         """)
     List<Object[]> abiertosPorEstacion(@Param("disciplina") String disciplina);

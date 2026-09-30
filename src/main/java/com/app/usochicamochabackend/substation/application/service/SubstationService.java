@@ -448,13 +448,16 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         Map<Long, Citas> citas = contarCitas(anio, disciplina, CumplimientoView::getActividadId);
         Map<Long, Object[]> ejecuciones = porId(ejecucionRepository.contarPorActividad(
                 disciplina, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31)));
-        return actividadRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina).stream()
+        List<ActividadEntity> actividades = disciplina == null
+                ? actividadRepository.findAllByOrderByNombreAsc()
+                : actividadRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina);
+        return actividades.stream()
                 .filter(ActividadEntity::getStatus)
                 .map(a -> {
                     Citas c = citas.getOrDefault(a.getId(), new Citas());
                     Object[] ej = ejecuciones.get(a.getId());
                     return new ResumenActividadResponse(
-                            a.getId(), a.getNombre(), disciplina,
+                            a.getId(), a.getNombre(), a.getDisciplina().getCodigo(),
                             c.programado, entero(ej, 1), entero(ej, 3), entero(ej, 4), entero(ej, 5), entero(ej, 1),
                             anio, c.vencidas, c.ejecutadasVencidas, c.porcentaje());
                 })
@@ -472,7 +475,10 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     /** Citas publicadas del año agrupadas por la clave dada (estación o actividad). */
     private Map<Long, Citas> contarCitas(Integer anio, String disciplina, Function<CumplimientoView, Long> clave) {
         Map<Long, Citas> porClave = new HashMap<>();
-        for (CumplimientoView v : cumplimientoViewRepository.findByAnioAndDisciplina(anio, disciplina)) {
+        List<CumplimientoView> filas = disciplina == null
+                ? cumplimientoViewRepository.findByAnio(anio)
+                : cumplimientoViewRepository.findByAnioAndDisciplina(anio, disciplina);
+        for (CumplimientoView v : filas) {
             Citas c = porClave.computeIfAbsent(clave.apply(v), k -> new Citas());
             c.programado++;
             if (Boolean.TRUE.equals(v.getCumple())) {

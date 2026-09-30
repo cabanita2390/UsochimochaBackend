@@ -726,6 +726,26 @@ class SubstationServiceIntegrationTest {
                 r.actividadNombre().equals(actividadDos.getNombre()) && r.programadoAnual() == 0));
     }
 
+    @Test
+    void indicadores_sinDisciplina_sumanTodas_yConDisciplina_filtranComoAntes() {
+        DisciplinaEntity electrico = disciplinaRepository.save(DisciplinaEntity.builder().codigo("ELECTRICO").build());
+        ActividadEntity alternador = actividadRepository.save(ActividadEntity.builder()
+                .nombre("Arreglar el alternador").disciplina(electrico).capturaMovilHabilitada(true).status(true).build());
+        programar(estacionUno, actividadUno, 2030, 2);
+        programar(estacionUno, alternador, 2030, 3);
+
+        assertEquals(2, filaDe(indicadoresUseCase.indicadoresPorEstacion(2030, null), estacionUno).programado());
+        assertEquals(1, filaDe(indicadoresUseCase.indicadoresPorEstacion(2030, "CIVIL"), estacionUno).programado());
+        assertEquals(1, filaDe(indicadoresUseCase.indicadoresPorEstacion(2030, "ELECTRICO"), estacionUno).programado());
+
+        List<ResumenActividadResponse> todas = indicadoresUseCase.resumenPorActividad(null, 2030);
+        assertTrue(todas.stream().anyMatch(r -> r.actividadNombre().equals("Arreglar el alternador")
+                && r.disciplina().equals("ELECTRICO") && r.programadoAnual() == 1));
+        assertTrue(todas.stream().anyMatch(r -> r.actividadId().equals(actividadUno.getId()) && r.disciplina().equals("CIVIL")));
+        assertTrue(indicadoresUseCase.resumenPorActividad("CIVIL", 2030).stream()
+                .noneMatch(r -> r.actividadNombre().equals("Arreglar el alternador")));
+    }
+
     // ---------------------------------------------------------------------
     // SUB-03: seguimiento de hallazgos
     // ---------------------------------------------------------------------
