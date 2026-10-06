@@ -17,6 +17,7 @@ import com.app.usochicamochabackend.substation.application.service.CalendarioMan
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
@@ -58,7 +59,15 @@ public class SubstationController {
             @RequestBody EjecucionRequest request,
             Authentication authentication) throws URISyntaxException {
         UserPrincipal usuario = (UserPrincipal) authentication.getPrincipal();
-        EjecucionResponse saved = ejecucionUseCase.registrarEjecucion(request, usuario);
+        EjecucionResponse saved;
+        try {
+            saved = ejecucionUseCase.registrarEjecucion(request, usuario);
+        } catch (DataIntegrityViolationException e) {
+            // Dos envíos simultáneos del mismo registro (reintento del móvil mientras el primero
+            // seguía en curso): el segundo choca con el índice único de uuidCliente. Se responde
+            // con el que ya quedó guardado; un 409 haría que el móvil lo marcara como fallido.
+            saved = ejecucionUseCase.buscarPorUuidCliente(request.uuidCliente()).orElseThrow(() -> e);
+        }
         return ResponseEntity.created(new URI("/api/v1/substation/ejecuciones/" + saved.id())).body(saved);
     }
 

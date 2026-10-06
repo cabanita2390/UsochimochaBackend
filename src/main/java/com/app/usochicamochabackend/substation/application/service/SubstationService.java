@@ -171,6 +171,13 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         return toResponse(guardada);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<EjecucionResponse> buscarPorUuidCliente(java.util.UUID uuidCliente) {
+        return uuidCliente == null ? java.util.Optional.empty()
+                : ejecucionRepository.findByUuidCliente(uuidCliente).map(this::toResponse);
+    }
+
     /**
      * La cita a la que queda enlazada una ejecución siempre queda publicada. El técnico pudo
      * hacer el trabajo sin señal mientras en la web la cita se quitaba y publicaba (RETIRADA),

@@ -18,6 +18,9 @@ public interface SubstationEjecucionUseCase {
     /** Idempotente por uuidCliente: si ya existe, retorna la ejecución existente sin duplicar. */
     EjecucionResponse registrarEjecucion(EjecucionRequest request, UserPrincipal usuario);
 
+    /** La ejecución registrada con ese uuidCliente, si existe. */
+    java.util.Optional<EjecucionResponse> buscarPorUuidCliente(java.util.UUID uuidCliente);
+
     /** Corrige una ejecución ya registrada; exige motivo y deja rastro en el historial. */
     EjecucionResponse editarEjecucion(Long id, EjecucionEditRequest request, UserPrincipal usuario);
 
