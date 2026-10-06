@@ -1699,6 +1699,44 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void reactivarEstacion_antesDePublicar_devuelveSusCitasAlCronograma() {
+        ProgramacionEntity futura = programar(estacionUno, actividadUno, 2026, 10);
+        entityManager.flush();
+        catalogAdminUseCase.cambiarEstadoEstacion(estacionUno.getId(), false, usuario);
+        assertTrue(recargar(futura).getPendienteRetiro());
+
+        catalogAdminUseCase.cambiarEstadoEstacion(estacionUno.getId(), true, usuario);
+
+        assertFalse(recargar(futura).getPendienteRetiro());
+        assertEquals(0, cronogramaUseCase.obtenerCronograma(2026, null).borrador().bajas());
+    }
+
+    @Test
+    void reactivarActividad_noDevuelveCitasDeUnaEstacionQueSigueInactiva() {
+        ProgramacionEntity deActiva = programar(estacionUno, actividadDos, 2026, 11);
+        ProgramacionEntity deInactiva = programar(estacionDos, actividadDos, 2026, 11);
+        entityManager.flush();
+        catalogAdminUseCase.cambiarEstadoActividad(actividadDos.getId(), false, usuario);
+        catalogAdminUseCase.cambiarEstadoEstacion(estacionDos.getId(), false, usuario);
+
+        catalogAdminUseCase.cambiarEstadoActividad(actividadDos.getId(), true, usuario);
+
+        assertFalse(recargar(deActiva).getPendienteRetiro());
+        assertTrue(recargar(deInactiva).getPendienteRetiro());
+    }
+
+    @Test
+    void activarUnaEstacionYaActiva_noDeshaceLosQuitarManuales() {
+        ProgramacionEntity quitada = programar(estacionUno, actividadUno, 2026, 12);
+        entityManager.flush();
+        cronogramaUseCase.quitar(quitada.getId(), usuario);
+
+        catalogAdminUseCase.cambiarEstadoEstacion(estacionUno.getId(), true, usuario);
+
+        assertTrue(recargar(quitada).getPendienteRetiro());
+    }
+
+    @Test
     void cambiarDisciplina_bloqueadoSiLaActividadYaSeUso() {
         DisciplinaEntity electrico = disciplinaRepository.save(DisciplinaEntity.builder().codigo("ELECTRICO").build());
         programar(estacionUno, actividadUno, 2026, 10);

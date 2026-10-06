@@ -94,14 +94,17 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     @Transactional
     public EstacionResponse cambiarEstadoEstacion(Long id, boolean activa, UserPrincipal usuario) {
         EstacionEntity estacion = buscarEstacion(id);
+        boolean reactivada = activa && !estacion.getStatus();
         estacion.setStatus(activa);
         EstacionEntity guardada = estacionRepository.save(estacion);
-        Integer retiradas = activa ? null
-                : retirarCitasFuturas(programacionRepository.findByEstacion_IdAndStatusTrueAndEstadoNot(id, ProgramacionEntity.RETIRADA));
+        List<ProgramacionEntity> citas = programacionRepository.findByEstacion_IdAndStatusTrueAndEstadoNot(id, ProgramacionEntity.RETIRADA);
+        Integer retiradas = activa ? null : retirarCitasFuturas(citas);
+        int restauradas = reactivada ? restaurarCitasFuturas(citas) : 0;
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha "
                 + (activa ? "reactivado" : "desactivado") + " la estación " + estacion.getNombre()
-                + (retiradas != null && retiradas > 0 ? " (" + retiradas + " citas futuras quedan para quitar al publicar)" : ""));
+                + (retiradas != null && retiradas > 0 ? " (" + retiradas + " citas futuras quedan para quitar al publicar)" : "")
+                + (restauradas > 0 ? " (" + restauradas + " citas vuelven al cronograma)" : ""));
         return EstacionResponse.fromEntity(guardada, retiradas);
     }
 
@@ -188,14 +191,17 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     @Transactional
     public ActividadResponse cambiarEstadoActividad(Long id, boolean activa, UserPrincipal usuario) {
         ActividadEntity actividad = buscarActividad(id);
+        boolean reactivada = activa && !actividad.getStatus();
         actividad.setStatus(activa);
         ActividadEntity guardada = actividadRepository.save(actividad);
-        Integer retiradas = activa ? null
-                : retirarCitasFuturas(programacionRepository.findByActividad_IdAndStatusTrueAndEstadoNot(id, ProgramacionEntity.RETIRADA));
+        List<ProgramacionEntity> citas = programacionRepository.findByActividad_IdAndStatusTrueAndEstadoNot(id, ProgramacionEntity.RETIRADA);
+        Integer retiradas = activa ? null : retirarCitasFuturas(citas);
+        int restauradas = reactivada ? restaurarCitasFuturas(citas) : 0;
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha "
                 + (activa ? "reactivado" : "desactivado") + " la actividad " + actividad.getNombre()
-                + (retiradas != null && retiradas > 0 ? " (" + retiradas + " citas futuras quedan para quitar al publicar)" : ""));
+                + (retiradas != null && retiradas > 0 ? " (" + retiradas + " citas futuras quedan para quitar al publicar)" : "")
+                + (restauradas > 0 ? " (" + restauradas + " citas vuelven al cronograma)" : ""));
         return ActividadResponse.fromEntity(guardada, citasDelAnio(id), enUso(id), retiradas);
     }
 
@@ -240,6 +246,26 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
             retiradas++;
         }
         return retiradas;
+    }
+
+    /**
+     * Al reactivar una estación o actividad: sus citas futuras que quedaron "se quitará al
+     * publicar" vuelven al cronograma, salvo las de una estación o actividad que siga inactiva.
+     * Sin esto, desactivar por error y reactivar antes de publicar dejaba las citas marcadas
+     * y la siguiente publicación las quitaba del móvil sin aviso.
+     */
+    private int restaurarCitasFuturas(List<ProgramacionEntity> citas) {
+        int restauradas = 0;
+        for (ProgramacionEntity c : citas) {
+            if (!c.getPendienteRetiro() || calendario.mesCerrado(c.getAnio(), c.getMes())
+                    || !c.getEstacion().getStatus() || !c.getActividad().getStatus()) {
+                continue;
+            }
+            c.setPendienteRetiro(false);
+            programacionRepository.save(c);
+            restauradas++;
+        }
+        return restauradas;
     }
 
     private boolean enUso(Long actividadId) {
