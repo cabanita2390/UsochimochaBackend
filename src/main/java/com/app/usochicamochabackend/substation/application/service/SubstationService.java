@@ -124,7 +124,11 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         if (request.programacionId() != null) {
             programacion = programacionRepository.findById(request.programacionId())
                     .orElseThrow(() -> new ResourceNotFoundException("Cita de programación no encontrada: id=" + request.programacionId()));
-            programacion = citaVigenteParaEjecucion(programacion);
+            // Una cita de otra estación o actividad no se da por cumplida con este trabajo: el
+            // registro se guarda igual (nunca se rechaza), pero sin enlazarlo a esa cita.
+            boolean coincide = programacion.getEstacion().getId().equals(estacion.getId())
+                    && actividad != null && programacion.getActividad().getId().equals(actividad.getId());
+            programacion = coincide ? citaVigenteParaEjecucion(programacion) : null;
         }
 
         UserEntity usuarioEntity = userRepositoryJpa.getUserEntityById(usuario.id());

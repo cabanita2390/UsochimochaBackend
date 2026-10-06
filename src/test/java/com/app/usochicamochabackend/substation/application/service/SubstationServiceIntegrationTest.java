@@ -1666,6 +1666,21 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void ejecucionConCitaDeOtraEstacionOActividad_seGuardaSinEnlazarla() {
+        ProgramacionEntity cita = programar(estacionUno, actividadUno, 2026, 12);
+        entityManager.flush();
+
+        ejecutar(cita, estacionDos, actividadUno);
+        ejecutar(cita, estacionUno, actividadDos);
+
+        assertFalse(indicadoresUseCase.cumplimientoPorMes(2026, 12, "CIVIL").get(0).cumple());
+        var registros = ejecucionUseCase.listarEjecuciones(null, LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 31),
+                null, null, null, null, null, null, org.springframework.data.domain.Pageable.unpaged());
+        assertEquals(2, registros.getTotalElements());
+        assertTrue(registros.stream().noneMatch(EjecucionResponse::esProgramada));
+    }
+
+    @Test
     void ejecucionSobreCitaRetirada_laVuelveAPublicarYElMovilLaVeCumplida() {
         ProgramacionEntity cita = programar(estacionUno, actividadUno, 2026, 12);
         entityManager.flush();
