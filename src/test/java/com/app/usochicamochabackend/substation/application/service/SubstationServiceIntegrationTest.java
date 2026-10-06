@@ -396,7 +396,8 @@ class SubstationServiceIntegrationTest {
         EjecucionResponse ejecucion = ejecucionUseCase.registrarEjecucion(request, usuario);
         assertTrue(ejecucion.evidenciaPendiente());
 
-        MockMultipartFile foto = new MockMultipartFile("file", "foto.jpg", "image/jpeg", new byte[]{1, 2, 3, 4});
+        MockMultipartFile foto = new MockMultipartFile("file", "foto.jpg", "image/jpeg",
+                new byte[]{(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 1, 2, 3, 4});
         var evidencia = ejecucionUseCase.agregarEvidencia(ejecucion.id(), foto);
 
         assertNotNull(evidencia.id());
