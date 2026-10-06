@@ -1648,7 +1648,7 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
-    void descartar_informaLasCitasQueConservaPorTenerEjecucion() {
+    void ejecucionSobreCitaEnBorrador_laPublica_yDescartarNoDejaUnBorradorFantasma() {
         programarEnEstado(estacionUno, actividadUno, 2027, 5, ProgramacionEntity.BORRADOR);
         ProgramacionEntity conEjecucion = programarEnEstado(estacionDos, actividadUno, 2027, 5, ProgramacionEntity.BORRADOR);
         ejecutar(conEjecucion, estacionDos, actividadUno);
@@ -1656,11 +1656,44 @@ class SubstationServiceIntegrationTest {
         cronogramaUseCase.quitar(publicada.getId(), usuario);
         entityManager.flush();
 
+        assertEquals(ProgramacionEntity.PUBLICADA, recargar(conEjecucion).getEstado());
         DescarteResultado r = cronogramaUseCase.descartarBorrador(2027, usuario);
 
         assertEquals(1, r.altasDescartadas());
         assertEquals(1, r.retirosAnulados());
-        assertEquals(1, r.conservadasConEjecucion());
+        assertEquals(0, r.conservadasConEjecucion());
+        assertEquals(0, cronogramaUseCase.obtenerCronograma(2027, null).borrador().altas());
+    }
+
+    @Test
+    void ejecucionSobreCitaRetirada_laVuelveAPublicarYElMovilLaVeCumplida() {
+        ProgramacionEntity cita = programar(estacionUno, actividadUno, 2026, 12);
+        entityManager.flush();
+        cronogramaUseCase.quitar(cita.getId(), usuario);
+        cronogramaUseCase.publicar(2026, usuario);
+        assertEquals(ProgramacionEntity.RETIRADA, recargar(cita).getEstado());
+
+        ejecutar(cita, estacionUno, actividadUno); // el técnico la hizo sin señal
+
+        assertEquals(ProgramacionEntity.PUBLICADA, recargar(cita).getEstado());
+        assertEquals(List.of(cita.getId()), loQueVeElMovil(2026, 12));
+        assertTrue(indicadoresUseCase.cumplimientoPorMes(2026, 12, "CIVIL").get(0).cumple());
+    }
+
+    @Test
+    void ejecucionSobreCitaRetirada_conOtraVigenteIgual_seEnlazaALaVigente() {
+        ProgramacionEntity vieja = programar(estacionUno, actividadUno, 2026, 12);
+        entityManager.flush();
+        cronogramaUseCase.quitar(vieja.getId(), usuario);
+        cronogramaUseCase.publicar(2026, usuario);
+        ProgramacionEntity nueva = programar(estacionUno, actividadUno, 2026, 12);
+        entityManager.flush();
+
+        ejecutar(vieja, estacionUno, actividadUno);
+
+        assertEquals(ProgramacionEntity.RETIRADA, recargar(vieja).getEstado());
+        assertEquals(List.of(nueva.getId()), loQueVeElMovil(2026, 12));
+        assertTrue(indicadoresUseCase.cumplimientoPorMes(2026, 12, "CIVIL").get(0).cumple());
     }
 
     @Test

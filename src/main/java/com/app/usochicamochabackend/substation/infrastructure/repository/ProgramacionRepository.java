@@ -86,6 +86,9 @@ public interface ProgramacionRepository extends JpaRepository<ProgramacionEntity
     boolean existsByAnioAndMesAndEstacion_IdAndActividad_IdAndStatusTrueAndEstadoNot(
             Integer anio, Integer mes, Long estacionId, Long actividadId, String estado);
 
+    java.util.Optional<ProgramacionEntity> findFirstByAnioAndMesAndEstacion_IdAndActividad_IdAndStatusTrueAndEstadoNot(
+            Integer anio, Integer mes, Long estacionId, Long actividadId, String estado);
+
     /** Citas vigentes (no RETIRADA) de una estación / actividad: para retirarlas al desactivarla. */
     List<ProgramacionEntity> findByEstacion_IdAndStatusTrueAndEstadoNot(Long estacionId, String estado);
 

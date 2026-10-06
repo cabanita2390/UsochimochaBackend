@@ -124,6 +124,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         if (request.programacionId() != null) {
             programacion = programacionRepository.findById(request.programacionId())
                     .orElseThrow(() -> new ResourceNotFoundException("Cita de programación no encontrada: id=" + request.programacionId()));
+            programacion = citaVigenteParaEjecucion(programacion);
         }
 
         UserEntity usuarioEntity = userRepositoryJpa.getUserEntityById(usuario.id());
@@ -164,6 +165,30 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 + " ha registrado una ejecución de mantenimiento en la estación " + estacion.getNombre());
 
         return toResponse(guardada);
+    }
+
+    /**
+     * La cita a la que queda enlazada una ejecución siempre queda publicada. El técnico pudo
+     * hacer el trabajo sin señal mientras en la web la cita se quitaba y publicaba (RETIRADA),
+     * se deshacía su publicación (BORRADOR) o se descartaba: sin esto la ejecución se guardaba
+     * pero no aparecía en el móvil, ni en el Cronograma ni en el cumplimiento.
+     * Si ya existe otra cita vigente igual (estación, actividad, mes), la ejecución se enlaza a
+     * esa. Nunca lanza: si este POST fallara, el móvil marcaría el registro como fallido.
+     */
+    private ProgramacionEntity citaVigenteParaEjecucion(ProgramacionEntity cita) {
+        boolean vigente = cita.getStatus() && !ProgramacionEntity.RETIRADA.equals(cita.getEstado());
+        ProgramacionEntity destino = vigente ? cita
+                : programacionRepository.findFirstByAnioAndMesAndEstacion_IdAndActividad_IdAndStatusTrueAndEstadoNot(
+                        cita.getAnio(), cita.getMes(), cita.getEstacion().getId(), cita.getActividad().getId(),
+                        ProgramacionEntity.RETIRADA).orElse(cita);
+        if (destino.getStatus() && ProgramacionEntity.PUBLICADA.equals(destino.getEstado())) {
+            return destino;
+        }
+        destino.setStatus(true);
+        destino.setEstado(ProgramacionEntity.PUBLICADA);
+        destino.setRetiradaEn(null);
+        destino.setPendienteRetiro(false);
+        return programacionRepository.save(destino);
     }
 
     /**
