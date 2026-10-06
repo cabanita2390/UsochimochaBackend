@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.web;
 
+import com.app.usochicamochabackend.exception.BadRequestException;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.exception.UserSoftDeletedConflictException;
 import com.app.usochicamochabackend.exception.VehicleSoftDeletedConflictException;
@@ -36,6 +37,15 @@ public class GlobalExceptionHandler {
         response.put("error", ex.getMessage() != null ? ex.getMessage() : "Argumento inválido");
         response.put("status", HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * Validaciones de negocio (tipo de mantenimiento, resultado, observaciones…). Sin esto caían
+     * en {@link #handleGeneralException} y respondían 500 "Unexpected error: …".
+     */
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<String> handleBadRequest(BadRequestException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

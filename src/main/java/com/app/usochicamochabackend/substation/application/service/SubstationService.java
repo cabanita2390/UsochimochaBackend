@@ -103,6 +103,8 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             return toResponse(existente.get());
         }
 
+        requerido(request.estacionId(), "estacionId");
+        requerido(request.fecha(), "fecha");
         validarCoherencia(request.disciplina(), request.tipoMantenimiento(), request.tipoActividad(),
                 request.actividadId(), request.motivoNoCatalogado(), request.resultado(),
                 request.observaciones(), request.descripcionLibre());
@@ -235,6 +237,12 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         hallazgoSeguimientoRepository.save(seguimiento);
     }
 
+    private static void requerido(Object valor, String campo) {
+        if (valor == null) {
+            throw new BadRequestException(campo + " es obligatorio.");
+        }
+    }
+
     private void validarCoherencia(String disciplina, String tipoMantenimiento, String tipoActividad,
             Long actividadId, String motivoNoCatalogado, String resultado, String observaciones,
             String descripcionLibre) {
@@ -280,6 +288,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             throw new BadRequestException("motivoEdicion debe tener al menos 15 caracteres.");
         }
 
+        requerido(request.fecha(), "fecha");
         EjecucionEntity entity = ejecucionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ejecución no encontrada: id=" + id));
 
