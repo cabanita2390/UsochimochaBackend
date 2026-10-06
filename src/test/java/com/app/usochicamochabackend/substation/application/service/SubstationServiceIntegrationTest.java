@@ -698,6 +698,24 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void indicadoresPorEstacion_unaEstacionDesactivadaContinuaEnLosAniosEnQueTuvoCitas() {
+        programar(estacionDos, actividadUno, 2030, 2);
+        estacionDos.setStatus(false);
+        estacionRepository.save(estacionDos);
+        estacionTres.setStatus(false);
+        estacionRepository.save(estacionTres); // sin citas ni registros: no sale
+        entityManager.flush();
+
+        List<IndicadorEstacionResponse> indicadores = indicadoresUseCase.indicadoresPorEstacion(2030, "CIVIL");
+
+        IndicadorEstacionResponse dos = filaDe(indicadores, estacionDos);
+        assertEquals(1, dos.programado());
+        assertFalse(dos.activa());
+        assertTrue(filaDe(indicadores, estacionUno).activa());
+        assertTrue(indicadores.stream().noneMatch(i -> i.estacionId().equals(estacionTres.getId())));
+    }
+
+    @Test
     void indicadoresPorEstacion_incluyeTodasLasEstacionesActivasConSuProgramado() {
         programar(estacionUno, actividadUno, 2030, 2);
         // estacionDos y estacionTres quedan sin programación: deben seguir apareciendo con programado=0.

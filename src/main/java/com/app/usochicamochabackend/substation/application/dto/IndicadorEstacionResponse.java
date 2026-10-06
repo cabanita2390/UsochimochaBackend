@@ -26,6 +26,7 @@ public record IndicadorEstacionResponse(
         @Schema(description = "Citas publicadas del año con mes cerrado") Integer vencidas,
         @Schema(description = "De las vencidas, las que tienen ejecución") Integer ejecutadasVencidas,
         @Schema(description = "Ejecuciones del año con resultado distinto de CONFORME") Integer conHallazgos,
-        @Schema(description = "Hallazgos ABIERTO o EN_PROCESO de la estación (todos los años)") Integer hallazgosAbiertos
+        @Schema(description = "Hallazgos ABIERTO o EN_PROCESO de la estación (todos los años)") Integer hallazgosAbiertos,
+        @Schema(description = "false si la estación está desactivada (solo sale si tuvo citas o registros ese año)") Boolean activa
 ) {
 }

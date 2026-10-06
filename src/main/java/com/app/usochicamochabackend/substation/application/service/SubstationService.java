@@ -473,7 +473,10 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         Map<Long, Object[]> ejecuciones = porId(ejecucionRepository.contarPorEstacion(
                 disciplina, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31)));
         Map<Long, Object[]> abiertos = porId(hallazgoSeguimientoRepository.abiertosPorEstacion(disciplina));
-        return estacionRepository.findByStatusTrueOrderByNombreAsc().stream()
+        // Una estación desactivada sigue saliendo en los años en que tuvo citas o registros:
+        // si no, al desactivarla su histórico desaparecía del Dashboard.
+        return estacionRepository.findAllByOrderByNombreAsc().stream()
+                .filter(e -> e.getStatus() || citas.containsKey(e.getId()) || ejecuciones.containsKey(e.getId()))
                 .map(e -> {
                     Citas c = citas.getOrDefault(e.getId(), new Citas());
                     Object[] ej = ejecuciones.get(e.getId());
@@ -482,7 +485,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                             c.programado, c.cumple, c.programado - c.cumple, c.porcentaje(),
                             entero(ej, 2), entero(ej, 3), entero(ej, 4), entero(ej, 5), entero(ej, 1),
                             anio, c.vencidas, c.ejecutadasVencidas,
-                            entero(ej, 6), entero(abiertos.get(e.getId()), 1));
+                            entero(ej, 6), entero(abiertos.get(e.getId()), 1), e.getStatus());
                 })
                 .toList();
     }
