@@ -25,8 +25,19 @@ public class ActionsService implements SaveActionUseCase, GetAllActionsByUserIdU
     private final NotificationService notificationService;
 
 
+    /** Largo de actions_auditory.details (varchar 255). */
+    static final int MAX_DETALLE = 255;
+
+    /**
+     * El detalle se recorta al largo de la columna: los mensajes incluyen nombres de estación,
+     * actividad o usuario, y uno largo hacía fallar con un error de BD la operación que se
+     * estaba auditando (asignar citas, quitar, desactivar…).
+     */
     @Override
     public void save(String details) {
+        if (details != null && details.length() > MAX_DETALLE) {
+            details = details.substring(0, MAX_DETALLE - 1) + "…";
+        }
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
             UserEntity user = userRepositoryJpa.getUserEntityById(userPrincipal.id());
