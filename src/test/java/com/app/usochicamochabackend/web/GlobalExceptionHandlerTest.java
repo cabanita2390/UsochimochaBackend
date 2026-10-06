@@ -1,6 +1,8 @@
 package com.app.usochicamochabackend.web;
 
 import com.app.usochicamochabackend.exception.BadRequestException;
+import org.springframework.data.mapping.PropertyReferenceException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
@@ -21,6 +23,17 @@ class GlobalExceptionHandlerTest {
         String badRequest() {
             throw new BadRequestException("resultado inválido: MAL");
         }
+
+        @GetMapping("/archivo-grande")
+        String archivoGrande() {
+            throw new MaxUploadSizeExceededException(15 * 1024 * 1024L);
+        }
+
+        @GetMapping("/orden-invalido")
+        String ordenInvalido() {
+            throw new PropertyReferenceException("noexiste",
+                    org.springframework.data.util.TypeInformation.of(Lanzador.class), java.util.List.of());
+        }
     }
 
     private MockMvc mockMvc;
@@ -37,5 +50,19 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/bad-request"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("resultado inválido: MAL"));
+    }
+
+    @Test
+    void archivoDemasiadoGrande_responde413ConMensaje() throws Exception {
+        mockMvc.perform(get("/archivo-grande"))
+                .andExpect(status().isPayloadTooLarge())
+                .andExpect(content().string("El archivo supera el tamaño máximo permitido (15 MB)."));
+    }
+
+    @Test
+    void ordenamientoPorCampoInexistente_responde400() throws Exception {
+        mockMvc.perform(get("/orden-invalido"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Campo de ordenamiento inválido: noexiste"));
     }
 }
