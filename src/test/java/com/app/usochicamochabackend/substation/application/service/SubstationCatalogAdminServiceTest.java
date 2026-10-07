@@ -84,7 +84,7 @@ class SubstationCatalogAdminServiceTest {
 
     @Test
     void crear_normalizaNombre_guardaYAudita() {
-        when(estacionRepository.existsByNombreIgnoreCase("Dren Cuche")).thenReturn(false);
+        when(estacionRepository.findAll()).thenReturn(List.of(estacion(1L, "Ayalas", true)));
         when(estacionRepository.save(any())).thenAnswer(inv -> {
             EstacionEntity e = inv.getArgument(0);
             e.setId(10L);
@@ -92,7 +92,7 @@ class SubstationCatalogAdminServiceTest {
         });
 
         EstacionResponse creada = service.crearEstacion(
-                new EstacionRequest("  Dren   Cuche ", "BOMBEO", "MENSUAL"), ADMIN);
+                new EstacionRequest("  dren   Cuche ", "BOMBEO", "MENSUAL"), ADMIN);
 
         ArgumentCaptor<EstacionEntity> guardada = ArgumentCaptor.forClass(EstacionEntity.class);
         verify(estacionRepository).save(guardada.capture());
@@ -105,7 +105,7 @@ class SubstationCatalogAdminServiceTest {
 
     @Test
     void crear_nombreDuplicado_responde409YNoGuarda() {
-        when(estacionRepository.existsByNombreIgnoreCase("Ayalas")).thenReturn(true);
+        when(estacionRepository.findAll()).thenReturn(List.of(estacion(1L, "Ayalas", true)));
 
         assertThatThrownBy(() -> service.crearEstacion(new EstacionRequest("Ayalas", "BOMBEO", "TRIMESTRAL"), ADMIN))
                 .isInstanceOf(ResponseStatusException.class)
@@ -115,14 +115,27 @@ class SubstationCatalogAdminServiceTest {
     }
 
     @Test
+    void crear_mismoNombreConOtrasMayusculasOTildes_esDuplicado() {
+        when(estacionRepository.findAll()).thenReturn(List.of(estacion(1L, "Papúas", false)));
+
+        assertThatThrownBy(() -> service.crearEstacion(new EstacionRequest("  PAPUAS ", "BOMBEO", "TRIMESTRAL"), ADMIN))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("\"Papúas\"");
+        verify(estacionRepository, never()).save(any());
+        verify(saveActionUseCase, never()).save(any());
+    }
+
+    @Test
     void actualizar_mismoNombreDeLaPropiaEstacion_noEsDuplicado() {
         EstacionEntity actual = estacion(3L, "Holanda", true);
         when(estacionRepository.findById(3L)).thenReturn(Optional.of(actual));
-        when(estacionRepository.existsByNombreIgnoreCaseAndIdNot("Holanda", 3L)).thenReturn(false);
+        when(estacionRepository.findAll()).thenReturn(List.of(actual, estacion(4L, "Ayalas", true)));
         when(estacionRepository.save(actual)).thenReturn(actual);
 
         EstacionResponse editada = service.actualizarEstacion(3L,
-                new EstacionRequest("Holanda", "COMPLEMENTARIA", "ANUAL"), ADMIN);
+                new EstacionRequest("holanda", "COMPLEMENTARIA", "ANUAL"), ADMIN);
+
+        assertThat(editada.nombre()).isEqualTo("Holanda");
 
         assertThat(editada.tipo()).isEqualTo("COMPLEMENTARIA");
         assertThat(editada.frecuenciaBase()).isEqualTo("ANUAL");
@@ -131,10 +144,11 @@ class SubstationCatalogAdminServiceTest {
 
     @Test
     void actualizar_nombreDeOtraEstacion_responde409() {
-        when(estacionRepository.findById(3L)).thenReturn(Optional.of(estacion(3L, "Holanda", true)));
-        when(estacionRepository.existsByNombreIgnoreCaseAndIdNot("Ayalas", 3L)).thenReturn(true);
+        EstacionEntity holanda = estacion(3L, "Holanda", true);
+        when(estacionRepository.findById(3L)).thenReturn(Optional.of(holanda));
+        when(estacionRepository.findAll()).thenReturn(List.of(holanda, estacion(4L, "Ayalas", true)));
 
-        assertThatThrownBy(() -> service.actualizarEstacion(3L, new EstacionRequest("Ayalas", "BOMBEO", "TRIMESTRAL"), ADMIN))
+        assertThatThrownBy(() -> service.actualizarEstacion(3L, new EstacionRequest("ayalas", "BOMBEO", "TRIMESTRAL"), ADMIN))
                 .isInstanceOf(ResponseStatusException.class);
         verify(estacionRepository, never()).save(any());
     }
@@ -197,14 +211,14 @@ class SubstationCatalogAdminServiceTest {
     @Test
     void crearActividad_normalizaNombre_guardaYAudita() {
         when(disciplinaRepository.findByCodigo("CIVIL")).thenReturn(Optional.of(CIVIL));
-        when(actividadRepository.existsByNombreIgnoreCaseAndDisciplina_Id("Pintura muros", 1L)).thenReturn(false);
+        when(actividadRepository.findByDisciplina_CodigoOrderByNombreAsc("CIVIL")).thenReturn(List.of(actividad(1L, "Pintura", true, true)));
         when(actividadRepository.save(any())).thenAnswer(inv -> {
             ActividadEntity a = inv.getArgument(0);
             a.setId(20L);
             return a;
         });
 
-        ActividadResponse creada = service.crearActividad(new ActividadRequest(" Pintura  muros ", "CIVIL", true, "  Muros "), ADMIN);
+        ActividadResponse creada = service.crearActividad(new ActividadRequest(" pintura  muros ", "CIVIL", true, "  muros "), ADMIN);
 
         assertThat(creada.id()).isEqualTo(20L);
         assertThat(creada.nombre()).isEqualTo("Pintura muros");
@@ -228,9 +242,9 @@ class SubstationCatalogAdminServiceTest {
     @Test
     void crearActividad_duplicadaEnLaMismaDisciplina_responde409() {
         when(disciplinaRepository.findByCodigo("CIVIL")).thenReturn(Optional.of(CIVIL));
-        when(actividadRepository.existsByNombreIgnoreCaseAndDisciplina_Id("Pintura", 1L)).thenReturn(true);
+        when(actividadRepository.findByDisciplina_CodigoOrderByNombreAsc("CIVIL")).thenReturn(List.of(actividad(1L, "Inspección", true, true)));
 
-        assertThatThrownBy(() -> service.crearActividad(new ActividadRequest("Pintura", "CIVIL", true, null), ADMIN))
+        assertThatThrownBy(() -> service.crearActividad(new ActividadRequest("INSPECCION", "CIVIL", true, null), ADMIN))
                 .isInstanceOf(ResponseStatusException.class)
                 .satisfies(ex -> assertThat(((ResponseStatusException) ex).getStatusCode()).isEqualTo(HttpStatus.CONFLICT));
         verify(actividadRepository, never()).save(any());
@@ -241,7 +255,7 @@ class SubstationCatalogAdminServiceTest {
         ActividadEntity actual = actividad(5L, "Pintura", true, true);
         when(actividadRepository.findById(5L)).thenReturn(Optional.of(actual));
         when(disciplinaRepository.findByCodigo("CIVIL")).thenReturn(Optional.of(CIVIL));
-        when(actividadRepository.existsByNombreIgnoreCaseAndDisciplina_IdAndIdNot("Pintura", 1L, 5L)).thenReturn(false);
+        when(actividadRepository.findByDisciplina_CodigoOrderByNombreAsc("CIVIL")).thenReturn(List.of(actual));
         when(actividadRepository.save(actual)).thenReturn(actual);
         when(programacionRepository.countByActividad_IdAndAnioAndStatusTrueAndEstado(eq(5L), anyInt(), eq("PUBLICADA"))).thenReturn(12);
 

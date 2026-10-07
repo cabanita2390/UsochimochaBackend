@@ -23,13 +23,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.text.Normalizer;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class SubstationCatalogAdminService implements SubstationCatalogAdminUseCase {
+
+    private static final Locale ES = Locale.forLanguageTag("es-CO");
 
     private final EstacionRepository estacionRepository;
     private final ActividadRepository actividadRepository;
@@ -58,9 +62,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     @Transactional
     public EstacionResponse crearEstacion(EstacionRequest request, UserPrincipal usuario) {
         String nombre = normalizarNombre(request.nombre());
-        if (estacionRepository.existsByNombreIgnoreCase(nombre)) {
-            throw conflicto("Ya existe una estación con el nombre \"" + nombre + "\"");
-        }
+        validarEstacionUnica(nombre, null);
 
         EstacionEntity guardada = estacionRepository.save(EstacionEntity.builder()
                 .nombre(nombre)
@@ -77,9 +79,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     public EstacionResponse actualizarEstacion(Long id, EstacionRequest request, UserPrincipal usuario) {
         EstacionEntity estacion = buscarEstacion(id);
         String nombre = normalizarNombre(request.nombre());
-        if (estacionRepository.existsByNombreIgnoreCaseAndIdNot(nombre, id)) {
-            throw conflicto("Ya existe una estación con el nombre \"" + nombre + "\"");
-        }
+        validarEstacionUnica(nombre, id);
 
         estacion.setNombre(nombre);
         estacion.setTipo(request.tipo());
@@ -143,9 +143,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     public ActividadResponse crearActividad(ActividadRequest request, UserPrincipal usuario) {
         DisciplinaEntity disciplina = buscarDisciplina(request.disciplina());
         String nombre = normalizarNombre(request.nombre());
-        if (actividadRepository.existsByNombreIgnoreCaseAndDisciplina_Id(nombre, disciplina.getId())) {
-            throw conflicto("Ya existe la actividad \"" + nombre + "\" en " + disciplina.getCodigo());
-        }
+        validarActividadUnica(nombre, disciplina, null);
 
         ActividadEntity guardada = actividadRepository.save(ActividadEntity.builder()
                 .nombre(nombre)
@@ -166,9 +164,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
         ActividadEntity actividad = buscarActividad(id);
         DisciplinaEntity disciplina = buscarDisciplina(request.disciplina());
         String nombre = normalizarNombre(request.nombre());
-        if (actividadRepository.existsByNombreIgnoreCaseAndDisciplina_IdAndIdNot(nombre, disciplina.getId(), id)) {
-            throw conflicto("Ya existe la actividad \"" + nombre + "\" en " + disciplina.getCodigo());
-        }
+        validarActividadUnica(nombre, disciplina, id);
 
         // Una actividad ya usada no cambia de disciplina: sus citas desaparecerían del móvil
         // (que filtra por disciplina) y sus ejecuciones quedarían en otra.
@@ -286,9 +282,43 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
         return normalizarNombre(nombreCorto);
     }
 
-    /** Quita espacios al inicio/final y deja uno solo entre palabras ("  Dren   Cuche " → "Dren Cuche"). */
+    /**
+     * Quita espacios al inicio/final, deja uno solo entre palabras y pone la primera letra en
+     * mayúscula ("  dren   Cuche " → "Dren Cuche"): así el mismo nombre escrito de dos formas no
+     * queda guardado distinto. El resto se respeta tal cual (siglas, tildes).
+     */
     private String normalizarNombre(String nombre) {
-        return nombre.trim().replaceAll("\\s+", " ");
+        String limpio = nombre.trim().replaceAll("\\s+", " ");
+        return limpio.isEmpty() ? limpio : limpio.substring(0, 1).toUpperCase(ES) + limpio.substring(1);
+    }
+
+    /** Clave de comparación: sin mayúsculas ni tildes ("Papúas" y "papuas" son la misma estación). */
+    static String claveNombre(String nombre) {
+        return Normalizer.normalize(nombre, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toLowerCase(ES);
+    }
+
+    /** 409 si otra estación (activa o no) ya tiene ese nombre, ignorando mayúsculas y tildes. */
+    private void validarEstacionUnica(String nombre, Long idPropio) {
+        String clave = claveNombre(nombre);
+        estacionRepository.findAll().stream()
+                .filter(e -> !e.getId().equals(idPropio) && claveNombre(e.getNombre()).equals(clave))
+                .findFirst()
+                .ifPresent(e -> {
+                    throw conflicto("Ya existe una estación con el nombre \"" + e.getNombre() + "\"");
+                });
+    }
+
+    /** 409 si otra actividad de la misma disciplina ya tiene ese nombre, ignorando mayúsculas y tildes. */
+    private void validarActividadUnica(String nombre, DisciplinaEntity disciplina, Long idPropio) {
+        String clave = claveNombre(nombre);
+        actividadRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina.getCodigo()).stream()
+                .filter(a -> !a.getId().equals(idPropio) && claveNombre(a.getNombre()).equals(clave))
+                .findFirst()
+                .ifPresent(a -> {
+                    throw conflicto("Ya existe la actividad \"" + a.getNombre() + "\" en " + disciplina.getCodigo());
+                });
     }
 
     private ResponseStatusException conflicto(String mensaje) {
