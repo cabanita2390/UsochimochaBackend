@@ -100,6 +100,9 @@ class SubstationServiceIntegrationTest {
         }
     }
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.app.usochicamochabackend.substation.application.port.SubstationEventosPort eventos;
+
     @Autowired
     private SubstationCatalogUseCase catalogUseCase;
 
@@ -1586,6 +1589,44 @@ class SubstationServiceIntegrationTest {
         assertEquals(0, new java.math.BigDecimal("100.0").compareTo(uno.porcentajeCumplimiento()));
         assertEquals(1, act.vencidas());
         assertEquals(1, act.ejecutadasVencidas());
+    }
+
+    @Test
+    void dashboard_cortaElMesEnCurso_conCitasDelMesEImprevistos() {
+        // Hoy (reloj fijo) es 15-sep-2026: mes en curso = septiembre, va la mitad del mes.
+        ejecutar(programar(estacionUno, actividadUno, 2026, 9), estacionUno, actividadUno);
+        programar(estacionUno, actividadDos, 2026, 9);
+        ejecutar(programar(estacionUno, actividadUno, 2026, 3), estacionUno, actividadUno); // otro mes
+        ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(2026, 9, 12), 9, 2, estacionUno.getId(), "CIVIL",
+                "NO_PROGRAMADO", "MANTENIMIENTO", null, null, "NO_PROGRAMADO",
+                "CONFORME", "obs", "Se destapó un desagüe.", UUID.randomUUID()), usuario);
+        entityManager.flush();
+        entityManager.clear();
+
+        IndicadorEstacionResponse uno = filaDe(indicadoresUseCase.indicadoresPorEstacion(2026, "CIVIL"), estacionUno);
+
+        assertEquals(9, uno.mes());
+        assertEquals(2, uno.programadoMes());
+        assertEquals(1, uno.cumpleMes());
+        assertEquals(2, uno.ejecutadoTotalMes());       // la cita de septiembre + el imprevisto
+        assertEquals(1, uno.ejecutadoNoProgramadoMes());
+        assertEquals(1, uno.ejecutadoNoProgramado());   // en el año
+        assertEquals(0, new java.math.BigDecimal("50.0").compareTo(uno.porcentajeMesTranscurrido()));
+
+        IndicadorEstacionResponse otroAnio = filaDe(indicadoresUseCase.indicadoresPorEstacion(2030, "CIVIL"), estacionUno);
+        assertNull(otroAnio.mes());
+        assertNull(otroAnio.programadoMes());
+        assertNull(otroAnio.porcentajeMesTranscurrido());
+    }
+
+    @Test
+    void registrarEjecucion_avisaALaWeb() {
+        ejecutar(programar(estacionUno, actividadUno, 2026, 9), estacionUno, actividadUno);
+
+        org.mockito.Mockito.verify(eventos).ejecucionCambio(
+                org.mockito.ArgumentMatchers.eq(estacionUno.getId()), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.eq("REGISTRADA"));
     }
 
     @Test

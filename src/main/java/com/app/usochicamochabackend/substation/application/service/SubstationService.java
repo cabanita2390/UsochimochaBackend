@@ -38,6 +38,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.app.usochicamochabackend.substation.infrastructure.entity.CumplimientoView;
 
+import com.app.usochicamochabackend.substation.application.port.SubstationEventosPort;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -69,6 +70,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     private final CalendarioMantenimiento calendario;
     private final EjecucionEdicionRepository ejecucionEdicionRepository;
     private final HallazgoSeguimientoRepository hallazgoSeguimientoRepository;
+    private final SubstationEventosPort eventos;
 
     private static final Set<String> TIPO_MANTENIMIENTO_VALIDOS =
             Set.of("PREVENTIVO", "CORRECTIVO", "PREDICTIVO", "NO_PROGRAMADO");
@@ -167,6 +169,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
         saveActionUseCase.save("El usuario " + usuarioEntity.getUsername()
                 + " ha registrado una ejecución de mantenimiento en la estación " + estacion.getNombre());
+        eventos.ejecucionCambio(estacion.getId(), guardada.getId(), "REGISTRADA");
 
         return toResponse(guardada);
     }
@@ -376,6 +379,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
         saveActionUseCase.save("El usuario " + usuarioEntity.getUsername()
                 + " editó la ejecución #" + entity.getId() + " en la estación " + entity.getEstacion().getNombre());
+        eventos.ejecucionCambio(entity.getEstacion().getId(), entity.getId(), "EDITADA");
 
         return toResponse(entity);
     }
@@ -473,6 +477,15 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         Map<Long, Object[]> ejecuciones = porId(ejecucionRepository.contarPorEstacion(
                 disciplina, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31)));
         Map<Long, Object[]> abiertos = porId(hallazgoSeguimientoRepository.abiertosPorEstacion(disciplina));
+        // Mes en curso: solo cuando se consulta el año actual (en otro año no hay "mes en curso").
+        LocalDate hoy = calendario.hoy();
+        boolean anioActual = anio == hoy.getYear();
+        Map<Long, Object[]> ejecucionesMes = anioActual
+                ? porId(ejecucionRepository.contarPorEstacion(disciplina, hoy.withDayOfMonth(1), hoy.withDayOfMonth(hoy.lengthOfMonth())))
+                : Map.of();
+        BigDecimal mesTranscurrido = anioActual
+                ? BigDecimal.valueOf(100.0 * hoy.getDayOfMonth() / hoy.lengthOfMonth()).setScale(1, RoundingMode.HALF_UP)
+                : null;
         // Una estación desactivada sigue saliendo en los años en que tuvo citas o registros:
         // si no, al desactivarla su histórico desaparecía del Dashboard.
         return estacionRepository.findAllByOrderByNombreAsc().stream()
@@ -480,12 +493,19 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .map(e -> {
                     Citas c = citas.getOrDefault(e.getId(), new Citas());
                     Object[] ej = ejecuciones.get(e.getId());
+                    Object[] ejMes = ejecucionesMes.get(e.getId());
                     return new IndicadorEstacionResponse(
                             e.getId(), e.getNombre(), e.getTipo(),
                             c.programado, c.cumple, c.programado - c.cumple, c.porcentaje(),
                             entero(ej, 2), entero(ej, 3), entero(ej, 4), entero(ej, 5), entero(ej, 1),
                             anio, c.vencidas, c.ejecutadasVencidas,
-                            entero(ej, 6), entero(abiertos.get(e.getId()), 1), e.getStatus());
+                            entero(ej, 6), entero(abiertos.get(e.getId()), 1), e.getStatus(),
+                            anioActual ? hoy.getMonthValue() : null,
+                            anioActual ? c.programadoMes : null,
+                            anioActual ? c.cumpleMes : null,
+                            anioActual ? entero(ejMes, 1) : null,
+                            anioActual ? entero(ejMes, 3) : null,
+                            mesTranscurrido);
                 })
                 .toList();
     }
@@ -532,6 +552,12 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             if (Boolean.TRUE.equals(v.getCumple())) {
                 c.cumple++;
             }
+            if (v.getAnio() == calendario.anioActual() && v.getMes() == calendario.mesActual()) {
+                c.programadoMes++;
+                if (Boolean.TRUE.equals(v.getCumple())) {
+                    c.cumpleMes++;
+                }
+            }
             // Entra al %: la cita de un mes ya cerrado (se cumplió o no) y la que ya se ejecutó
             // aunque su mes siga abierto. La pendiente del mes en curso o futuro todavía no
             // cuenta: no se puede dar por incumplida, pero lo ya hecho no debe quedar en "0 de 0".
@@ -555,7 +581,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     }
 
     private static final class Citas {
-        int programado, cumple, vencidas, ejecutadasVencidas;
+        int programado, cumple, vencidas, ejecutadasVencidas, programadoMes, cumpleMes;
 
         /** ejecutadas / evaluables × 100 con un decimal; null si todavía no hay citas evaluables. */
         BigDecimal porcentaje() {

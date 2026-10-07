@@ -6,7 +6,7 @@ import java.math.BigDecimal;
 
 /**
  * Dashboard de estaciones: todo del año y la disciplina pedidos, y solo del cronograma
- * publicado. % de cumplimiento = ejecutadasVencidas / vencidas (las citas pendientes del mes en
+ * publicado, más el corte del mes en curso. % de cumplimiento = ejecutadasVencidas / vencidas (las citas pendientes del mes en
  * curso y de meses futuros no cuentan como incumplidas; las ya ejecutadas sí suman).
  */
 public record IndicadorEstacionResponse(
@@ -27,6 +27,12 @@ public record IndicadorEstacionResponse(
         @Schema(description = "De las que entran al %, las que tienen ejecución") Integer ejecutadasVencidas,
         @Schema(description = "Ejecuciones del año con resultado distinto de CONFORME") Integer conHallazgos,
         @Schema(description = "Hallazgos ABIERTO o EN_PROCESO de la estación (todos los años)") Integer hallazgosAbiertos,
-        @Schema(description = "false si la estación está desactivada (solo sale si tuvo citas o registros ese año)") Boolean activa
+        @Schema(description = "false si la estación está desactivada (solo sale si tuvo citas o registros ese año)") Boolean activa,
+        @Schema(description = "Mes en curso (1-12); null si se consulta otro año") Integer mes,
+        @Schema(description = "Citas publicadas del mes en curso; null si se consulta otro año") Integer programadoMes,
+        @Schema(description = "De las citas del mes en curso, las que ya tienen ejecución") Integer cumpleMes,
+        @Schema(description = "Ejecuciones registradas en el mes en curso (programadas y no programadas)") Integer ejecutadoTotalMes,
+        @Schema(description = "Ejecuciones del mes en curso sin cita asociada (imprevistos)") Integer ejecutadoNoProgramadoMes,
+        @Schema(description = "Porción del mes en curso ya transcurrida, 0-100 (para comparar el avance del mes)") BigDecimal porcentajeMesTranscurrido
 ) {
 }
