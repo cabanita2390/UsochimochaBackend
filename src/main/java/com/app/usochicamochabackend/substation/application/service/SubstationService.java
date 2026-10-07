@@ -15,6 +15,7 @@ import com.app.usochicamochabackend.substation.infrastructure.entity.DisciplinaE
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEdicionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EvidenciaEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.HallazgoSeguimientoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ProgramacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.CumplimientoViewRepository;
@@ -24,19 +25,31 @@ import com.app.usochicamochabackend.substation.infrastructure.repository.Ejecuci
 import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionSpecifications;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EstacionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EvidenciaRepository;
-import com.app.usochicamochabackend.substation.infrastructure.repository.IndicadorEstacionViewRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.HallazgoSeguimientoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ProgramacionRepository;
-import com.app.usochicamochabackend.substation.infrastructure.repository.ResumenActividadViewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.app.usochicamochabackend.substation.infrastructure.entity.CumplimientoView;
+
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
+import java.util.ArrayList;
 import java.util.Set;
 
 @Service
@@ -53,9 +66,9 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     private final EvidenciaStorageService evidenciaStorageService;
     private final SaveActionUseCase saveActionUseCase;
     private final CumplimientoViewRepository cumplimientoViewRepository;
-    private final IndicadorEstacionViewRepository indicadorEstacionViewRepository;
-    private final ResumenActividadViewRepository resumenActividadViewRepository;
+    private final CalendarioMantenimiento calendario;
     private final EjecucionEdicionRepository ejecucionEdicionRepository;
+    private final HallazgoSeguimientoRepository hallazgoSeguimientoRepository;
 
     private static final Set<String> TIPO_MANTENIMIENTO_VALIDOS =
             Set.of("PREVENTIVO", "CORRECTIVO", "PREDICTIVO", "NO_PROGRAMADO");
@@ -65,36 +78,18 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             Set.of("INSPECCION", "MANTENIMIENTO", "NO_PROGRAMADO", "OTRO");
     private static final Set<String> MOTIVO_NO_CATALOGADO_VALIDOS =
             Set.of("NO_PROGRAMADO", "OTRO");
-    // Civil no usa "OTRO" en tipo_actividad ni en motivo_no_catalogado: en el
-    // formulario Civil ese cuarto valor quedaba redundante con el flujo de
-    // "no está en el catálogo" (decisión del usuario, 2026-09-09). El CHECK de
-    // la base de datos sigue permitiendo "OTRO" en ambos campos porque
-    // Electromecánico sí lo necesita (ver mant_ejecucion.tipo_actividad) — esta
-    // restricción es solo a nivel de aplicación, y solo para disciplina CIVIL.
     private static final Set<String> TIPO_ACTIVIDAD_VALIDOS_CIVIL =
             Set.of("INSPECCION", "MANTENIMIENTO", "NO_PROGRAMADO");
     private static final Set<String> MOTIVO_NO_CATALOGADO_VALIDOS_CIVIL =
             Set.of("NO_PROGRAMADO");
 
-    @Override
-    public List<EstacionResponse> listarEstaciones() {
-        return estacionRepository.findByStatusTrueOrderByNombreAsc().stream()
-                .map(EstacionResponse::fromEntity)
-                .toList();
-    }
 
-    @Override
-    public List<ActividadResponse> listarActividadesCapturables(String disciplina) {
-        return actividadRepository
-                .findByDisciplina_CodigoAndCapturaMovilHabilitadaTrueAndStatusTrueOrderByNombreAsc(disciplina).stream()
-                .map(ActividadResponse::fromEntity)
-                .toList();
-    }
 
     @Override
     public List<ProgramacionResponse> listarProgramacion(Long estacionId, Integer anio, Integer mes, String disciplina) {
         return programacionRepository
-                .findByEstacion_IdAndAnioAndMesAndActividad_Disciplina_CodigoAndStatusTrue(estacionId, anio, mes, disciplina)
+                .findByEstacion_IdAndAnioAndMesAndActividad_Disciplina_CodigoAndStatusTrueAndEstado(
+                        estacionId, anio, mes, disciplina, ProgramacionEntity.PUBLICADA)
                 .stream()
                 .map(ProgramacionResponse::fromEntity)
                 .toList();
@@ -108,6 +103,8 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             return toResponse(existente.get());
         }
 
+        requerido(request.estacionId(), "estacionId");
+        requerido(request.fecha(), "fecha");
         validarCoherencia(request.disciplina(), request.tipoMantenimiento(), request.tipoActividad(),
                 request.actividadId(), request.motivoNoCatalogado(), request.resultado(),
                 request.observaciones(), request.descripcionLibre());
@@ -127,6 +124,11 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         if (request.programacionId() != null) {
             programacion = programacionRepository.findById(request.programacionId())
                     .orElseThrow(() -> new ResourceNotFoundException("Cita de programación no encontrada: id=" + request.programacionId()));
+            // Una cita de otra estación o actividad no se da por cumplida con este trabajo: el
+            // registro se guarda igual (nunca se rechaza), pero sin enlazarlo a esa cita.
+            boolean coincide = programacion.getEstacion().getId().equals(estacion.getId())
+                    && actividad != null && programacion.getActividad().getId().equals(actividad.getId());
+            programacion = coincide ? citaVigenteParaEjecucion(programacion) : null;
         }
 
         UserEntity usuarioEntity = userRepositoryJpa.getUserEntityById(usuario.id());
@@ -152,10 +154,129 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
         EjecucionEntity guardada = ejecucionRepository.save(entity);
 
+        // todo hallazgo arranca con seguimiento ABIERTO, en la misma transacción.
+        // Inserción trivial y sin validaciones a propósito: si este POST respondiera error, el
+        // móvil marcaría la ejecución como fallida en su cola. Los reintentos con el mismo
+        // uuidCliente no llegan aquí (salen por el return temprano de arriba).
+        if (!"CONFORME".equals(guardada.getResultado())) {
+            hallazgoSeguimientoRepository.save(HallazgoSeguimientoEntity.builder()
+                    .ejecucion(guardada)
+                    .actualizadoPor(usuarioEntity)
+                    .build());
+        }
+
         saveActionUseCase.save("El usuario " + usuarioEntity.getUsername()
                 + " ha registrado una ejecución de mantenimiento en la estación " + estacion.getNombre());
 
         return toResponse(guardada);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<EjecucionResponse> buscarPorUuidCliente(java.util.UUID uuidCliente) {
+        return uuidCliente == null ? java.util.Optional.empty()
+                : ejecucionRepository.findByUuidCliente(uuidCliente).map(this::toResponse);
+    }
+
+    /**
+     * La cita a la que queda enlazada una ejecución siempre queda publicada. El técnico pudo
+     * hacer el trabajo sin señal mientras en la web la cita se quitaba y publicaba (RETIRADA),
+     * se deshacía su publicación (BORRADOR) o se descartaba: sin esto la ejecución se guardaba
+     * pero no aparecía en el móvil, ni en el Cronograma ni en el cumplimiento.
+     * Si ya existe otra cita vigente igual (estación, actividad, mes), la ejecución se enlaza a
+     * esa. Nunca lanza: si este POST fallara, el móvil marcaría el registro como fallido.
+     */
+    private ProgramacionEntity citaVigenteParaEjecucion(ProgramacionEntity cita) {
+        boolean vigente = cita.getStatus() && !ProgramacionEntity.RETIRADA.equals(cita.getEstado());
+        ProgramacionEntity destino = vigente ? cita
+                : programacionRepository.findFirstByAnioAndMesAndEstacion_IdAndActividad_IdAndStatusTrueAndEstadoNot(
+                        cita.getAnio(), cita.getMes(), cita.getEstacion().getId(), cita.getActividad().getId(),
+                        ProgramacionEntity.RETIRADA).orElse(cita);
+        if (destino.getStatus() && ProgramacionEntity.PUBLICADA.equals(destino.getEstado())) {
+            return destino;
+        }
+        destino.setStatus(true);
+        destino.setEstado(ProgramacionEntity.PUBLICADA);
+        destino.setRetiradaEn(null);
+        destino.setPendienteRetiro(false);
+        return programacionRepository.save(destino);
+    }
+
+    /**
+     * Compara el registro guardado con lo que llega en la edición, campo por campo, con los
+     * mismos valores que quedarían guardados (motivoNoCatalogado y descripcionLibre solo aplican
+     * sin actividad). La actividad se guarda por nombre para que el historial se lea sin
+     * consultar el catálogo.
+     */
+    private List<CambioCampo> calcularCambios(EjecucionEntity actual, EjecucionEditRequest request,
+            ActividadEntity nuevaActividad) {
+        List<CambioCampo> cambios = new ArrayList<>();
+        agregarSiCambio(cambios, "fecha", actual.getFecha(), request.fecha());
+        agregarSiCambio(cambios, "mesEjecucion", actual.getMesEjecucion(), request.mesEjecucion());
+        agregarSiCambio(cambios, "semanaEjecucion", actual.getSemanaEjecucion(), request.semanaEjecucion());
+        agregarSiCambio(cambios, "tipoMantenimiento", actual.getTipoMantenimiento(), request.tipoMantenimiento());
+        agregarSiCambio(cambios, "tipoActividad", actual.getTipoActividad(), request.tipoActividad());
+        agregarSiCambio(cambios, "actividad",
+                actual.getActividad() != null ? actual.getActividad().getNombre() : null,
+                nuevaActividad != null ? nuevaActividad.getNombre() : null);
+        agregarSiCambio(cambios, "motivoNoCatalogado", actual.getMotivoNoCatalogado(),
+                nuevaActividad == null ? request.motivoNoCatalogado() : null);
+        agregarSiCambio(cambios, "resultado", actual.getResultado(), request.resultado());
+        agregarSiCambio(cambios, "observaciones", actual.getObservaciones(), request.observaciones());
+        agregarSiCambio(cambios, "descripcionLibre", actual.getDescripcionLibre(),
+                nuevaActividad == null ? request.descripcionLibre() : null);
+        return cambios;
+    }
+
+    private void agregarSiCambio(List<CambioCampo> cambios, String campo, Object antes, Object despues) {
+        if (!Objects.equals(antes, despues)) {
+            cambios.add(new CambioCampo(campo,
+                    antes != null ? antes.toString() : null,
+                    despues != null ? despues.toString() : null));
+        }
+    }
+
+    /**
+     * mantiene el seguimiento alineado con el resultado editado.
+     * hallazgo → CONFORME: se desactiva. CONFORME → hallazgo: se crea, o se reactiva en ABIERTO
+     * con los datos de cierre limpios. hallazgo → hallazgo: no cambia.
+     */
+    private void sincronizarSeguimiento(EjecucionEntity ejecucion, String resultadoAnterior, UserEntity usuario) {
+        boolean teniaHallazgo = !"CONFORME".equals(resultadoAnterior);
+        boolean tieneHallazgo = !"CONFORME".equals(ejecucion.getResultado());
+        if (teniaHallazgo == tieneHallazgo) {
+            return;
+        }
+
+        var existente = hallazgoSeguimientoRepository.findByEjecucion_Id(ejecucion.getId());
+        if (!tieneHallazgo) {
+            existente.ifPresent(seguimiento -> {
+                seguimiento.setStatus(false);
+                seguimiento.setActualizadoPor(usuario);
+                seguimiento.setActualizadoEn(LocalDateTime.now());
+                hallazgoSeguimientoRepository.save(seguimiento);
+            });
+            return;
+        }
+
+        HallazgoSeguimientoEntity seguimiento = existente.orElseGet(() ->
+                HallazgoSeguimientoEntity.builder().ejecucion(ejecucion).build());
+        seguimiento.setEstado("ABIERTO");
+        seguimiento.setStatus(true);
+        seguimiento.setResueltoEnEjecucion(null);
+        seguimiento.setResueltoMismaVisita(false);
+        seguimiento.setObservacionesCierre(null);
+        seguimiento.setCerradoPor(null);
+        seguimiento.setCerradoEn(null);
+        seguimiento.setActualizadoPor(usuario);
+        seguimiento.setActualizadoEn(LocalDateTime.now());
+        hallazgoSeguimientoRepository.save(seguimiento);
+    }
+
+    private static void requerido(Object valor, String campo) {
+        if (valor == null) {
+            throw new BadRequestException(campo + " es obligatorio.");
+        }
     }
 
     private void validarCoherencia(String disciplina, String tipoMantenimiento, String tipoActividad,
@@ -203,8 +324,16 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             throw new BadRequestException("motivoEdicion debe tener al menos 15 caracteres.");
         }
 
+        requerido(request.fecha(), "fecha");
         EjecucionEntity entity = ejecucionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ejecución no encontrada: id=" + id));
+
+        // Un registro que viene de una cita del cronograma conserva su actividad.
+        Long actividadActualId = entity.getActividad() != null ? entity.getActividad().getId() : null;
+        if (entity.getProgramacion() != null && !Objects.equals(request.actividadId(), actividadActualId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La actividad de un registro del cronograma no se puede cambiar");
+        }
 
         String disciplina = entity.getDisciplina().getCodigo();
         validarCoherencia(disciplina, request.tipoMantenimiento(), request.tipoActividad(),
@@ -216,6 +345,13 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             actividad = actividadRepository.findById(request.actividadId())
                     .orElseThrow(() -> new ResourceNotFoundException("Actividad no encontrada: id=" + request.actividadId()));
         }
+
+        List<CambioCampo> cambios = calcularCambios(entity, request, actividad);
+        if (cambios.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La edición no modifica ningún campo");
+        }
+
+        String resultadoAnterior = entity.getResultado();
 
         entity.setFecha(request.fecha());
         entity.setMesEjecucion(request.mesEjecucion());
@@ -230,10 +366,12 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         ejecucionRepository.save(entity);
 
         UserEntity usuarioEntity = userRepositoryJpa.getUserEntityById(usuario.id());
+        sincronizarSeguimiento(entity, resultadoAnterior, usuarioEntity);
         ejecucionEdicionRepository.save(EjecucionEdicionEntity.builder()
                 .ejecucion(entity)
                 .usuario(usuarioEntity)
                 .motivo(request.motivoEdicion().trim())
+                .cambios(CambioCampo.aJson(cambios))
                 .build());
 
         saveActionUseCase.save("El usuario " + usuarioEntity.getUsername()
@@ -288,11 +426,12 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     public Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
-            Pageable pageable) {
+            List<String> seguimiento, Pageable pageable) {
         LocalDate desde = fechaInicio != null ? fechaInicio : LocalDate.of(2000, 1, 1);
         LocalDate hasta = fechaFin != null ? fechaFin : LocalDate.now();
         var spec = EjecucionSpecifications.filtrar(
-                estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad);
+                estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad,
+                seguimiento);
         return ejecucionRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
@@ -304,7 +443,11 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .findByEjecucion_IdOrderByEditadoEnAsc(entity.getId()).stream()
                 .map(EjecucionEdicionResponse::fromEntity)
                 .toList();
-        return EjecucionResponse.fromEntity(entity, evidencias, ediciones);
+        SeguimientoResponse seguimiento = hallazgoSeguimientoRepository.findByEjecucion_Id(entity.getId())
+                .filter(HallazgoSeguimientoEntity::getStatus)
+                .map(SeguimientoResponse::fromEntity)
+                .orElse(null);
+        return EjecucionResponse.fromEntity(entity, evidencias, ediciones, seguimiento);
     }
 
     @Override
@@ -324,16 +467,96 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     }
 
     @Override
-    public List<IndicadorEstacionResponse> indicadoresPorEstacion() {
-        return indicadorEstacionViewRepository.findAllByOrderByEstacionNombreAsc().stream()
-                .map(IndicadorEstacionResponse::fromEntity)
+    @Transactional(readOnly = true)
+    public List<IndicadorEstacionResponse> indicadoresPorEstacion(Integer anio, String disciplina) {
+        Map<Long, Citas> citas = contarCitas(anio, disciplina, CumplimientoView::getEstacionId);
+        Map<Long, Object[]> ejecuciones = porId(ejecucionRepository.contarPorEstacion(
+                disciplina, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31)));
+        Map<Long, Object[]> abiertos = porId(hallazgoSeguimientoRepository.abiertosPorEstacion(disciplina));
+        // Una estación desactivada sigue saliendo en los años en que tuvo citas o registros:
+        // si no, al desactivarla su histórico desaparecía del Dashboard.
+        return estacionRepository.findAllByOrderByNombreAsc().stream()
+                .filter(e -> e.getStatus() || citas.containsKey(e.getId()) || ejecuciones.containsKey(e.getId()))
+                .map(e -> {
+                    Citas c = citas.getOrDefault(e.getId(), new Citas());
+                    Object[] ej = ejecuciones.get(e.getId());
+                    return new IndicadorEstacionResponse(
+                            e.getId(), e.getNombre(), e.getTipo(),
+                            c.programado, c.cumple, c.programado - c.cumple, c.porcentaje(),
+                            entero(ej, 2), entero(ej, 3), entero(ej, 4), entero(ej, 5), entero(ej, 1),
+                            anio, c.vencidas, c.ejecutadasVencidas,
+                            entero(ej, 6), entero(abiertos.get(e.getId()), 1), e.getStatus());
+                })
                 .toList();
     }
 
     @Override
-    public List<ResumenActividadResponse> resumenPorActividad(String disciplina) {
-        return resumenActividadViewRepository.findByDisciplinaOrderByActividadNombreAsc(disciplina).stream()
-                .map(ResumenActividadResponse::fromEntity)
+    @Transactional(readOnly = true)
+    public List<ResumenActividadResponse> resumenPorActividad(String disciplina, Integer anio) {
+        Map<Long, Citas> citas = contarCitas(anio, disciplina, CumplimientoView::getActividadId);
+        Map<Long, Object[]> ejecuciones = porId(ejecucionRepository.contarPorActividad(
+                disciplina, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31)));
+        List<ActividadEntity> actividades = disciplina == null
+                ? actividadRepository.findAllByOrderByNombreAsc()
+                : actividadRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina);
+        return actividades.stream()
+                .filter(ActividadEntity::getStatus)
+                .map(a -> {
+                    Citas c = citas.getOrDefault(a.getId(), new Citas());
+                    Object[] ej = ejecuciones.get(a.getId());
+                    return new ResumenActividadResponse(
+                            a.getId(), a.getNombre(), a.getDisciplina().getCodigo(),
+                            c.programado, entero(ej, 1), entero(ej, 3), entero(ej, 4), entero(ej, 5), entero(ej, 1),
+                            anio, c.vencidas, c.ejecutadasVencidas, c.porcentaje());
+                })
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CriticidadResponse> criticidadPorEstacion(Long estacionId, String disciplina) {
+        return ejecucionRepository.criticidadPorEstacion(estacionId, disciplina).stream()
+                .map(f -> new CriticidadResponse((Long) f[0], (String) f[1], (String) f[2], entero(f, 3)))
+                .toList();
+    }
+
+    /** Citas publicadas del año agrupadas por la clave dada (estación o actividad). */
+    private Map<Long, Citas> contarCitas(Integer anio, String disciplina, Function<CumplimientoView, Long> clave) {
+        Map<Long, Citas> porClave = new HashMap<>();
+        List<CumplimientoView> filas = disciplina == null
+                ? cumplimientoViewRepository.findByAnio(anio)
+                : cumplimientoViewRepository.findByAnioAndDisciplina(anio, disciplina);
+        for (CumplimientoView v : filas) {
+            Citas c = porClave.computeIfAbsent(clave.apply(v), k -> new Citas());
+            c.programado++;
+            if (Boolean.TRUE.equals(v.getCumple())) {
+                c.cumple++;
+            }
+            if (calendario.mesCerrado(v.getAnio(), v.getMes())) {
+                c.vencidas++;
+                if (Boolean.TRUE.equals(v.getCumple())) {
+                    c.ejecutadasVencidas++;
+                }
+            }
+        }
+        return porClave;
+    }
+
+    private static Map<Long, Object[]> porId(List<Object[]> filas) {
+        return filas.stream().collect(Collectors.toMap(f -> (Long) f[0], Function.identity()));
+    }
+
+    private static int entero(Object[] fila, int columna) {
+        return fila == null || fila[columna] == null ? 0 : ((Number) fila[columna]).intValue();
+    }
+
+    private static final class Citas {
+        int programado, cumple, vencidas, ejecutadasVencidas;
+
+        /** ejecutadas / vencidas × 100 con un decimal; null si todavía no hay citas vencidas. */
+        BigDecimal porcentaje() {
+            return vencidas == 0 ? null
+                    : BigDecimal.valueOf(100.0 * ejecutadasVencidas / vencidas).setScale(1, RoundingMode.HALF_UP);
+        }
     }
 }

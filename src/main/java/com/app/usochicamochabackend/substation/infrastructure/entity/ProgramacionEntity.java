@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.substation.infrastructure.entity;
 
+import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -34,4 +35,30 @@ public class ProgramacionEntity {
 
     @Builder.Default
     private Boolean status = true;
+
+    /** BORRADOR / PUBLICADA / RETIRADA (CHECK en BD). Solo las PUBLICADA llegan al móvil. */
+    @Column(nullable = false, length = 12)
+    @Builder.Default
+    private String estado = PUBLICADA;
+
+    /** Sobre una PUBLICADA: "se quitará al publicar". El móvil la sigue viendo hasta publicar. */
+    @Column(name = "pendiente_retiro", nullable = false)
+    @Builder.Default
+    private Boolean pendienteRetiro = false;
+
+    @ManyToOne
+    @JoinColumn(name = "publicada_en_id")
+    private PublicacionEntity publicadaEn;
+
+    @ManyToOne
+    @JoinColumn(name = "retirada_en_id")
+    private PublicacionEntity retiradaEn;
+
+    @ManyToOne
+    @JoinColumn(name = "creada_por")
+    private UserEntity creadaPor;
+
+    public static final String BORRADOR = "BORRADOR";
+    public static final String PUBLICADA = "PUBLICADA";
+    public static final String RETIRADA = "RETIRADA";
 }

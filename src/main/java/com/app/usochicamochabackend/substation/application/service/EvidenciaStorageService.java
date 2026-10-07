@@ -12,7 +12,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Locale;
-import java.util.Set;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -24,7 +24,11 @@ import java.util.UUID;
 public class EvidenciaStorageService {
 
     private static final long MAX_BYTES = 15 * 1024 * 1024L;
-    private static final Set<String> ALLOWED_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
+    /** Tipos permitidos y la extensión con la que se guardan (nunca la del nombre original). */
+    private static final Map<String, String> EXTENSION_POR_TIPO = Map.of(
+            "image/jpeg", ".jpg",
+            "image/png", ".png",
+            "image/webp", ".webp");
 
     private final Path uploadsRoot;
 
@@ -49,18 +53,22 @@ public class EvidenciaStorageService {
             throw new IllegalArgumentException("El archivo supera el tamaño máximo permitido (15 MB).");
         }
         String mime = file.getContentType() != null ? file.getContentType().toLowerCase(Locale.ROOT) : "";
-        if (!ALLOWED_TYPES.contains(mime)) {
+        if (!EXTENSION_POR_TIPO.containsKey(mime)) {
             throw new IllegalArgumentException("Tipo de archivo no permitido. Use JPEG, PNG o WebP.");
         }
 
         byte[] bytes = file.getBytes();
+        // El Content-Type lo declara el cliente: se comprueba que el contenido sea de verdad
+        // esa imagen. Sin esto, un HTML enviado como image/png se guardaba y se servía.
+        if (!contenidoCoincide(mime, bytes)) {
+            throw new IllegalArgumentException("El archivo no es una imagen JPEG, PNG o WebP válida.");
+        }
         String hash = sha256Hex(bytes);
 
         Path dir = uploadsRoot.resolve("subestaciones").resolve("ejecuciones").resolve(String.valueOf(ejecucionId));
         Files.createDirectories(dir);
 
-        String ext = resolveExtension(file.getOriginalFilename(), mime);
-        String fileName = UUID.randomUUID() + ext;
+        String fileName = UUID.randomUUID() + EXTENSION_POR_TIPO.get(mime);
         Path destino = dir.resolve(fileName);
 
         Files.write(destino, bytes);
@@ -96,14 +104,25 @@ public class EvidenciaStorageService {
         }
     }
 
-    private static String resolveExtension(String originalFilename, String mime) {
-        if (originalFilename != null && originalFilename.contains(".")) {
-            return originalFilename.substring(originalFilename.lastIndexOf('.')).toLowerCase(Locale.ROOT);
-        }
+    /** Firma de los primeros bytes de cada formato permitido. */
+    static boolean contenidoCoincide(String mime, byte[] b) {
         return switch (mime) {
-            case "image/png" -> ".png";
-            case "image/webp" -> ".webp";
-            default -> ".jpg";
+            case "image/jpeg" -> empiezaCon(b, 0, 0xFF, 0xD8, 0xFF);
+            case "image/png" -> empiezaCon(b, 0, 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A);
+            case "image/webp" -> empiezaCon(b, 0, 'R', 'I', 'F', 'F') && empiezaCon(b, 8, 'W', 'E', 'B', 'P');
+            default -> false;
         };
+    }
+
+    private static boolean empiezaCon(byte[] b, int desde, int... firma) {
+        if (b.length < desde + firma.length) {
+            return false;
+        }
+        for (int i = 0; i < firma.length; i++) {
+            if ((b[desde + i] & 0xFF) != firma[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 }

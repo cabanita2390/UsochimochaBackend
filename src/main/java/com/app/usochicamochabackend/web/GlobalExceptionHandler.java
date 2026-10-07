@@ -1,13 +1,19 @@
 package com.app.usochicamochabackend.web;
 
+import com.app.usochicamochabackend.exception.BadRequestException;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.exception.UserSoftDeletedConflictException;
 import com.app.usochicamochabackend.exception.VehicleSoftDeletedConflictException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -33,6 +39,15 @@ public class GlobalExceptionHandler {
         response.put("error", ex.getMessage() != null ? ex.getMessage() : "Argumento inválido");
         response.put("status", HttpStatus.BAD_REQUEST.value());
         return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * Validaciones de negocio (tipo de mantenimiento, resultado, observaciones…). Sin esto caían
+     * en {@link #handleGeneralException} y respondían 500 "Unexpected error: …".
+     */
+    @ExceptionHandler(BadRequestException.class)
+    public ResponseEntity<String> handleBadRequest(BadRequestException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -126,12 +141,47 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errors);
     }
 
+    /** Parámetro obligatorio ausente (ej. ?anio=): antes caía en el 500 genérico. */
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<String> handleMissingParameter(MissingServletRequestParameterException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("Falta el parámetro obligatorio '" + ex.getParameterName() + "'.");
+    }
+
+    /** Parámetro o variable de ruta con un tipo inválido (ej. ?anio=abc, /citas/abc). */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<String> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("Valor inválido para '" + ex.getName() + "': " + ex.getValue());
+    }
+
+    /** Cuerpo JSON ilegible o con tipos incorrectos: no se expone el detalle del parser. */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<String> handleNotReadable(HttpMessageNotReadableException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("El cuerpo de la petición no es un JSON válido o tiene datos del tipo incorrecto.");
+    }
+
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<Map<String, Object>> handleHttpMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex) {
         Map<String, Object> response = new HashMap<>();
         response.put("error", "Tipo de contenido no soportado. Use application/json");
         response.put("contentType", ex.getContentType());
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(response);
+    }
+
+    /** Archivo por encima del límite de subida (15 MB por archivo, 20 MB por petición). */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<String> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body("El archivo supera el tamaño máximo permitido (15 MB).");
+    }
+
+    /** ?sort= con un campo que no existe en la entidad (ej. ?sort=noexiste). */
+    @ExceptionHandler(PropertyReferenceException.class)
+    public ResponseEntity<String> handlePropertyReference(PropertyReferenceException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("Campo de ordenamiento inválido: " + ex.getPropertyName());
     }
 
     @ExceptionHandler(Exception.class)

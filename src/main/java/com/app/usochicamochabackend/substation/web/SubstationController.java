@@ -1,12 +1,11 @@
 package com.app.usochicamochabackend.substation.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
-import com.app.usochicamochabackend.substation.application.dto.ActividadResponse;
+import com.app.usochicamochabackend.substation.application.dto.CriticidadResponse;
 import com.app.usochicamochabackend.substation.application.dto.CumplimientoResponse;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionEditRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionResponse;
-import com.app.usochicamochabackend.substation.application.dto.EstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.EvidenciaResponse;
 import com.app.usochicamochabackend.substation.application.dto.IndicadorEstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ProgramacionResponse;
@@ -14,9 +13,11 @@ import com.app.usochicamochabackend.substation.application.dto.ResumenActividadR
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
+import com.app.usochicamochabackend.substation.application.service.CalendarioMantenimiento;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
@@ -40,18 +41,7 @@ public class SubstationController {
     private final SubstationCatalogUseCase catalogUseCase;
     private final SubstationEjecucionUseCase ejecucionUseCase;
     private final SubstationIndicadoresUseCase indicadoresUseCase;
-
-    @GetMapping("/estaciones")
-    @Operation(summary = "Listar estaciones activas")
-    public ResponseEntity<List<EstacionResponse>> listarEstaciones() {
-        return ResponseEntity.ok(catalogUseCase.listarEstaciones());
-    }
-
-    @GetMapping("/actividades")
-    @Operation(summary = "Listar actividades del catálogo habilitadas para captura móvil, por disciplina")
-    public ResponseEntity<List<ActividadResponse>> listarActividades(@RequestParam String disciplina) {
-        return ResponseEntity.ok(catalogUseCase.listarActividadesCapturables(disciplina));
-    }
+    private final CalendarioMantenimiento calendario;
 
     @GetMapping("/programacion")
     @Operation(summary = "Citas del cronograma para una estación+mes+disciplina")
@@ -69,7 +59,15 @@ public class SubstationController {
             @RequestBody EjecucionRequest request,
             Authentication authentication) throws URISyntaxException {
         UserPrincipal usuario = (UserPrincipal) authentication.getPrincipal();
-        EjecucionResponse saved = ejecucionUseCase.registrarEjecucion(request, usuario);
+        EjecucionResponse saved;
+        try {
+            saved = ejecucionUseCase.registrarEjecucion(request, usuario);
+        } catch (DataIntegrityViolationException e) {
+            // Dos envíos simultáneos del mismo registro (reintento del móvil mientras el primero
+            // seguía en curso): el segundo choca con el índice único de uuidCliente. Se responde
+            // con el que ya quedó guardado; un 409 haría que el móvil lo marcara como fallido.
+            saved = ejecucionUseCase.buscarPorUuidCliente(request.uuidCliente()).orElseThrow(() -> e);
+        }
         return ResponseEntity.created(new URI("/api/v1/substation/ejecuciones/" + saved.id())).body(saved);
     }
 
@@ -109,7 +107,9 @@ public class SubstationController {
             description = "Sin estacionId: todas las estaciones. Con estacionId: solo esa estación. "
                     + "esProgramada, actividadId, tipoMantenimiento y tipoActividad son opcionales. "
                     + "resultado acepta uno o varios valores separados por coma (ej. resultado=CON_HALLAZGOS,"
-                    + "REQUIERE_INTERVENCION para el preset 'solo hallazgos' de la pantalla de Ejecuciones).")
+                    + "REQUIERE_INTERVENCION para el preset 'solo hallazgos' de la pantalla de Ejecuciones). "
+                    + "seguimiento filtra por estado del hallazgo (ej. seguimiento=ABIERTO,EN_PROCESO para "
+                    + "el chip 'Solo hallazgos abiertos').")
     public ResponseEntity<Page<EjecucionResponse>> listarEjecuciones(
             @RequestParam(required = false) Long estacionId,
             @RequestParam(required = false) LocalDate fechaInicio,
@@ -119,10 +119,11 @@ public class SubstationController {
             @RequestParam(required = false) Long actividadId,
             @RequestParam(required = false) String tipoMantenimiento,
             @RequestParam(required = false) String tipoActividad,
+            @RequestParam(required = false) List<String> seguimiento,
             Pageable pageable) {
         return ResponseEntity.ok(ejecucionUseCase.listarEjecuciones(
                 estacionId, fechaInicio, fechaFin, esProgramada,
-                resultado, actividadId, tipoMantenimiento, tipoActividad, pageable));
+                resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, pageable));
     }
 
     @GetMapping("/indicadores/cumplimiento")
@@ -140,14 +141,38 @@ public class SubstationController {
     }
 
     @GetMapping("/indicadores/por-estacion")
-    @Operation(summary = "Resumen de cumplimiento por estación (% cumplimiento, desglose programado/no programado)")
-    public ResponseEntity<List<IndicadorEstacionResponse>> indicadoresPorEstacion() {
-        return ResponseEntity.ok(indicadoresUseCase.indicadoresPorEstacion());
+    @Operation(summary = "Dashboard de estaciones",
+            description = "Una fila por estación activa con lo publicado y lo ejecutado del año y la disciplina. "
+                    + "% de cumplimiento = ejecutadasVencidas / vencidas (null si aún no hay citas vencidas). "
+                    + "anio: por defecto el actual; disciplina: sin ella, todas las disciplinas.")
+    public ResponseEntity<List<IndicadorEstacionResponse>> indicadoresPorEstacion(
+            @RequestParam(required = false) Integer anio,
+            @RequestParam(required = false) String disciplina) {
+        return ResponseEntity.ok(indicadoresUseCase.indicadoresPorEstacion(
+                anio != null ? anio : calendario.anioActual(), disciplina));
     }
 
     @GetMapping("/indicadores/por-actividad")
-    @Operation(summary = "Resumen anual por actividad, todas las estaciones")
-    public ResponseEntity<List<ResumenActividadResponse>> resumenPorActividad(@RequestParam String disciplina) {
-        return ResponseEntity.ok(indicadoresUseCase.resumenPorActividad(disciplina));
+    @Operation(summary = "Resumen por actividad",
+            description = "Una fila por actividad activa de la disciplina, con lo publicado y lo ejecutado del año. "
+                    + "Mismo % de cumplimiento que el Dashboard. anio: por defecto el actual; "
+                    + "disciplina: sin ella, las actividades de todas las disciplinas.")
+    public ResponseEntity<List<ResumenActividadResponse>> resumenPorActividad(
+            @RequestParam(required = false) String disciplina,
+            @RequestParam(required = false) Integer anio) {
+        return ResponseEntity.ok(indicadoresUseCase.resumenPorActividad(
+                disciplina, anio != null ? anio : calendario.anioActual()));
+    }
+
+    @GetMapping("/indicadores/criticidad")
+    @Operation(summary = "Actividades más críticas de una estación",
+            description = "Intervenciones acumuladas (todos los años) por actividad en la estación, de más a menos. "
+                    + "Intervención = ejecución con actividad del catálogo; las libres no cuentan. "
+                    + "Para el bloque \"Actividades más críticas\" del Detalle por estación. "
+                    + "disciplina: sin ella, todas.")
+    public ResponseEntity<List<CriticidadResponse>> criticidadPorEstacion(
+            @RequestParam Long estacionId,
+            @RequestParam(required = false) String disciplina) {
+        return ResponseEntity.ok(indicadoresUseCase.criticidadPorEstacion(estacionId, disciplina));
     }
 }

@@ -1,7 +1,10 @@
 package com.app.usochicamochabackend.substation.infrastructure.repository;
 
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.HallazgoSeguimientoEntity;
 import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.time.LocalDate;
@@ -22,7 +25,8 @@ public final class EjecucionSpecifications {
 
     public static Specification<EjecucionEntity> filtrar(
             Long estacionId, LocalDate desde, LocalDate hasta, Boolean esProgramada,
-            List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad) {
+            List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
+            List<String> seguimiento) {
         return (root, query, cb) -> {
             List<Predicate> predicados = new ArrayList<>();
             predicados.add(cb.between(root.get("fecha"), desde, hasta));
@@ -43,6 +47,17 @@ public final class EjecucionSpecifications {
             }
             if (tipoActividad != null) {
                 predicados.add(cb.equal(root.get("tipoActividad"), tipoActividad));
+            }
+            if (seguimiento != null && !seguimiento.isEmpty()) {
+                // EjecucionEntity no conoce su seguimiento (la FK está del lado del seguimiento):
+                // EXISTS (seguimiento activo de esta ejecución con alguno de los estados pedidos).
+                Subquery<Long> sq = query.subquery(Long.class);
+                Root<HallazgoSeguimientoEntity> seg = sq.from(HallazgoSeguimientoEntity.class);
+                sq.select(seg.get("id")).where(
+                        cb.equal(seg.get("ejecucion"), root),
+                        seg.get("estado").in(seguimiento),
+                        cb.isTrue(seg.get("status")));
+                predicados.add(cb.exists(sq));
             }
             return cb.and(predicados.toArray(new Predicate[0]));
         };

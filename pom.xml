@@ -135,6 +135,11 @@
                     <!-- Excluye tests @Tag("e2e") del reporte unitario (objetivo 3.1).
                          Para correr solo e2e: mvn test -Dgroups=e2e -->
                     <excludedGroups>e2e</excludedGroups>
+                    <!-- Misma zona horaria que producción (la fija UsochicamochaBackendApplication):
+                         en el runner de CI la JVM queda en UTC y las fechas leídas con
+                         hibernate.jdbc.time_zone=America/Bogota se corrían un día.
+                         @{argLine} conserva el agente de JaCoCo. -->
+                    <argLine>@{argLine} -Duser.timezone=America/Bogota</argLine>
                 </configuration>
             </plugin>
             <plugin>

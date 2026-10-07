@@ -25,6 +25,10 @@ public class ActividadEntity {
     @JoinColumn(name = "disciplina_id", nullable = false)
     private DisciplinaEntity disciplina;
 
+    /** Para los chips de la grilla del Cronograma; null → la web recorta el nombre. */
+    @Column(name = "nombre_corto", length = 24)
+    private String nombreCorto;
+
     @Column(name = "captura_movil_habilitada", nullable = false)
     @Builder.Default
     private Boolean capturaMovilHabilitada = false;

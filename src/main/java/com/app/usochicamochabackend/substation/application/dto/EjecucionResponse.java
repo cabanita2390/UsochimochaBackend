@@ -29,10 +29,13 @@ public record EjecucionResponse(
         List<EvidenciaResponse> evidencias,
         @Schema(description = "true si el resultado no es CONFORME y todavía no tiene ninguna evidencia adjunta")
         Boolean evidenciaPendiente,
-        @Schema(description = "Historial de ediciones, orden cronológico") List<EjecucionEdicionResponse> ediciones
+        @Schema(description = "Historial de ediciones, orden cronológico") List<EjecucionEdicionResponse> ediciones,
+        @Schema(description = "Cita del cronograma que se ejecutó; null en registros libres") Long programacionId,
+        @Schema(description = "Seguimiento del hallazgo; null si el resultado es CONFORME") SeguimientoResponse seguimiento
 ) {
     public static EjecucionResponse fromEntity(
-            EjecucionEntity entity, List<EvidenciaResponse> evidencias, List<EjecucionEdicionResponse> ediciones) {
+            EjecucionEntity entity, List<EvidenciaResponse> evidencias, List<EjecucionEdicionResponse> ediciones,
+            SeguimientoResponse seguimiento) {
         boolean evidenciaPendiente = !"CONFORME".equals(entity.getResultado()) && evidencias.isEmpty();
         return new EjecucionResponse(
                 entity.getId(),
@@ -55,6 +58,8 @@ public record EjecucionResponse(
                 entity.getUuidCliente(),
                 evidencias,
                 evidenciaPendiente,
-                ediciones);
+                ediciones,
+                entity.getProgramacion() != null ? entity.getProgramacion().getId() : null,
+                seguimiento);
     }
 }

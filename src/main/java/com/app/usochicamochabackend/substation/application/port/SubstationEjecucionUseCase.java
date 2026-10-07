@@ -18,6 +18,9 @@ public interface SubstationEjecucionUseCase {
     /** Idempotente por uuidCliente: si ya existe, retorna la ejecución existente sin duplicar. */
     EjecucionResponse registrarEjecucion(EjecucionRequest request, UserPrincipal usuario);
 
+    /** La ejecución registrada con ese uuidCliente, si existe. */
+    java.util.Optional<EjecucionResponse> buscarPorUuidCliente(java.util.UUID uuidCliente);
+
     /** Corrige una ejecución ya registrada; exige motivo y deja rastro en el historial. */
     EjecucionResponse editarEjecucion(Long id, EjecucionEditRequest request, UserPrincipal usuario);
 
@@ -36,10 +39,11 @@ public interface SubstationEjecucionUseCase {
      * {@code tipoActividad} son opcionales: si son null (o vacío para {@code resultado}), no
      * filtran por ese campo. {@code resultado} admite varios valores (coincide si el registro
      * tiene cualquiera de ellos) — así el preset "solo hallazgos" pide CON_HALLAZGOS y
-     * REQUIERE_INTERVENCION en una sola llamada.
+     * REQUIERE_INTERVENCION en una sola llamada. {@code seguimiento} (SUB-03) filtra por estado
+     * del hallazgo (ABIERTO, EN_PROCESO, RESUELTO); las ejecuciones CONFORME nunca coinciden.
      */
     Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
-            Pageable pageable);
+            List<String> seguimiento, Pageable pageable);
 }

@@ -7,4 +7,14 @@ import java.util.List;
 
 public interface ActividadRepository extends JpaRepository<ActividadEntity, Long> {
     List<ActividadEntity> findByDisciplina_CodigoAndCapturaMovilHabilitadaTrueAndStatusTrueOrderByNombreAsc(String disciplinaCodigo);
+
+    List<ActividadEntity> findByCapturaMovilHabilitadaTrueAndStatusTrueOrderByNombreAsc();
+
+    List<ActividadEntity> findByDisciplina_CodigoOrderByNombreAsc(String disciplinaCodigo);
+
+    List<ActividadEntity> findAllByOrderByNombreAsc();
+
+    boolean existsByNombreIgnoreCaseAndDisciplina_Id(String nombre, Long disciplinaId);
+
+    boolean existsByNombreIgnoreCaseAndDisciplina_IdAndIdNot(String nombre, Long disciplinaId, Long id);
 }
