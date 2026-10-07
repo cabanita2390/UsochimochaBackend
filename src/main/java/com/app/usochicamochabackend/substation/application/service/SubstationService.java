@@ -532,9 +532,13 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             if (Boolean.TRUE.equals(v.getCumple())) {
                 c.cumple++;
             }
-            if (calendario.mesCerrado(v.getAnio(), v.getMes())) {
+            // Entra al %: la cita de un mes ya cerrado (se cumplió o no) y la que ya se ejecutó
+            // aunque su mes siga abierto. La pendiente del mes en curso o futuro todavía no
+            // cuenta: no se puede dar por incumplida, pero lo ya hecho no debe quedar en "0 de 0".
+            boolean ejecutada = Boolean.TRUE.equals(v.getCumple());
+            if (ejecutada || calendario.mesCerrado(v.getAnio(), v.getMes())) {
                 c.vencidas++;
-                if (Boolean.TRUE.equals(v.getCumple())) {
+                if (ejecutada) {
                     c.ejecutadasVencidas++;
                 }
             }
@@ -553,7 +557,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     private static final class Citas {
         int programado, cumple, vencidas, ejecutadasVencidas;
 
-        /** ejecutadas / vencidas × 100 con un decimal; null si todavía no hay citas vencidas. */
+        /** ejecutadas / evaluables × 100 con un decimal; null si todavía no hay citas evaluables. */
         BigDecimal porcentaje() {
             return vencidas == 0 ? null
                     : BigDecimal.valueOf(100.0 * ejecutadasVencidas / vencidas).setScale(1, RoundingMode.HALF_UP);

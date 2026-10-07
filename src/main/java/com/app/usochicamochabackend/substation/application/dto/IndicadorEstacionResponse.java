@@ -6,8 +6,8 @@ import java.math.BigDecimal;
 
 /**
  * Dashboard de estaciones: todo del año y la disciplina pedidos, y solo del cronograma
- * publicado. % de cumplimiento = ejecutadasVencidas / vencidas (las citas del mes en curso y
- * de meses futuros no cuentan como incumplidas).
+ * publicado. % de cumplimiento = ejecutadasVencidas / vencidas (las citas pendientes del mes en
+ * curso y de meses futuros no cuentan como incumplidas; las ya ejecutadas sí suman).
  */
 public record IndicadorEstacionResponse(
         @Schema(description = "ID de la estación", example = "1") Long estacionId,
@@ -23,8 +23,8 @@ public record IndicadorEstacionResponse(
         @Schema(description = "Ejecuciones del año de tipo INSPECCION") Integer ejecutadoInspeccion,
         @Schema(description = "Total de ejecuciones del año en la estación") Integer ejecutadoTotal,
         @Schema(description = "Año consultado", example = "2026") Integer anio,
-        @Schema(description = "Citas publicadas del año con mes cerrado") Integer vencidas,
-        @Schema(description = "De las vencidas, las que tienen ejecución") Integer ejecutadasVencidas,
+        @Schema(description = "Citas publicadas del año que ya entran al %: las de meses cerrados más las ya ejecutadas de meses abiertos") Integer vencidas,
+        @Schema(description = "De las que entran al %, las que tienen ejecución") Integer ejecutadasVencidas,
         @Schema(description = "Ejecuciones del año con resultado distinto de CONFORME") Integer conHallazgos,
         @Schema(description = "Hallazgos ABIERTO o EN_PROCESO de la estación (todos los años)") Integer hallazgosAbiertos,
         @Schema(description = "false si la estación está desactivada (solo sale si tuvo citas o registros ese año)") Boolean activa

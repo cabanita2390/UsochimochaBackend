@@ -19,8 +19,8 @@ public record ResumenActividadResponse(
         @Schema(description = "Ejecuciones del año de tipo INSPECCION") Integer inspeccion,
         @Schema(description = "Total de ejecuciones del año") Integer ejecutadoTotal,
         @Schema(description = "Año consultado", example = "2026") Integer anio,
-        @Schema(description = "Citas publicadas del año con mes cerrado") Integer vencidas,
-        @Schema(description = "De las vencidas, las que tienen ejecución") Integer ejecutadasVencidas,
+        @Schema(description = "Citas publicadas del año que ya entran al %: las de meses cerrados más las ya ejecutadas de meses abiertos") Integer vencidas,
+        @Schema(description = "De las que entran al %, las que tienen ejecución") Integer ejecutadasVencidas,
         @Schema(description = "ejecutadasVencidas / vencidas × 100, 0-100; null si no hay citas vencidas") BigDecimal porcentajeCumplimiento
 ) {
 }

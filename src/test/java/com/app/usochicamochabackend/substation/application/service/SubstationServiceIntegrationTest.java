@@ -1571,6 +1571,24 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void dashboard_citaEjecutadaDeMesAbierto_sumaAlPorcentaje_noQueda0De0() {
+        ejecutar(programar(estacionUno, actividadUno, 2030, 3), estacionUno, actividadUno);
+        programar(estacionUno, actividadUno, 2030, 9); // pendiente de un mes abierto: no cuenta
+        entityManager.flush();
+        entityManager.clear();
+
+        IndicadorEstacionResponse uno = filaDe(indicadoresUseCase.indicadoresPorEstacion(2030, "CIVIL"), estacionUno);
+        ResumenActividadResponse act = filaDe(indicadoresUseCase.resumenPorActividad("CIVIL", 2030), actividadUno);
+
+        assertEquals(2, uno.programado());
+        assertEquals(1, uno.vencidas());
+        assertEquals(1, uno.ejecutadasVencidas());
+        assertEquals(0, new java.math.BigDecimal("100.0").compareTo(uno.porcentajeCumplimiento()));
+        assertEquals(1, act.vencidas());
+        assertEquals(1, act.ejecutadasVencidas());
+    }
+
+    @Test
     void dashboard_soloEstacionesActivas() {
         estacionTres.setStatus(false);
         estacionRepository.save(estacionTres);
