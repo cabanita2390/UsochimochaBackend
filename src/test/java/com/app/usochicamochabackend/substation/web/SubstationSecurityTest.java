@@ -75,6 +75,7 @@ class SubstationSecurityTest {
     @CsvSource({
             // Lecturas: móvil y web
             "GET,    /api/v1/substation/estaciones,                 OPERARIO,             true",
+            "GET,    /api/v1/substation/cronograma/anios,           SUPERVISOR_OPERATIVO, true",
             "GET,    /api/v1/substation/observaciones/frecuentes?disciplina=CIVIL, OPERARIO, true",
             "GET,    /api/v1/substation/indicadores/cumplimiento,   OPERARIO,             true",
             "GET,    /api/v1/substation/indicadores/por-estacion,   SUPERVISOR_OPERATIVO, true",

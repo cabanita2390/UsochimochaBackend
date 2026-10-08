@@ -1729,6 +1729,20 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void aniosDelCronograma_actualYSiguienteProgramables_yAniosConCitasORegistros() {
+        programar(estacionUno, actividadUno, 2020, 3);                 // cita de un año viejo
+        ejecucionUseCase.registrarEjecucion(ejecucionLibre("CONFORME", LocalDate.of(2019, 5, 5), estacionUno.getId(), UUID.randomUUID()), usuario);
+        entityManager.flush();
+
+        var anios = cronogramaUseCase.anios();
+
+        assertEquals(2026, anios.anioActual());                        // reloj fijo del test: 15-sep-2026
+        assertEquals(List.of(2026, 2027), anios.programables());
+        assertTrue(anios.conDatos().containsAll(List.of(2020, 2019)));
+        assertEquals(anios.conDatos().stream().sorted(java.util.Comparator.reverseOrder()).toList(), anios.conDatos());
+    }
+
+    @Test
     void registrarEjecucion_avisaALaWeb() {
         ejecutar(programar(estacionUno, actividadUno, 2026, 9), estacionUno, actividadUno);
 

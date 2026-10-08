@@ -46,6 +46,12 @@ public class CalendarioMantenimiento {
         return hoy().getMonthValue();
     }
 
+    /** Se programa el año actual y el siguiente (en 2027: 2027 y 2028), nunca uno pasado. */
+    public boolean esAnioProgramable(int anio) {
+        int actual = anioActual();
+        return anio == actual || anio == actual + 1;
+    }
+
     public boolean mesCerrado(int anio, int mes) {
         int actual = anioActual();
         return anio < actual || (anio == actual && mes < mesActual());

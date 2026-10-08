@@ -4,6 +4,7 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.substation.application.dto.AsignacionResultado;
 import com.app.usochicamochabackend.substation.application.dto.AsignarCitasRequest;
 import com.app.usochicamochabackend.substation.application.dto.CopiarAnioRequest;
+import com.app.usochicamochabackend.substation.application.dto.AniosCronogramaResponse;
 import com.app.usochicamochabackend.substation.application.dto.CronogramaResponse;
 import com.app.usochicamochabackend.substation.application.dto.DescarteResultado;
 import com.app.usochicamochabackend.substation.application.dto.PublicacionResponse;
@@ -17,6 +18,9 @@ public interface SubstationCronogramaUseCase {
 
     /** Grilla del año: citas en BORRADOR y PUBLICADA, estado de publicación y mes actual. disciplina es opcional. */
     CronogramaResponse obtenerCronograma(Integer anio, String disciplina);
+
+    /** Año actual, años programables (actual y siguiente) y años con citas o registros. */
+    AniosCronogramaResponse anios();
 
     /** Crea citas en BORRADOR. Omite (sin fallar) duplicados, meses cerrados y estaciones inactivas. */
     AsignacionResultado asignar(AsignarCitasRequest request, UserPrincipal usuario);

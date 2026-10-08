@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.substation.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import com.app.usochicamochabackend.substation.application.dto.AniosCronogramaResponse;
 import com.app.usochicamochabackend.substation.application.dto.AsignacionResultado;
 import com.app.usochicamochabackend.substation.application.dto.AsignarCitasRequest;
 import com.app.usochicamochabackend.substation.application.dto.CopiarAnioRequest;
@@ -92,6 +93,14 @@ public class SubstationCronogramaController {
                     + "a la normalidad. Nunca toca citas con ejecución (se cuentan en conservadasConEjecucion).")
     public ResponseEntity<DescarteResultado> descartarBorrador(@RequestParam Integer anio, Authentication authentication) {
         return ResponseEntity.ok(cronogramaUseCase.descartarBorrador(anio, usuario(authentication)));
+    }
+
+    @GetMapping("/anios")
+    @Operation(summary = "Años del cronograma",
+            description = "Año actual del servidor, los programables (actual y siguiente: en 2027 → 2027 y 2028) y los "
+                    + "años con citas o registros, para que la web ofrezca consultar años anteriores.")
+    public ResponseEntity<AniosCronogramaResponse> anios() {
+        return ResponseEntity.ok(cronogramaUseCase.anios());
     }
 
     @GetMapping("/borrador/resumen")
