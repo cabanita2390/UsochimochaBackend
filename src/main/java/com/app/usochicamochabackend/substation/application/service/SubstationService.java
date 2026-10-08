@@ -431,12 +431,12 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     public Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
-            List<String> seguimiento, Pageable pageable) {
+            List<String> seguimiento, String disciplina, Pageable pageable) {
         LocalDate desde = fechaInicio != null ? fechaInicio : LocalDate.of(2000, 1, 1);
         LocalDate hasta = fechaFin != null ? fechaFin : LocalDate.now();
         var spec = EjecucionSpecifications.filtrar(
                 estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad,
-                seguimiento);
+                seguimiento, disciplina);
         return ejecucionRepository.findAll(spec, pageable).map(this::toResponse);
     }
 

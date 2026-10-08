@@ -510,10 +510,28 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 estacionUno.getId(), LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, null, null, null, null, PageRequest.of(0, 10));
+                null, null, null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getTotalElements() >= 1);
         assertTrue(pagina.getContent().stream().allMatch(e -> e.estacionId().equals(estacionUno.getId())));
+    }
+
+    @Test
+    void listarEjecuciones_filtraPorDisciplina_comoElRestoDeLasPestanas() {
+        ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(2030, 5, 1), 5, 1, estacionUno.getId(), "CIVIL",
+                "NO_PROGRAMADO", "INSPECCION", null, null, "NO_PROGRAMADO",
+                "CONFORME", "obs", "algo", UUID.randomUUID()), usuario);
+
+        var civil = ejecucionUseCase.listarEjecuciones(
+                null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
+                null, null, null, null, null, "CIVIL", PageRequest.of(0, 10));
+        var electrico = ejecucionUseCase.listarEjecuciones(
+                null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
+                null, null, null, null, null, "ELECTRICO", PageRequest.of(0, 10));
+
+        assertEquals(1, civil.getTotalElements());
+        assertEquals(0, electrico.getTotalElements());
     }
 
     @Test
@@ -535,7 +553,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, null, null, null, null, PageRequest.of(0, 10));
+                null, null, null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getTotalElements() >= 2);
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.estacionId().equals(estacionUno.getId())));
@@ -562,7 +580,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), false,
-                null, null, null, null, null, PageRequest.of(0, 10));
+                null, null, null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().allMatch(e -> Boolean.FALSE.equals(e.esProgramada())));
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(noProgramadaCreada.id())));
@@ -595,7 +613,7 @@ class SubstationServiceIntegrationTest {
         // Preset "solo hallazgos": dos valores en una sola llamada.
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                List.of("CON_HALLAZGOS", "REQUIERE_INTERVENCION"), null, null, null, null, PageRequest.of(0, 10));
+                List.of("CON_HALLAZGOS", "REQUIERE_INTERVENCION"), null, null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().noneMatch(e -> "CONFORME".equals(e.resultado())));
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(conHallazgosCreada.id())));
@@ -622,7 +640,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, actividadUno.getId(), null, null, null, PageRequest.of(0, 10));
+                null, actividadUno.getId(), null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().allMatch(e -> actividadUno.getId().equals(e.actividadId())));
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(deActividadUnoCreada.id())));
@@ -647,7 +665,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, null, "CORRECTIVO", "INSPECCION", null, PageRequest.of(0, 10));
+                null, null, "CORRECTIVO", "INSPECCION", null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().allMatch(
                 e -> "CORRECTIVO".equals(e.tipoMantenimiento()) && "INSPECCION".equals(e.tipoActividad())));
@@ -868,7 +886,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 estacionDos.getId(), dia, dia, null,
-                null, null, null, null, List.of("ABIERTO", "EN_PROCESO"), PageRequest.of(0, 10));
+                null, null, null, null, List.of("ABIERTO", "EN_PROCESO"), null, PageRequest.of(0, 10));
 
         assertEquals(2, pagina.getTotalElements());
         assertTrue(pagina.getContent().stream().map(EjecucionResponse::id).toList()
@@ -1787,7 +1805,7 @@ class SubstationServiceIntegrationTest {
 
         assertFalse(indicadoresUseCase.cumplimientoPorMes(2026, 12, "CIVIL").get(0).cumple());
         var registros = ejecucionUseCase.listarEjecuciones(null, LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 31),
-                null, null, null, null, null, null, org.springframework.data.domain.Pageable.unpaged());
+                null, null, null, null, null, null, null, org.springframework.data.domain.Pageable.unpaged());
         assertEquals(2, registros.getTotalElements());
         assertTrue(registros.stream().noneMatch(EjecucionResponse::esProgramada));
     }

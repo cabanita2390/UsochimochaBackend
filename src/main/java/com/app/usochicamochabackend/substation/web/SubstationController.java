@@ -120,10 +120,11 @@ public class SubstationController {
             @RequestParam(required = false) String tipoMantenimiento,
             @RequestParam(required = false) String tipoActividad,
             @RequestParam(required = false) List<String> seguimiento,
+            @RequestParam(required = false) String disciplina,
             Pageable pageable) {
         return ResponseEntity.ok(ejecucionUseCase.listarEjecuciones(
                 estacionId, fechaInicio, fechaFin, esProgramada,
-                resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, pageable));
+                resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, disciplina, pageable));
     }
 
     @GetMapping("/indicadores/cumplimiento")

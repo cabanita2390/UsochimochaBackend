@@ -26,7 +26,7 @@ public final class EjecucionSpecifications {
     public static Specification<EjecucionEntity> filtrar(
             Long estacionId, LocalDate desde, LocalDate hasta, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
-            List<String> seguimiento) {
+            List<String> seguimiento, String disciplina) {
         return (root, query, cb) -> {
             List<Predicate> predicados = new ArrayList<>();
             predicados.add(cb.between(root.get("fecha"), desde, hasta));
@@ -44,6 +44,9 @@ public final class EjecucionSpecifications {
             }
             if (tipoMantenimiento != null) {
                 predicados.add(cb.equal(root.get("tipoMantenimiento"), tipoMantenimiento));
+            }
+            if (disciplina != null && !disciplina.isBlank()) {
+                predicados.add(cb.equal(root.get("disciplina").get("codigo"), disciplina));
             }
             if (tipoActividad != null) {
                 predicados.add(cb.equal(root.get("tipoActividad"), tipoActividad));

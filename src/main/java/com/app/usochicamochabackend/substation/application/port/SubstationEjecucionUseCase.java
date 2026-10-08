@@ -41,9 +41,11 @@ public interface SubstationEjecucionUseCase {
      * tiene cualquiera de ellos) — así el preset "solo hallazgos" pide CON_HALLAZGOS y
      * REQUIERE_INTERVENCION en una sola llamada. {@code seguimiento} (SUB-03) filtra por estado
      * del hallazgo (ABIERTO, EN_PROCESO, RESUELTO); las ejecuciones CONFORME nunca coinciden.
+     * {@code disciplina} (código, p. ej. CIVIL) es opcional: sin ella, todas las disciplinas,
+     * igual que el Dashboard y el Resumen.
      */
     Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
-            List<String> seguimiento, Pageable pageable);
+            List<String> seguimiento, String disciplina, Pageable pageable);
 }
