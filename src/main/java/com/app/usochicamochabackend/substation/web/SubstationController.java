@@ -9,6 +9,7 @@ import com.app.usochicamochabackend.substation.application.dto.EjecucionResponse
 import com.app.usochicamochabackend.substation.application.dto.EvidenciaResponse;
 import com.app.usochicamochabackend.substation.application.dto.IndicadorEstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ProgramacionResponse;
+import com.app.usochicamochabackend.substation.application.dto.ObservacionesFrecuentesResponse;
 import com.app.usochicamochabackend.substation.application.dto.ResumenActividadResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
@@ -100,6 +101,16 @@ public class SubstationController {
     @Operation(summary = "Ejecución registrada para una cita del cronograma", description = "Para 'ver detalle' desde una cita ya marcada como cumplida en el cronograma.")
     public ResponseEntity<EjecucionResponse> obtenerEjecucionPorProgramacion(@PathVariable Long programacionId) {
         return ResponseEntity.ok(ejecucionUseCase.obtenerEjecucionPorProgramacion(programacionId));
+    }
+
+    @GetMapping("/observaciones/frecuentes")
+    @Operation(summary = "Observaciones más usadas por tipo de actividad",
+            description = "Sugerencias del formulario del móvil, calculadas de los registros reales (no una lista "
+                    + "fija). limite: 1–10, por defecto 5; disciplina opcional (sin ella, todas).")
+    public ResponseEntity<List<ObservacionesFrecuentesResponse>> observacionesFrecuentes(
+            @RequestParam(required = false) String disciplina,
+            @RequestParam(required = false) Integer limite) {
+        return ResponseEntity.ok(ejecucionUseCase.observacionesFrecuentes(disciplina, limite));
     }
 
     @GetMapping("/ejecuciones")

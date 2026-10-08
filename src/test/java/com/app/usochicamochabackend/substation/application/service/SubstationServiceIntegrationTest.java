@@ -1673,6 +1673,42 @@ class SubstationServiceIntegrationTest {
         assertEquals(0, otroAnio.estaciones());
     }
 
+    private void conObservacion(String tipoActividad, String observaciones, LocalDate fecha) {
+        ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                fecha, fecha.getMonthValue(), 1, estacionUno.getId(), "CIVIL",
+                "PREVENTIVO", tipoActividad, actividadUno.getId(), null, null,
+                "CONFORME", observaciones, null, UUID.randomUUID()), usuario);
+    }
+
+    @Test
+    void observacionesFrecuentes_top5PorTipo_agrupaSinDistinguirMayusculas_yFiltraDisciplina() {
+        LocalDate d = LocalDate.of(2026, 3, 1);
+        for (int i = 0; i < 4; i++) conObservacion("MANTENIMIENTO", "Se realiza limpieza de pozo", d.plusDays(i));
+        conObservacion("MANTENIMIENTO", "  se realiza LIMPIEZA de pozo ", d.plusDays(9)); // la misma, otra redacción
+        for (int i = 0; i < 3; i++) conObservacion("MANTENIMIENTO", "Se pinta la baranda", d.plusDays(i));
+        for (String unica : List.of("Corte de maleza", "Resane de fisura", "Cambio de chapa", "Limpieza de canal"))
+            conObservacion("MANTENIMIENTO", unica, d);
+        conObservacion("MANTENIMIENTO", "ok", d); // demasiado corta: no es una sugerencia útil
+        for (int i = 0; i < 9; i++) conObservacion("MANTENIMIENTO", "No aplica", d); // no dice nada
+        conObservacion("INSPECCION", "Sin novedades", d);
+        conObservacion("INSPECCION", "Sin novedades", d.plusDays(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        var civil = ejecucionUseCase.observacionesFrecuentes("CIVIL", null);
+        var mant = civil.stream().filter(o -> o.tipoActividad().equals("MANTENIMIENTO")).findFirst().orElseThrow();
+        var insp = civil.stream().filter(o -> o.tipoActividad().equals("INSPECCION")).findFirst().orElseThrow();
+
+        assertEquals(5, mant.textos().size());                            // top 5 por defecto
+        assertEquals("se realiza LIMPIEZA de pozo", mant.textos().get(0)); // 5 veces; la redacción más reciente
+        assertEquals("Se pinta la baranda", mant.textos().get(1));         // 3 veces
+        assertTrue(mant.textos().stream().noneMatch(t -> t.equals("ok") || t.equals("No aplica")));
+        assertEquals(List.of("Sin novedades"), insp.textos());
+        assertEquals(2, ejecucionUseCase.observacionesFrecuentes("CIVIL", 2).stream()
+                .filter(o -> o.tipoActividad().equals("MANTENIMIENTO")).findFirst().orElseThrow().textos().size());
+        assertTrue(ejecucionUseCase.observacionesFrecuentes("ELECTRICO", null).isEmpty());
+    }
+
     @Test
     void registrarEjecucion_avisaALaWeb() {
         ejecutar(programar(estacionUno, actividadUno, 2026, 9), estacionUno, actividadUno);

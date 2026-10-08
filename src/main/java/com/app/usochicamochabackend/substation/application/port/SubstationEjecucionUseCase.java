@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.substation.application.dto.EjecucionEditRequ
 import com.app.usochicamochabackend.substation.application.dto.EjecucionRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionResponse;
 import com.app.usochicamochabackend.substation.application.dto.EvidenciaResponse;
+import com.app.usochicamochabackend.substation.application.dto.ObservacionesFrecuentesResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
@@ -44,6 +45,12 @@ public interface SubstationEjecucionUseCase {
      * {@code disciplina} (código, p. ej. CIVIL) es opcional: sin ella, todas las disciplinas,
      * igual que el Dashboard y el Resumen.
      */
+    /**
+     * Las {@code limite} observaciones más usadas por tipo de actividad (1–10; por defecto 5), para
+     * las sugerencias del formulario del móvil. {@code disciplina} opcional (sin ella, todas).
+     */
+    List<ObservacionesFrecuentesResponse> observacionesFrecuentes(String disciplina, Integer limite);
+
     Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,

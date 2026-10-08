@@ -432,6 +432,19 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<ObservacionesFrecuentesResponse> observacionesFrecuentes(String disciplina, Integer limite) {
+        int tope = limite == null ? 5 : Math.max(1, Math.min(10, limite));
+        Map<String, List<String>> porTipo = new java.util.LinkedHashMap<>();
+        for (Object[] fila : ejecucionRepository.observacionesFrecuentes(disciplina, tope)) {
+            porTipo.computeIfAbsent(((String) fila[0]).trim(), k -> new ArrayList<>()).add((String) fila[1]);
+        }
+        return porTipo.entrySet().stream()
+                .map(e -> new ObservacionesFrecuentesResponse(e.getKey(), e.getValue()))
+                .toList();
+    }
+
+    @Override
     public Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
