@@ -1710,6 +1710,25 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void cambioDeAnio_citaDeDiciembreCerradaEnEnero_cuentaEnElAnioDeLaCita_yNoEsImprevisto() {
+        ProgramacionEntity diciembre = programar(estacionUno, actividadUno, 2025, 12);
+        // El técnico la cierra tarde, en enero del año siguiente, desde "Vencidas" del móvil
+        EjecucionResponse r = ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(2026, 1, 12), 1, 2, estacionUno.getId(), "CIVIL",
+                "CORRECTIVO", "MANTENIMIENTO", actividadUno.getId(), diciembre.getId(), null,
+                "CONFORME", "Hecho en enero.", null, UUID.randomUUID()), usuario);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertTrue(r.esProgramada());                                   // no queda como imprevisto
+        IndicadorEstacionResponse anio2025 = filaDe(indicadoresUseCase.indicadoresPorEstacion(2025, "CIVIL"), estacionUno);
+        assertEquals(1, anio2025.programado());
+        assertEquals(1, anio2025.cumple());                             // la cita de diciembre queda cumplida
+        IndicadorEstacionResponse anio2026 = filaDe(indicadoresUseCase.indicadoresPorEstacion(2026, "CIVIL"), estacionUno);
+        assertEquals(0, anio2026.ejecutadoNoProgramado());              // y no aparece como imprevisto en 2026
+    }
+
+    @Test
     void registrarEjecucion_avisaALaWeb() {
         ejecutar(programar(estacionUno, actividadUno, 2026, 9), estacionUno, actividadUno);
 
