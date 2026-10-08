@@ -1621,6 +1621,41 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void resumenPorActividad_avanceDelAnio_estaciones_yCorteDelMesEnCurso() {
+        // Hoy (reloj fijo) es 15-sep-2026: mes en curso = septiembre, va la mitad del mes.
+        ejecutar(programar(estacionUno, actividadUno, 2026, 9), estacionUno, actividadUno);
+        programar(estacionDos, actividadUno, 2026, 9);
+        ejecutar(programar(estacionUno, actividadUno, 2026, 3), estacionUno, actividadUno); // otro mes
+        programar(estacionTres, actividadUno, 2026, 11);
+        // Imprevisto de la actividad: del catálogo, pero sin cita.
+        ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(2026, 9, 12), 9, 2, estacionTres.getId(), "CIVIL",
+                "CORRECTIVO", "MANTENIMIENTO", actividadUno.getId(), null, null,
+                "CONFORME", "Se reparó una grieta.", null, UUID.randomUUID()), usuario);
+        entityManager.flush();
+        entityManager.clear();
+
+        ResumenActividadResponse uno = filaDe(indicadoresUseCase.resumenPorActividad("CIVIL", 2026), actividadUno);
+
+        assertEquals(4, uno.programadoAnual());
+        assertEquals(2, uno.cumple());                  // avance del año: 2 de 4
+        assertEquals(3, uno.estaciones());
+        assertEquals(9, uno.mes());
+        assertEquals(2, uno.programadoMes());
+        assertEquals(1, uno.cumpleMes());
+        assertEquals(2, uno.ejecutadoTotalMes());       // la cita de septiembre + el imprevisto
+        assertEquals(1, uno.ejecutadoNoProgramadoMes());
+        assertEquals(1, uno.ejecutadoNoProgramado());   // en el año
+        assertEquals(0, new java.math.BigDecimal("50.0").compareTo(uno.porcentajeMesTranscurrido()));
+
+        ResumenActividadResponse otroAnio = filaDe(indicadoresUseCase.resumenPorActividad("CIVIL", 2030), actividadUno);
+        assertNull(otroAnio.mes());
+        assertNull(otroAnio.programadoMes());
+        assertNull(otroAnio.porcentajeMesTranscurrido());
+        assertEquals(0, otroAnio.estaciones());
+    }
+
+    @Test
     void registrarEjecucion_avisaALaWeb() {
         ejecutar(programar(estacionUno, actividadUno, 2026, 9), estacionUno, actividadUno);
 

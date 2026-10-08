@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -483,9 +484,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         Map<Long, Object[]> ejecucionesMes = anioActual
                 ? porId(ejecucionRepository.contarPorEstacion(disciplina, hoy.withDayOfMonth(1), hoy.withDayOfMonth(hoy.lengthOfMonth())))
                 : Map.of();
-        BigDecimal mesTranscurrido = anioActual
-                ? BigDecimal.valueOf(100.0 * hoy.getDayOfMonth() / hoy.lengthOfMonth()).setScale(1, RoundingMode.HALF_UP)
-                : null;
+        BigDecimal mesTranscurrido = anioActual ? mesTranscurrido(hoy) : null;
         // Una estación desactivada sigue saliendo en los años en que tuvo citas o registros:
         // si no, al desactivarla su histórico desaparecía del Dashboard.
         return estacionRepository.findAllByOrderByNombreAsc().stream()
@@ -516,6 +515,13 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         Map<Long, Citas> citas = contarCitas(anio, disciplina, CumplimientoView::getActividadId);
         Map<Long, Object[]> ejecuciones = porId(ejecucionRepository.contarPorActividad(
                 disciplina, LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31)));
+        // Mes en curso: mismo corte que el Dashboard, por actividad.
+        LocalDate hoy = calendario.hoy();
+        boolean anioActual = anio == hoy.getYear();
+        Map<Long, Object[]> ejecucionesMes = anioActual
+                ? porId(ejecucionRepository.contarPorActividad(disciplina, hoy.withDayOfMonth(1), hoy.withDayOfMonth(hoy.lengthOfMonth())))
+                : Map.of();
+        BigDecimal mesTranscurrido = anioActual ? mesTranscurrido(hoy) : null;
         List<ActividadEntity> actividades = disciplina == null
                 ? actividadRepository.findAllByOrderByNombreAsc()
                 : actividadRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina);
@@ -524,10 +530,18 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .map(a -> {
                     Citas c = citas.getOrDefault(a.getId(), new Citas());
                     Object[] ej = ejecuciones.get(a.getId());
+                    Object[] ejMes = ejecucionesMes.get(a.getId());
                     return new ResumenActividadResponse(
                             a.getId(), a.getNombre(), a.getDisciplina().getCodigo(),
                             c.programado, entero(ej, 1), entero(ej, 3), entero(ej, 4), entero(ej, 5), entero(ej, 1),
-                            anio, c.vencidas, c.ejecutadasVencidas, c.porcentaje());
+                            anio, c.vencidas, c.ejecutadasVencidas, c.porcentaje(),
+                            c.cumple, c.estaciones.size(),
+                            anioActual ? hoy.getMonthValue() : null,
+                            anioActual ? c.programadoMes : null,
+                            anioActual ? c.cumpleMes : null,
+                            anioActual ? entero(ejMes, 1) : null,
+                            anioActual ? entero(ejMes, 3) : null,
+                            mesTranscurrido);
                 })
                 .toList();
     }
@@ -549,6 +563,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         for (CumplimientoView v : filas) {
             Citas c = porClave.computeIfAbsent(clave.apply(v), k -> new Citas());
             c.programado++;
+            c.estaciones.add(v.getEstacionId());
             if (Boolean.TRUE.equals(v.getCumple())) {
                 c.cumple++;
             }
@@ -572,6 +587,11 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         return porClave;
     }
 
+    /** Porción del mes ya transcurrida, 0-100 con un decimal (para el semáforo del mes). */
+    private static BigDecimal mesTranscurrido(LocalDate hoy) {
+        return BigDecimal.valueOf(100.0 * hoy.getDayOfMonth() / hoy.lengthOfMonth()).setScale(1, RoundingMode.HALF_UP);
+    }
+
     private static Map<Long, Object[]> porId(List<Object[]> filas) {
         return filas.stream().collect(Collectors.toMap(f -> (Long) f[0], Function.identity()));
     }
@@ -582,6 +602,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
     private static final class Citas {
         int programado, cumple, vencidas, ejecutadasVencidas, programadoMes, cumpleMes;
+        final Set<Long> estaciones = new HashSet<>();
 
         /** ejecutadas / evaluables × 100 con un decimal; null si todavía no hay citas evaluables. */
         BigDecimal porcentaje() {
