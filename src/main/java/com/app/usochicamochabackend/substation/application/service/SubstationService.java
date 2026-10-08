@@ -73,6 +73,10 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     private final HallazgoSeguimientoRepository hallazgoSeguimientoRepository;
     private final SubstationEventosPort eventos;
 
+    // NO_PROGRAMADO en tipoMantenimiento / tipoActividad es obsoleto: si un trabajo estaba en el
+    // cronograma lo dice esProgramada (registro desde una cita), y la web y el móvil ya no lo
+    // ofrecen. Se sigue aceptando para no rechazar registros viejos ni colas offline de versiones
+    // anteriores del móvil (el backend nunca rechaza una ejecución sincronizada por esto).
     private static final Set<String> TIPO_MANTENIMIENTO_VALIDOS =
             Set.of("PREVENTIVO", "CORRECTIVO", "PREDICTIVO", "NO_PROGRAMADO");
     private static final Set<String> RESULTADO_VALIDOS =
