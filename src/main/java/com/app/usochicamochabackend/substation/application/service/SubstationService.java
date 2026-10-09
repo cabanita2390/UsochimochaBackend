@@ -94,10 +94,12 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
     @Override
     public List<ProgramacionResponse> listarProgramacion(Long estacionId, Integer anio, Integer mes, String disciplina) {
-        return programacionRepository
-                .findByEstacion_IdAndAnioAndMesAndActividad_Disciplina_CodigoAndStatusTrueAndEstado(
-                        estacionId, anio, mes, disciplina, ProgramacionEntity.PUBLICADA)
-                .stream()
+        var citas = disciplina == null
+                ? programacionRepository.findByEstacion_IdAndAnioAndMesAndStatusTrueAndEstado(
+                        estacionId, anio, mes, ProgramacionEntity.PUBLICADA)
+                : programacionRepository.findByEstacion_IdAndAnioAndMesAndActividad_Disciplina_CodigoAndStatusTrueAndEstado(
+                        estacionId, anio, mes, disciplina, ProgramacionEntity.PUBLICADA);
+        return citas.stream()
                 .map(ProgramacionResponse::fromEntity)
                 .toList();
     }
@@ -474,16 +476,20 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
     @Override
     public List<CumplimientoResponse> cumplimientoPorMes(Integer anio, Integer mes, String disciplina) {
-        return cumplimientoViewRepository.findByAnioAndMesAndDisciplinaOrderByEstacionNombreAsc(anio, mes, disciplina)
-                .stream()
+        var citas = disciplina == null
+                ? cumplimientoViewRepository.findByAnioAndMesOrderByEstacionNombreAsc(anio, mes)
+                : cumplimientoViewRepository.findByAnioAndMesAndDisciplinaOrderByEstacionNombreAsc(anio, mes, disciplina);
+        return citas.stream()
                 .map(CumplimientoResponse::fromEntity)
                 .toList();
     }
 
     @Override
     public List<CumplimientoResponse> cumplimientoPorEstacion(Long estacionId, Integer anio, String disciplina) {
-        return cumplimientoViewRepository.findByEstacionIdAndAnioAndDisciplinaOrderByMesAsc(estacionId, anio, disciplina)
-                .stream()
+        var citas = disciplina == null
+                ? cumplimientoViewRepository.findByEstacionIdAndAnioOrderByMesAsc(estacionId, anio)
+                : cumplimientoViewRepository.findByEstacionIdAndAnioAndDisciplinaOrderByMesAsc(estacionId, anio, disciplina);
+        return citas.stream()
                 .map(CumplimientoResponse::fromEntity)
                 .toList();
     }
