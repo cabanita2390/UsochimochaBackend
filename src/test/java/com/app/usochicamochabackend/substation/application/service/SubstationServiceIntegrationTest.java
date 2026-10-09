@@ -767,6 +767,27 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void cumplimientoYProgramacion_sinDisciplina_devuelvenTodas_yConDisciplina_filtranComoAntes() {
+        DisciplinaEntity electrico = disciplinaRepository.save(DisciplinaEntity.builder().codigo("ELECTRICO").build());
+        ActividadEntity alternador = actividadRepository.save(ActividadEntity.builder()
+                .nombre("Revisar el alternador").disciplina(electrico).capturaMovilHabilitada(true).status(true).build());
+        programar(estacionUno, actividadUno, 2030, 5);
+        programar(estacionUno, alternador, 2030, 5);
+
+        // Sin disciplina: el móvil muestra las de todas (solo Civil se registra por ahora).
+        List<CumplimientoResponse> porMes = indicadoresUseCase.cumplimientoPorMes(2030, 5, null);
+        assertEquals(2, porMes.size());
+        assertTrue(porMes.stream().anyMatch(c -> c.disciplina().equals("ELECTRICO")));
+        assertEquals(2, indicadoresUseCase.cumplimientoPorEstacion(estacionUno.getId(), 2030, null).size());
+        assertEquals(2, catalogUseCase.listarProgramacion(estacionUno.getId(), 2030, 5, null).size());
+
+        // Con disciplina, como antes (lo que mandan las versiones del móvil ya instaladas).
+        assertEquals(1, indicadoresUseCase.cumplimientoPorMes(2030, 5, "CIVIL").size());
+        assertEquals(1, indicadoresUseCase.cumplimientoPorEstacion(estacionUno.getId(), 2030, "ELECTRICO").size());
+        assertEquals(1, catalogUseCase.listarProgramacion(estacionUno.getId(), 2030, 5, "CIVIL").size());
+    }
+
+    @Test
     void indicadores_sinDisciplina_sumanTodas_yConDisciplina_filtranComoAntes() {
         DisciplinaEntity electrico = disciplinaRepository.save(DisciplinaEntity.builder().codigo("ELECTRICO").build());
         ActividadEntity alternador = actividadRepository.save(ActividadEntity.builder()

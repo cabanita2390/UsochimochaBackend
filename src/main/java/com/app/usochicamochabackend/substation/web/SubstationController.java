@@ -45,12 +45,13 @@ public class SubstationController {
     private final CalendarioMantenimiento calendario;
 
     @GetMapping("/programacion")
-    @Operation(summary = "Citas del cronograma para una estación+mes+disciplina")
+    @Operation(summary = "Citas del cronograma para una estación+mes+disciplina",
+            description = "disciplina opcional: sin ella, todas las disciplinas.")
     public ResponseEntity<List<ProgramacionResponse>> listarProgramacion(
             @RequestParam Long estacionId,
             @RequestParam Integer anio,
             @RequestParam Integer mes,
-            @RequestParam String disciplina) {
+            @RequestParam(required = false) String disciplina) {
         return ResponseEntity.ok(catalogUseCase.listarProgramacion(estacionId, anio, mes, disciplina));
     }
 
@@ -140,12 +141,13 @@ public class SubstationController {
 
     @GetMapping("/indicadores/cumplimiento")
     @Operation(summary = "Cumplimiento del cronograma",
-            description = "Sin estacionId: todas las estaciones para un mes+año dado. Con estacionId: esa estación a lo largo del año (ignora mes).")
+            description = "Sin estacionId: todas las estaciones para un mes+año dado. Con estacionId: esa estación a lo largo del año (ignora mes). "
+                    + "disciplina opcional: sin ella, todas las disciplinas (el móvil las muestra todas).")
     public ResponseEntity<List<CumplimientoResponse>> cumplimiento(
             @RequestParam(required = false) Long estacionId,
             @RequestParam Integer anio,
             @RequestParam(required = false) Integer mes,
-            @RequestParam String disciplina) {
+            @RequestParam(required = false) String disciplina) {
         if (estacionId != null) {
             return ResponseEntity.ok(indicadoresUseCase.cumplimientoPorEstacion(estacionId, anio, disciplina));
         }

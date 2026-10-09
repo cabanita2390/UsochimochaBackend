@@ -26,7 +26,7 @@ import java.util.List;
                 name = "Vehicle Oil Change",
                 description = "Registro de cambios de aceite del vehículo en `vehicle_oil_changes`. Aplica a cualquier fila de `vehiculos` "
                                 + "(incluye **motocicletas** si comparten el mismo mecanismo de mantenimiento). "
-                                + "Roles: MECANIC o ADMIN para POST.")
+                                + "Roles: OPERARIO, SUPERVISOR_OPERATIVO o ADMIN para POST.")
 public class VehicleOilChangeController {
 
     private final VehicleOilChangeService vehicleOilChangeService;

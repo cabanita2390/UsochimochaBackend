@@ -25,6 +25,10 @@ public interface ProgramacionRepository extends JpaRepository<ProgramacionEntity
     List<ProgramacionEntity> findByEstacion_IdAndAnioAndMesAndActividad_Disciplina_CodigoAndStatusTrueAndEstado(
             Long estacionId, Integer anio, Integer mes, String disciplinaCodigo, String estado);
 
+    /** Igual, de todas las disciplinas. */
+    List<ProgramacionEntity> findByEstacion_IdAndAnioAndMesAndStatusTrueAndEstado(
+            Long estacionId, Integer anio, Integer mes, String estado);
+
 
     @Query("""
         SELECT p.actividad.id, COUNT(p) FROM ProgramacionEntity p

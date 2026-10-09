@@ -14,6 +14,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -175,6 +177,20 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleMaxUploadSize(MaxUploadSizeExceededException ex) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body("El archivo supera el tamaño máximo permitido (15 MB).");
+    }
+
+    /** Subida sin la parte del archivo (ej. evidencia sin "file"): antes caía en el 500 genérico. */
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ResponseEntity<String> handleMissingPart(MissingServletRequestPartException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("Falta el archivo '" + ex.getRequestPartName() + "' en la petición.");
+    }
+
+    /** Petición multipart ilegible (cuerpo cortado o mal armado). El exceso de tamaño tiene su propio 413. */
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<String> handleMultipart(MultipartException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body("El archivo no llegó completo o la petición está mal armada. Vuelva a intentar la subida.");
     }
 
     /** ?sort= con un campo que no existe en la entidad (ej. ?sort=noexiste). */
