@@ -3,6 +3,8 @@ package com.app.usochicamochabackend.web;
 import com.app.usochicamochabackend.exception.BadRequestException;
 import org.springframework.data.mapping.PropertyReferenceException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
@@ -29,6 +31,16 @@ class GlobalExceptionHandlerTest {
             throw new MaxUploadSizeExceededException(15 * 1024 * 1024L);
         }
 
+        @GetMapping("/multipart-roto")
+        String multipartRoto() {
+            throw new MultipartException("Failed to parse multipart servlet request");
+        }
+
+        @GetMapping("/sin-archivo")
+        String sinArchivo() throws MissingServletRequestPartException {
+            throw new MissingServletRequestPartException("file");
+        }
+
         @GetMapping("/orden-invalido")
         String ordenInvalido() {
             throw new PropertyReferenceException("noexiste",
@@ -50,6 +62,20 @@ class GlobalExceptionHandlerTest {
         mockMvc.perform(get("/bad-request"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("resultado inválido: MAL"));
+    }
+
+    @Test
+    void multipartIlegible_responde400EnVezDe500() throws Exception {
+        mockMvc.perform(get("/multipart-roto"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("El archivo no llegó completo o la petición está mal armada. Vuelva a intentar la subida."));
+    }
+
+    @Test
+    void subidaSinArchivo_responde400ConElNombreDeLaParte() throws Exception {
+        mockMvc.perform(get("/sin-archivo"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Falta el archivo 'file' en la petición."));
     }
 
     @Test
