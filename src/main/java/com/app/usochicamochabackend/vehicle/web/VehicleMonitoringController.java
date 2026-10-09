@@ -33,7 +33,7 @@ public class VehicleMonitoringController {
     @Operation(
                     summary = "Monitoreo consolidado (flota vehicular)",
                     description = "Una fila por vehículo no moto: vigencias de documentos, estado de aceite y datos derivados de última inspección. "
-                                    + "Requiere rol MECANIC o ADMIN para GET.")
+                                    + "Requiere rol OPERARIO, SUPERVISOR_OPERATIVO o ADMIN para GET.")
     public ResponseEntity<List<VehicleMonitoringDTO>> getConsolidated() {
         return ResponseEntity.ok(vehicleMonitoringUseCase.getConsolidatedMonitoring());
     }

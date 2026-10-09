@@ -35,7 +35,7 @@ public class RefuelingRecordController {
     private final RegisterRefuelingRecordUseCase registerRefuelingRecordUseCase;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('OPERARIO', 'ALMACEN', 'SUPERVISOR_OPERATIVO', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERARIO', 'SUPERVISOR_OPERATIVO', 'ADMIN')")
     public ResponseEntity<RefuelingRecordResponse> registrar(
             @RequestPart(value = "vehicleId", required = false) String vehicleId,
             @RequestPart(value = "machineId", required = false) String machineId,
@@ -60,7 +60,7 @@ public class RefuelingRecordController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OPERARIO', 'ALMACEN', 'SUPERVISOR_OPERATIVO', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERARIO', 'SUPERVISOR_OPERATIVO', 'ADMIN')")
     public ResponseEntity<Page<RefuelingRecordResponse>> listar(
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) Boolean activo) {

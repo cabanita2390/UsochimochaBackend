@@ -90,9 +90,9 @@ class FuelPurchaseControllerTest {
     }
 
     @Test
-    @DisplayName("GET /purchases: ALMACEN autorizado, devuelve 200")
-    @WithMockUser(roles = "ALMACEN")
-    void listar_ConRolAlmacen_Devuelve200() throws Exception {
+    @DisplayName("GET /purchases: SUPERVISOR_OPERATIVO autorizado, devuelve 200")
+    @WithMockUser(roles = "SUPERVISOR_OPERATIVO")
+    void listar_ConRolSupervisor_Devuelve200() throws Exception {
         Page<FuelPurchaseResponse> page = new PageImpl<>(List.of());
         when(registerFuelPurchaseUseCase.listar(any())).thenReturn(page);
 
