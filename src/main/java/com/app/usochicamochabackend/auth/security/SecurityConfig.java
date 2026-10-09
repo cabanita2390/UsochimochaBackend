@@ -89,8 +89,16 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.POST, "/api/v1/inspection/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
 
                     // 4b. Subestaciones (mantenimiento Civil/Eléctrico/Electromecánico)
-                    // Lecturas: app móvil (OPERARIO) + web.
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/substation/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Lecturas del móvil (el OPERARIO solo usa la app; ver ApiService.kt del móvil).
+                    http.requestMatchers(HttpMethod.GET,
+                            "/api/v1/substation/estaciones", "/api/v1/substation/actividades",
+                            "/api/v1/substation/observaciones/frecuentes", "/api/v1/substation/programacion",
+                            "/api/v1/substation/indicadores/cumplimiento",
+                            "/api/v1/substation/ejecuciones", "/api/v1/substation/ejecuciones/*",
+                            "/api/v1/substation/ejecuciones/por-programacion/*")
+                            .hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Lo demás (cronograma con borradores, dashboard, resumen, criticidad) es de la web.
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/substation/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     // Captura desde el móvil; el PUT es el "Editar registro" del móvil, por eso incluye OPERARIO.
                     http.requestMatchers(HttpMethod.POST, "/api/v1/substation/ejecuciones", "/api/v1/substation/ejecuciones/*/evidencia").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/ejecuciones/*").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
