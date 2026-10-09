@@ -100,6 +100,9 @@ class SubstationServiceIntegrationTest {
         }
     }
 
+    @org.springframework.test.context.bean.override.mockito.MockitoBean
+    private com.app.usochicamochabackend.substation.application.port.SubstationEventosPort eventos;
+
     @Autowired
     private SubstationCatalogUseCase catalogUseCase;
 
@@ -507,10 +510,28 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 estacionUno.getId(), LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, null, null, null, null, PageRequest.of(0, 10));
+                null, null, null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getTotalElements() >= 1);
         assertTrue(pagina.getContent().stream().allMatch(e -> e.estacionId().equals(estacionUno.getId())));
+    }
+
+    @Test
+    void listarEjecuciones_filtraPorDisciplina_comoElRestoDeLasPestanas() {
+        ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(2030, 5, 1), 5, 1, estacionUno.getId(), "CIVIL",
+                "NO_PROGRAMADO", "INSPECCION", null, null, "NO_PROGRAMADO",
+                "CONFORME", "obs", "algo", UUID.randomUUID()), usuario);
+
+        var civil = ejecucionUseCase.listarEjecuciones(
+                null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
+                null, null, null, null, null, "CIVIL", PageRequest.of(0, 10));
+        var electrico = ejecucionUseCase.listarEjecuciones(
+                null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
+                null, null, null, null, null, "ELECTRICO", PageRequest.of(0, 10));
+
+        assertEquals(1, civil.getTotalElements());
+        assertEquals(0, electrico.getTotalElements());
     }
 
     @Test
@@ -532,7 +553,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, null, null, null, null, PageRequest.of(0, 10));
+                null, null, null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getTotalElements() >= 2);
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.estacionId().equals(estacionUno.getId())));
@@ -559,7 +580,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), false,
-                null, null, null, null, null, PageRequest.of(0, 10));
+                null, null, null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().allMatch(e -> Boolean.FALSE.equals(e.esProgramada())));
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(noProgramadaCreada.id())));
@@ -592,7 +613,7 @@ class SubstationServiceIntegrationTest {
         // Preset "solo hallazgos": dos valores en una sola llamada.
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                List.of("CON_HALLAZGOS", "REQUIERE_INTERVENCION"), null, null, null, null, PageRequest.of(0, 10));
+                List.of("CON_HALLAZGOS", "REQUIERE_INTERVENCION"), null, null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().noneMatch(e -> "CONFORME".equals(e.resultado())));
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(conHallazgosCreada.id())));
@@ -619,7 +640,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, actividadUno.getId(), null, null, null, PageRequest.of(0, 10));
+                null, actividadUno.getId(), null, null, null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().allMatch(e -> actividadUno.getId().equals(e.actividadId())));
         assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(deActividadUnoCreada.id())));
@@ -644,7 +665,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 null, LocalDate.of(2030, 1, 1), LocalDate.of(2030, 12, 31), null,
-                null, null, "CORRECTIVO", "INSPECCION", null, PageRequest.of(0, 10));
+                null, null, "CORRECTIVO", "INSPECCION", null, null, PageRequest.of(0, 10));
 
         assertTrue(pagina.getContent().stream().allMatch(
                 e -> "CORRECTIVO".equals(e.tipoMantenimiento()) && "INSPECCION".equals(e.tipoActividad())));
@@ -865,7 +886,7 @@ class SubstationServiceIntegrationTest {
 
         var pagina = ejecucionUseCase.listarEjecuciones(
                 estacionDos.getId(), dia, dia, null,
-                null, null, null, null, List.of("ABIERTO", "EN_PROCESO"), PageRequest.of(0, 10));
+                null, null, null, null, List.of("ABIERTO", "EN_PROCESO"), null, PageRequest.of(0, 10));
 
         assertEquals(2, pagina.getTotalElements());
         assertTrue(pagina.getContent().stream().map(EjecucionResponse::id).toList()
@@ -1571,6 +1592,166 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void dashboard_citaEjecutadaDeMesAbierto_sumaAlPorcentaje_noQueda0De0() {
+        ejecutar(programar(estacionUno, actividadUno, 2030, 3), estacionUno, actividadUno);
+        programar(estacionUno, actividadUno, 2030, 9); // pendiente de un mes abierto: no cuenta
+        entityManager.flush();
+        entityManager.clear();
+
+        IndicadorEstacionResponse uno = filaDe(indicadoresUseCase.indicadoresPorEstacion(2030, "CIVIL"), estacionUno);
+        ResumenActividadResponse act = filaDe(indicadoresUseCase.resumenPorActividad("CIVIL", 2030), actividadUno);
+
+        assertEquals(2, uno.programado());
+        assertEquals(1, uno.vencidas());
+        assertEquals(1, uno.ejecutadasVencidas());
+        assertEquals(0, new java.math.BigDecimal("100.0").compareTo(uno.porcentajeCumplimiento()));
+        assertEquals(1, act.vencidas());
+        assertEquals(1, act.ejecutadasVencidas());
+    }
+
+    @Test
+    void dashboard_cortaElMesEnCurso_conCitasDelMesEImprevistos() {
+        // Hoy (reloj fijo) es 15-sep-2026: mes en curso = septiembre, va la mitad del mes.
+        ejecutar(programar(estacionUno, actividadUno, 2026, 9), estacionUno, actividadUno);
+        programar(estacionUno, actividadDos, 2026, 9);
+        ejecutar(programar(estacionUno, actividadUno, 2026, 3), estacionUno, actividadUno); // otro mes
+        ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(2026, 9, 12), 9, 2, estacionUno.getId(), "CIVIL",
+                "NO_PROGRAMADO", "MANTENIMIENTO", null, null, "NO_PROGRAMADO",
+                "CONFORME", "obs", "Se destapó un desagüe.", UUID.randomUUID()), usuario);
+        entityManager.flush();
+        entityManager.clear();
+
+        IndicadorEstacionResponse uno = filaDe(indicadoresUseCase.indicadoresPorEstacion(2026, "CIVIL"), estacionUno);
+
+        assertEquals(9, uno.mes());
+        assertEquals(2, uno.programadoMes());
+        assertEquals(1, uno.cumpleMes());
+        assertEquals(2, uno.ejecutadoTotalMes());       // la cita de septiembre + el imprevisto
+        assertEquals(1, uno.ejecutadoNoProgramadoMes());
+        assertEquals(1, uno.ejecutadoNoProgramado());   // en el año
+        assertEquals(0, new java.math.BigDecimal("50.0").compareTo(uno.porcentajeMesTranscurrido()));
+
+        IndicadorEstacionResponse otroAnio = filaDe(indicadoresUseCase.indicadoresPorEstacion(2030, "CIVIL"), estacionUno);
+        assertNull(otroAnio.mes());
+        assertNull(otroAnio.programadoMes());
+        assertNull(otroAnio.porcentajeMesTranscurrido());
+    }
+
+    @Test
+    void resumenPorActividad_avanceDelAnio_estaciones_yCorteDelMesEnCurso() {
+        // Hoy (reloj fijo) es 15-sep-2026: mes en curso = septiembre, va la mitad del mes.
+        ejecutar(programar(estacionUno, actividadUno, 2026, 9), estacionUno, actividadUno);
+        programar(estacionDos, actividadUno, 2026, 9);
+        ejecutar(programar(estacionUno, actividadUno, 2026, 3), estacionUno, actividadUno); // otro mes
+        programar(estacionTres, actividadUno, 2026, 11);
+        // Imprevisto de la actividad: del catálogo, pero sin cita.
+        ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(2026, 9, 12), 9, 2, estacionTres.getId(), "CIVIL",
+                "CORRECTIVO", "MANTENIMIENTO", actividadUno.getId(), null, null,
+                "CONFORME", "Se reparó una grieta.", null, UUID.randomUUID()), usuario);
+        entityManager.flush();
+        entityManager.clear();
+
+        ResumenActividadResponse uno = filaDe(indicadoresUseCase.resumenPorActividad("CIVIL", 2026), actividadUno);
+
+        assertEquals(4, uno.programadoAnual());
+        assertEquals(2, uno.cumple());                  // avance del año: 2 de 4
+        assertEquals(3, uno.estaciones());
+        assertEquals(9, uno.mes());
+        assertEquals(2, uno.programadoMes());
+        assertEquals(1, uno.cumpleMes());
+        assertEquals(2, uno.ejecutadoTotalMes());       // la cita de septiembre + el imprevisto
+        assertEquals(1, uno.ejecutadoNoProgramadoMes());
+        assertEquals(1, uno.ejecutadoNoProgramado());   // en el año
+        assertEquals(0, new java.math.BigDecimal("50.0").compareTo(uno.porcentajeMesTranscurrido()));
+
+        ResumenActividadResponse otroAnio = filaDe(indicadoresUseCase.resumenPorActividad("CIVIL", 2030), actividadUno);
+        assertNull(otroAnio.mes());
+        assertNull(otroAnio.programadoMes());
+        assertNull(otroAnio.porcentajeMesTranscurrido());
+        assertEquals(0, otroAnio.estaciones());
+    }
+
+    private void conObservacion(String tipoActividad, String observaciones, LocalDate fecha) {
+        ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                fecha, fecha.getMonthValue(), 1, estacionUno.getId(), "CIVIL",
+                "PREVENTIVO", tipoActividad, actividadUno.getId(), null, null,
+                "CONFORME", observaciones, null, UUID.randomUUID()), usuario);
+    }
+
+    @Test
+    void observacionesFrecuentes_top5PorTipo_agrupaSinDistinguirMayusculas_yFiltraDisciplina() {
+        LocalDate d = LocalDate.of(2026, 3, 1);
+        for (int i = 0; i < 4; i++) conObservacion("MANTENIMIENTO", "Se realiza limpieza de pozo", d.plusDays(i));
+        conObservacion("MANTENIMIENTO", "  se realiza LIMPIEZA de pozo ", d.plusDays(9)); // la misma, otra redacción
+        for (int i = 0; i < 3; i++) conObservacion("MANTENIMIENTO", "Se pinta la baranda", d.plusDays(i));
+        for (String unica : List.of("Corte de maleza", "Resane de fisura", "Cambio de chapa", "Limpieza de canal"))
+            conObservacion("MANTENIMIENTO", unica, d);
+        conObservacion("MANTENIMIENTO", "ok", d); // demasiado corta: no es una sugerencia útil
+        for (int i = 0; i < 9; i++) conObservacion("MANTENIMIENTO", "No aplica", d); // no dice nada
+        conObservacion("INSPECCION", "Sin novedades", d);
+        conObservacion("INSPECCION", "Sin novedades", d.plusDays(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        var civil = ejecucionUseCase.observacionesFrecuentes("CIVIL", null);
+        var mant = civil.stream().filter(o -> o.tipoActividad().equals("MANTENIMIENTO")).findFirst().orElseThrow();
+        var insp = civil.stream().filter(o -> o.tipoActividad().equals("INSPECCION")).findFirst().orElseThrow();
+
+        assertEquals(5, mant.textos().size());                            // top 5 por defecto
+        assertEquals("se realiza LIMPIEZA de pozo", mant.textos().get(0)); // 5 veces; la redacción más reciente
+        assertEquals("Se pinta la baranda", mant.textos().get(1));         // 3 veces
+        assertTrue(mant.textos().stream().noneMatch(t -> t.equals("ok") || t.equals("No aplica")));
+        assertEquals(List.of("Sin novedades"), insp.textos());
+        assertEquals(2, ejecucionUseCase.observacionesFrecuentes("CIVIL", 2).stream()
+                .filter(o -> o.tipoActividad().equals("MANTENIMIENTO")).findFirst().orElseThrow().textos().size());
+        assertTrue(ejecucionUseCase.observacionesFrecuentes("ELECTRICO", null).isEmpty());
+    }
+
+    @Test
+    void cambioDeAnio_citaDeDiciembreCerradaEnEnero_cuentaEnElAnioDeLaCita_yNoEsImprevisto() {
+        ProgramacionEntity diciembre = programar(estacionUno, actividadUno, 2025, 12);
+        // El técnico la cierra tarde, en enero del año siguiente, desde "Vencidas" del móvil
+        EjecucionResponse r = ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                LocalDate.of(2026, 1, 12), 1, 2, estacionUno.getId(), "CIVIL",
+                "CORRECTIVO", "MANTENIMIENTO", actividadUno.getId(), diciembre.getId(), null,
+                "CONFORME", "Hecho en enero.", null, UUID.randomUUID()), usuario);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertTrue(r.esProgramada());                                   // no queda como imprevisto
+        IndicadorEstacionResponse anio2025 = filaDe(indicadoresUseCase.indicadoresPorEstacion(2025, "CIVIL"), estacionUno);
+        assertEquals(1, anio2025.programado());
+        assertEquals(1, anio2025.cumple());                             // la cita de diciembre queda cumplida
+        IndicadorEstacionResponse anio2026 = filaDe(indicadoresUseCase.indicadoresPorEstacion(2026, "CIVIL"), estacionUno);
+        assertEquals(0, anio2026.ejecutadoNoProgramado());              // y no aparece como imprevisto en 2026
+    }
+
+    @Test
+    void aniosDelCronograma_actualYSiguienteProgramables_yAniosConCitasORegistros() {
+        programar(estacionUno, actividadUno, 2020, 3);                 // cita de un año viejo
+        ejecucionUseCase.registrarEjecucion(ejecucionLibre("CONFORME", LocalDate.of(2019, 5, 5), estacionUno.getId(), UUID.randomUUID()), usuario);
+        entityManager.flush();
+
+        var anios = cronogramaUseCase.anios();
+
+        assertEquals(2026, anios.anioActual());                        // reloj fijo del test: 15-sep-2026
+        assertEquals(List.of(2026, 2027), anios.programables());
+        assertTrue(anios.conDatos().containsAll(List.of(2020, 2019)));
+        assertEquals(anios.conDatos().stream().sorted(java.util.Comparator.reverseOrder()).toList(), anios.conDatos());
+    }
+
+    @Test
+    void registrarEjecucion_avisaALaWeb() {
+        ejecutar(programar(estacionUno, actividadUno, 2026, 9), estacionUno, actividadUno);
+
+        org.mockito.Mockito.verify(eventos).ejecucionCambio(
+                org.mockito.ArgumentMatchers.eq(estacionUno.getId()), org.mockito.ArgumentMatchers.anyLong(),
+                org.mockito.ArgumentMatchers.eq("REGISTRADA"));
+    }
+
+    @Test
     void dashboard_soloEstacionesActivas() {
         estacionTres.setStatus(false);
         estacionRepository.save(estacionTres);
@@ -1693,7 +1874,7 @@ class SubstationServiceIntegrationTest {
 
         assertFalse(indicadoresUseCase.cumplimientoPorMes(2026, 12, "CIVIL").get(0).cumple());
         var registros = ejecucionUseCase.listarEjecuciones(null, LocalDate.of(2026, 12, 1), LocalDate.of(2026, 12, 31),
-                null, null, null, null, null, null, org.springframework.data.domain.Pageable.unpaged());
+                null, null, null, null, null, null, null, org.springframework.data.domain.Pageable.unpaged());
         assertEquals(2, registros.getTotalElements());
         assertTrue(registros.stream().noneMatch(EjecucionResponse::esProgramada));
     }

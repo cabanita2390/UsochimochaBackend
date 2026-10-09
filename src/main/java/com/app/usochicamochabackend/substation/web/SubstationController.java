@@ -9,6 +9,7 @@ import com.app.usochicamochabackend.substation.application.dto.EjecucionResponse
 import com.app.usochicamochabackend.substation.application.dto.EvidenciaResponse;
 import com.app.usochicamochabackend.substation.application.dto.IndicadorEstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ProgramacionResponse;
+import com.app.usochicamochabackend.substation.application.dto.ObservacionesFrecuentesResponse;
 import com.app.usochicamochabackend.substation.application.dto.ResumenActividadResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
@@ -102,6 +103,16 @@ public class SubstationController {
         return ResponseEntity.ok(ejecucionUseCase.obtenerEjecucionPorProgramacion(programacionId));
     }
 
+    @GetMapping("/observaciones/frecuentes")
+    @Operation(summary = "Observaciones más usadas por tipo de actividad",
+            description = "Sugerencias del formulario del móvil, calculadas de los registros reales (no una lista "
+                    + "fija). limite: 1–10, por defecto 5; disciplina opcional (sin ella, todas).")
+    public ResponseEntity<List<ObservacionesFrecuentesResponse>> observacionesFrecuentes(
+            @RequestParam(required = false) String disciplina,
+            @RequestParam(required = false) Integer limite) {
+        return ResponseEntity.ok(ejecucionUseCase.observacionesFrecuentes(disciplina, limite));
+    }
+
     @GetMapping("/ejecuciones")
     @Operation(summary = "Listado de ejecuciones por rango de fecha, con filtros opcionales",
             description = "Sin estacionId: todas las estaciones. Con estacionId: solo esa estación. "
@@ -120,10 +131,11 @@ public class SubstationController {
             @RequestParam(required = false) String tipoMantenimiento,
             @RequestParam(required = false) String tipoActividad,
             @RequestParam(required = false) List<String> seguimiento,
+            @RequestParam(required = false) String disciplina,
             Pageable pageable) {
         return ResponseEntity.ok(ejecucionUseCase.listarEjecuciones(
                 estacionId, fechaInicio, fechaFin, esProgramada,
-                resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, pageable));
+                resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, disciplina, pageable));
     }
 
     @GetMapping("/indicadores/cumplimiento")

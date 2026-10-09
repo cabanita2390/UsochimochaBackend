@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
+import com.app.usochicamochabackend.substation.application.dto.AniosCronogramaResponse;
 import com.app.usochicamochabackend.substation.application.dto.AsignacionResultado;
 import com.app.usochicamochabackend.substation.application.dto.AsignarCitasRequest;
 import com.app.usochicamochabackend.substation.application.dto.CopiarAnioRequest;
@@ -351,10 +352,18 @@ public class SubstationCronogramaService implements SubstationCronogramaUseCase 
         return ProgramacionEntity.BORRADOR.equals(c.getEstado());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public AniosCronogramaResponse anios() {
+        int actual = calendario.anioActual();
+        return new AniosCronogramaResponse(actual, List.of(actual, actual + 1),
+                programacionRepository.aniosConDatos().stream().map(Number::intValue).toList());
+    }
+
     /** Solo el año actual y el siguiente se programan (la grilla ofrece esos dos). */
     private void validarAnioProgramable(Integer anio) {
         int actual = calendario.anioActual();
-        if (anio == null || anio < actual || anio > actual + 1) {
+        if (anio == null || !calendario.esAnioProgramable(anio)) {
             throw badRequest("Solo se puede programar el año actual (" + actual + ") o el siguiente (" + (actual + 1) + ")");
         }
     }

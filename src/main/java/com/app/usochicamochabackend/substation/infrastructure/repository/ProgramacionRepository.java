@@ -11,6 +11,16 @@ import java.util.List;
 
 public interface ProgramacionRepository extends JpaRepository<ProgramacionEntity, Long> {
 
+    /** Años con citas vigentes o con registros, del más reciente al más antiguo. */
+    @org.springframework.data.jpa.repository.Query(value = """
+        SELECT anio FROM (
+            SELECT CAST(anio AS integer) AS anio FROM mant_programacion WHERE status
+            UNION
+            SELECT CAST(EXTRACT(YEAR FROM fecha) AS integer) FROM mant_ejecucion
+        ) t ORDER BY anio DESC
+        """, nativeQuery = true)
+    List<Number> aniosConDatos();
+
     /** Citas que ve el móvil (GET /programacion): solo las del estado pedido (PUBLICADA). */
     List<ProgramacionEntity> findByEstacion_IdAndAnioAndMesAndActividad_Disciplina_CodigoAndStatusTrueAndEstado(
             Long estacionId, Integer anio, Integer mes, String disciplinaCodigo, String estado);
