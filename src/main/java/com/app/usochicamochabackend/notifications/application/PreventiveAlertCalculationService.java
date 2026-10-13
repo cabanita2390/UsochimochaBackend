@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.notifications.application;
 
+import com.app.usochicamochabackend.update.application.service.LecturaHorometroMaquina;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
@@ -13,7 +14,6 @@ import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.DocumentacionYElementosEntity;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.DocumentacionYElementosRepository;
-import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,8 +33,8 @@ public class PreventiveAlertCalculationService {
     private final UserRepositoryJpa userRepository;
     private final VehicleOilChangeRepository vehicleOilChangeRepository;
     private final OilChangeRepository machineOilChangeRepository;
-    private final InspectionRepository inspectionRepository;
     private final PreventiveAlertPersistenceService preventiveAlertPersistenceService;
+    private final LecturaHorometroMaquina lecturaHorometroMaquina;
 
     /**
      * FUNCIÓN ÚNICA: Calcula TODAS las alertas preventivas del sistema.
@@ -285,10 +285,11 @@ public class PreventiveAlertCalculationService {
     private void calculateMachineOilAlert(MachineEntity machine, boolean isMotorOil) {
         String oilType = isMotorOil ? "MOTOR" : "HYDRAULIC";
 
-        // IMPORTANTE: Usar el horómetro de la ÚLTIMA INSPECCIÓN
-        var lastInspection = inspectionRepository.getLastInspection(machine.getId());
-        Integer horometroActual = (lastInspection != null && lastInspection.getHourMeter() != null)
-            ? lastInspection.getHourMeter().intValue()
+        // Mismo horómetro actual que el Consolidado: la lectura más reciente tomada en la
+        // máquina (última inspección o último cambio de aceite), ver LecturaHorometroMaquina.
+        var lectura = lecturaHorometroMaquina.ultima(machine.getId());
+        Integer horometroActual = lectura != null
+            ? lectura.horometro().intValue()
             : (machine.getHorometroActual() != null ? machine.getHorometroActual() : 0);
 
         // Obtener último cambio usando OilChangeRepository
