@@ -1759,6 +1759,22 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void observacionesFrecuentes_ignoraTextosLargos() {
+        // Auditoría QA 2026-10-13: una observación enorme repetida terminaba como sugerencia y
+        // ocupaba toda la pantalla del paso Resultado en el móvil.
+        LocalDate d = LocalDate.of(2026, 3, 1);
+        String largo = "Se encontró ".concat("x".repeat(250));
+        for (int i = 0; i < 6; i++) conObservacion("MANTENIMIENTO", largo, d.plusDays(i));
+        conObservacion("MANTENIMIENTO", "Se pinta la baranda", d);
+        entityManager.flush();
+        entityManager.clear();
+
+        var mant = ejecucionUseCase.observacionesFrecuentes("CIVIL", null).stream()
+                .filter(o -> o.tipoActividad().equals("MANTENIMIENTO")).findFirst().orElseThrow();
+        assertEquals(List.of("Se pinta la baranda"), mant.textos());
+    }
+
+    @Test
     void cambioDeAnio_citaDeDiciembreCerradaEnEnero_cuentaEnElAnioDeLaCita_yNoEsImprevisto() {
         ProgramacionEntity diciembre = programar(estacionUno, actividadUno, 2025, 12);
         // El técnico la cierra tarde, en enero del año siguiente, desde "Vencidas" del móvil
