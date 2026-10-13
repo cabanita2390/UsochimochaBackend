@@ -52,9 +52,10 @@ public class JwtTokenValidator extends OncePerRequestFilter {
 
             try {
                 DecodedJWT decodedJWT = jwtUtils.verifyToken(token);
-                // El refresh token (7 días) solo sirve en /auth/token/refresh, nunca como acceso.
-                if (jwtUtils.esRefreshToken(decodedJWT)) {
-                    rechazar(response, "Refresh token no válido como token de acceso");
+                // El refresh token (7 días) solo sirve en /auth/token/refresh y el de archivos solo
+                // en /uploads (?k=): ninguno de los dos da acceso a la API.
+                if (!jwtUtils.esTokenDeAcceso(decodedJWT)) {
+                    rechazar(response, "Token no válido como token de acceso");
                     return;
                 }
                 Long userId = decodedJWT.getClaim("userId").asLong();

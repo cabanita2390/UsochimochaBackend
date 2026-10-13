@@ -2,10 +2,12 @@ package com.app.usochicamochabackend.auth.security;
 
 import com.app.usochicamochabackend.auth.application.service.UserDetailsServiceImp;
 import com.app.usochicamochabackend.auth.security.filter.JwtTokenValidator;
+import com.app.usochicamochabackend.auth.security.filter.UploadsAccessFilter;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -21,6 +23,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -37,6 +40,10 @@ public class SecurityConfig {
     private final JwtUtils jwtUtils;
     private final UserRepositoryJpa userRepository;
 
+    /** Ver UploadsAccessFilter: "registrar" (por defecto) o "exigir". */
+    @Value("${app.uploads.proteccion:registrar}")
+    private String modoProteccionUploads;
+
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity
@@ -44,6 +51,7 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(new JwtTokenValidator(jwtUtils, userRepository), BasicAuthenticationFilter.class)
+                .addFilterAfter(new UploadsAccessFilter(jwtUtils, userRepository, modoProteccionUploads), JwtTokenValidator.class)
                 .authorizeHttpRequests(http -> {
                     // 1. Acceso Público (Auth, Swagger, Imágenes)
                     http.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
@@ -176,7 +184,9 @@ public class SecurityConfig {
                     // Cualquier otra petición: solo ADMIN
                     http.anyRequest().hasRole("ADMIN");
                 })
-                .exceptionHandling(ex -> ex.accessDeniedHandler(accessDeniedHandler()));
+                .exceptionHandling(ex -> ex
+                        .accessDeniedHandler(accessDeniedHandler())
+                        .authenticationEntryPoint(authenticationEntryPoint()));
 
         return httpSecurity.build();
     }
@@ -217,6 +227,19 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * Petición sin token a una ruta protegida: 401 (antes respondía 403, como si fuera falta de
+     * permisos, y los clientes no intentaban renovar la sesión). 403 queda para "sin permiso".
+     */
+    @Bean
+    public AuthenticationEntryPoint authenticationEntryPoint() {
+        return (request, response, ex) -> {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.getWriter().write("{\"error\": \"Authentication required\"}");
+        };
     }
 
     @Bean

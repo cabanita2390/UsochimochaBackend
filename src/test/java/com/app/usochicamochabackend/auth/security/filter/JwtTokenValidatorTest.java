@@ -93,4 +93,15 @@ class JwtTokenValidatorTest {
         assertEquals(401, response.getStatus());
         assertNull(SecurityContextHolder.getContext().getAuthentication());
     }
+
+    @Test
+    @DisplayName("token de archivos usado como Bearer en la API: 401")
+    void tokenDeArchivosComoBearer_401() throws Exception {
+        when(userRepository.existsActiveById(7L)).thenReturn(true);
+
+        MockHttpServletResponse response = ejecutar(jwtUtils.createArchivosToken(auth(7L)));
+
+        assertEquals(401, response.getStatus());
+        assertNull(SecurityContextHolder.getContext().getAuthentication());
+    }
 }

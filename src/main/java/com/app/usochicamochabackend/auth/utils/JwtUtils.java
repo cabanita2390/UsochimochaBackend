@@ -26,6 +26,9 @@ public class JwtUtils {
     public static final String CLAIM_TIPO = "tipo";
     public static final String TIPO_ACCESS = "access";
     public static final String TIPO_REFRESH = "refresh";
+    /** Solo sirve para ver archivos de /uploads (fotos, documentos): no da acceso a la API. */
+    public static final String TIPO_ARCHIVOS = "archivos";
+    private static final long VIDA_TOKEN_ARCHIVOS_MS = 12L * 60 * 60 * 1000;
     /** Tokens emitidos antes del claim "tipo": se reconocen por su vida (access 15 min, refresh 7 días). */
     private static final long VIDA_MAXIMA_ACCESS_MS = 60L * 60 * 1000;
 
@@ -90,6 +93,35 @@ public class JwtUtils {
                 .build();
 
         return verifier.verify(token);
+    }
+
+    /**
+     * Token para ver archivos de /uploads. Las URL de imágenes (img src, window.open) no pueden
+     * llevar el header Authorization: los clientes lo agregan como parámetro ?k=. Vive más que el
+     * access token para que una página abierta no pierda sus fotos a los 15 minutos.
+     */
+    public String createArchivosToken(Authentication authentication) {
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        return JWT.create()
+                .withClaim("userId", userPrincipal.id())
+                .withSubject(userPrincipal.username())
+                .withJWTId(UUID.randomUUID().toString())
+                .withClaim(CLAIM_TIPO, TIPO_ARCHIVOS)
+                .withIssuer(userGenerator)
+                .withIssuedAt(new Date())
+                .withExpiresAt(new Date(System.currentTimeMillis() + VIDA_TOKEN_ARCHIVOS_MS))
+                .sign(getAlgorithm());
+    }
+
+    /** Solo el access token da acceso a la API (no el refresh ni el de archivos). */
+    public boolean esTokenDeAcceso(DecodedJWT decodedJWT) {
+        String tipo = decodedJWT.getClaim(CLAIM_TIPO).asString();
+        return tipo == null ? !esRefreshToken(decodedJWT) : TIPO_ACCESS.equals(tipo);
+    }
+
+    /** Sirve para ver archivos: el token de archivos o un access token. */
+    public boolean sirveParaArchivos(DecodedJWT decodedJWT) {
+        return TIPO_ARCHIVOS.equals(decodedJWT.getClaim(CLAIM_TIPO).asString()) || esTokenDeAcceso(decodedJWT);
     }
 
     public boolean esRefreshToken(DecodedJWT decodedJWT) {
