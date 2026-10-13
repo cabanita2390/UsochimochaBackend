@@ -1098,6 +1098,26 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void segundaEjecucionDeLaMismaCita_seGuardaComoNoProgramada_yLaCitaQuedaConUna() {
+        // Una cita = una ejecución. Dos técnicos (o dos teléfonos sin señal) registran la misma
+        // cita: el segundo trabajo no se pierde, pero no infla el conteo de la cita.
+        ProgramacionEntity cita = programar(estacionUno, actividadUno, 2026, 9);
+        java.util.function.Supplier<EjecucionRequest> registro = () -> new EjecucionRequest(
+                LocalDate.of(2026, 9, 10), 9, 2, estacionUno.getId(), "CIVIL",
+                "PREVENTIVO", "MANTENIMIENTO", actividadUno.getId(), cita.getId(), null,
+                "CONFORME", "Pintura de muros.", null, UUID.randomUUID());
+
+        EjecucionResponse primera = ejecucionUseCase.registrarEjecucion(registro.get(), usuario);
+        EjecucionResponse segunda = ejecucionUseCase.registrarEjecucion(registro.get(), usuario);
+        entityManager.flush();
+
+        assertTrue(primera.esProgramada());
+        assertFalse(segunda.esProgramada());
+        assertNotEquals(primera.id(), segunda.id());
+        assertEquals(primera.id(), ejecucionUseCase.obtenerEjecucionPorProgramacion(cita.getId()).id());
+    }
+
+    @Test
     void citasDelAnioEnConfiguracion_cuentaSoloLasPublicadas() {
         int anioActual = 2026; // reloj fijo del test
         programar(estacionUno, actividadUno, anioActual, 11);

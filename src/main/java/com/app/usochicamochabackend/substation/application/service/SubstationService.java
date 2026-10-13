@@ -139,6 +139,16 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             boolean coincide = programacion.getEstacion().getId().equals(estacion.getId())
                     && actividad != null && programacion.getActividad().getId().equals(actividad.getId());
             programacion = coincide ? citaVigenteParaEjecucion(programacion) : null;
+            // Una cita = una ejecución. Si otro técnico (u otro teléfono, sin señal) ya la
+            // registró, este trabajo se guarda igual pero como no programado: no se pierde y no
+            // infla el conteo de la cita. Rechazarlo no sirve: el móvil lo reintentaría siempre.
+            // El bloqueo de la cita serializa dos registros simultáneos de la misma cita.
+            if (programacion != null) {
+                programacionRepository.findByIdParaActualizar(programacion.getId());
+                if (ejecucionRepository.existsByProgramacion_Id(programacion.getId())) {
+                    programacion = null;
+                }
+            }
         }
 
         UserEntity usuarioEntity = userRepositoryJpa.getUserEntityById(usuario.id());
