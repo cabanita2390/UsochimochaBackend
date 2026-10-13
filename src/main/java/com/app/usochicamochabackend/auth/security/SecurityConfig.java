@@ -165,7 +165,9 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/rendimiento/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/distribucion").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/reintegros").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers("/api/v1/fuel/config/**").hasRole("ADMIN");
+                    // Combustibles: SUPERVISOR_OPERATIVO tiene CRUD completo, igual que ADMIN (incluida
+                    // la configuración de consumo estándar por activo).
+                    http.requestMatchers("/api/v1/fuel/config/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     // Catálogo de tipos y cualquier otra ruta de fuel no listada arriba: cualquier autenticado.
                     http.requestMatchers("/api/v1/fuel/**").authenticated();
 

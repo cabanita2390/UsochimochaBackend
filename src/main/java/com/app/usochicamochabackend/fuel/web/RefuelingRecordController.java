@@ -91,7 +91,9 @@ public class RefuelingRecordController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    // SUPERVISOR_OPERATIVO también elimina: maneja mucha información de combustibles y
+    // necesita corregir sus propios errores (CRUD completo en combustibles). Es soft-delete.
+    @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         registerRefuelingRecordUseCase.eliminar(id);
         return ResponseEntity.noContent().build();
