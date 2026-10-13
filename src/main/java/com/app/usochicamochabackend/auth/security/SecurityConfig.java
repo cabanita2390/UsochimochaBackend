@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.auth.security;
 
 import com.app.usochicamochabackend.auth.application.service.UserDetailsServiceImp;
 import com.app.usochicamochabackend.auth.security.filter.JwtTokenValidator;
+import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +35,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtUtils jwtUtils;
+    private final UserRepositoryJpa userRepository;
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
@@ -41,7 +43,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(new JwtTokenValidator(jwtUtils), BasicAuthenticationFilter.class)
+                .addFilterBefore(new JwtTokenValidator(jwtUtils, userRepository), BasicAuthenticationFilter.class)
                 .authorizeHttpRequests(http -> {
                     // 1. Acceso Público (Auth, Swagger, Imágenes)
                     http.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();

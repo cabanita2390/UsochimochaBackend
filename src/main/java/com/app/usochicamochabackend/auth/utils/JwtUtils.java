@@ -18,6 +18,17 @@ import java.util.UUID;
 @Component
 public class JwtUtils {
 
+    /**
+     * Distingue el access token (15 min) del refresh token (7 días). Antes los dos eran idénticos
+     * y el filtro aceptaba el refresh como Bearer: un usuario desactivado seguía escribiendo
+     * 7 días con él, y un access token servía para pedir otro.
+     */
+    public static final String CLAIM_TIPO = "tipo";
+    public static final String TIPO_ACCESS = "access";
+    public static final String TIPO_REFRESH = "refresh";
+    /** Tokens emitidos antes del claim "tipo": se reconocen por su vida (access 15 min, refresh 7 días). */
+    private static final long VIDA_MAXIMA_ACCESS_MS = 60L * 60 * 1000;
+
     @Value("${jwt.secret.password}")
     private String secretPassword;
 
@@ -44,6 +55,7 @@ public class JwtUtils {
                 .withSubject(username)
                 .withJWTId(UUID.randomUUID().toString())
                 .withClaim("role", role)
+                .withClaim(CLAIM_TIPO, TIPO_ACCESS)
                 .withIssuer(userGenerator)
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date(System.currentTimeMillis() + (1000*60*15)))
@@ -65,6 +77,7 @@ public class JwtUtils {
                 .withSubject(username)
                 .withJWTId(UUID.randomUUID().toString())
                 .withClaim("role", role)
+                .withClaim(CLAIM_TIPO, TIPO_REFRESH)
                 .withIssuer(userGenerator)
                 .withIssuedAt(new Date())
                 .withExpiresAt(new Date(System.currentTimeMillis() + (1000*60*60*24*7)))
@@ -77,6 +90,17 @@ public class JwtUtils {
                 .build();
 
         return verifier.verify(token);
+    }
+
+    public boolean esRefreshToken(DecodedJWT decodedJWT) {
+        String tipo = decodedJWT.getClaim(CLAIM_TIPO).asString();
+        if (tipo != null) {
+            return TIPO_REFRESH.equals(tipo);
+        }
+        Date emitido = decodedJWT.getIssuedAt();
+        Date expira = decodedJWT.getExpiresAt();
+        return emitido != null && expira != null
+                && expira.getTime() - emitido.getTime() > VIDA_MAXIMA_ACCESS_MS;
     }
 
     public Map<String, Claim> extractAllClaims(DecodedJWT decodedJWT){

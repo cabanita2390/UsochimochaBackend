@@ -90,4 +90,30 @@ class JwtUtilsTest {
 
         assertEquals(42L, jwtUtils.extractSpecificClaim(decoded, "userId").asLong());
     }
+
+    @Test
+    @DisplayName("esRefreshToken: distingue el refresh (7 días) del access (15 min)")
+    void esRefreshToken_DistingueLosDosTokens() {
+        Authentication auth = buildAuthentication(2L, "operario", "ROLE_OPERARIO");
+
+        assertTrue(jwtUtils.esRefreshToken(jwtUtils.verifyToken(jwtUtils.createRefreshToken(auth))));
+        assertFalse(jwtUtils.esRefreshToken(jwtUtils.verifyToken(jwtUtils.createToken(auth))));
+    }
+
+    @Test
+    @DisplayName("esRefreshToken: reconoce por su vida los tokens emitidos antes del claim tipo")
+    void esRefreshToken_TokensSinTipo() {
+        com.auth0.jwt.algorithms.Algorithm alg =
+                com.auth0.jwt.algorithms.Algorithm.HMAC256("test-secret-key-for-testing-purposes-only-minimum-32-chars");
+        long ahora = System.currentTimeMillis();
+        String refreshViejo = com.auth0.jwt.JWT.create().withIssuer("test-issuer").withSubject("op")
+                .withIssuedAt(new java.util.Date(ahora))
+                .withExpiresAt(new java.util.Date(ahora + 7L * 24 * 60 * 60 * 1000)).sign(alg);
+        String accessViejo = com.auth0.jwt.JWT.create().withIssuer("test-issuer").withSubject("op")
+                .withIssuedAt(new java.util.Date(ahora))
+                .withExpiresAt(new java.util.Date(ahora + 15L * 60 * 1000)).sign(alg);
+
+        assertTrue(jwtUtils.esRefreshToken(jwtUtils.verifyToken(refreshViejo)));
+        assertFalse(jwtUtils.esRefreshToken(jwtUtils.verifyToken(accessViejo)));
+    }
 }

@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.substation.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.security.SecurityConfig;
+import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.auth.application.service.UserDetailsServiceImp;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogAdminUseCase;
@@ -66,6 +67,9 @@ class SubstationSecurityTest {
 
     @MockBean
     private JwtUtils jwtUtils;
+
+    @MockBean
+    private UserRepositoryJpa userRepositoryJpa;
 
     @MockBean
     private UserDetailsServiceImp userDetailsServiceImp;

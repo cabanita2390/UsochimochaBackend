@@ -94,6 +94,9 @@ public class UserDetailsServiceImp
     public RefreshTokenResponse refreshToken(RefreshTokenRequest request) {
         try {
             DecodedJWT decodedJWT = jwtUtils.verifyToken(request.refreshToken());
+            if (!jwtUtils.esRefreshToken(decodedJWT)) {
+                throw new BadCredentialsException("Se esperaba un refresh token");
+            }
             String username = jwtUtils.extractUsername(decodedJWT);
 
             UserEntity userEntity = userRepository.findActiveByUsername(username)

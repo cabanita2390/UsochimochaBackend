@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.auth.security.filter;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
@@ -25,9 +26,11 @@ public class JwtTokenValidator extends OncePerRequestFilter {
 
     private static final Logger logger = Logger.getLogger(JwtTokenValidator.class.getName());
     private final JwtUtils jwtUtils;
+    private final UserRepositoryJpa userRepository;
 
-    public JwtTokenValidator(JwtUtils jwtUtils) {
+    public JwtTokenValidator(JwtUtils jwtUtils, UserRepositoryJpa userRepository) {
         this.jwtUtils = jwtUtils;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -48,10 +51,18 @@ public class JwtTokenValidator extends OncePerRequestFilter {
             String token = header.substring(7);
 
             try {
-                logger.info("🔐 [JWT] Validando token: " + token.substring(0, Math.min(50, token.length())) + "...");
                 DecodedJWT decodedJWT = jwtUtils.verifyToken(token);
-                logger.info("✅ [JWT] Token válido para usuario: " + decodedJWT.getSubject());
+                // El refresh token (7 días) solo sirve en /auth/token/refresh, nunca como acceso.
+                if (jwtUtils.esRefreshToken(decodedJWT)) {
+                    rechazar(response, "Refresh token no válido como token de acceso");
+                    return;
+                }
                 Long userId = decodedJWT.getClaim("userId").asLong();
+                // Un usuario desactivado pierde el acceso de inmediato, no al vencer su token.
+                if (userId == null || !userRepository.existsActiveById(userId)) {
+                    rechazar(response, "Usuario inactivo o inexistente");
+                    return;
+                }
                 String username = jwtUtils.extractUsername(decodedJWT);
                 String roleString = jwtUtils.extractSpecificClaim(decodedJWT, "role").asString();
                 GrantedAuthority role = new SimpleGrantedAuthority(roleString);
@@ -75,5 +86,13 @@ public class JwtTokenValidator extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void rechazar(HttpServletResponse response, String causa) throws IOException {
+        logger.warning("❌ [JWT] " + causa);
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+        response.getWriter().write("{\"error\": \"Invalid or expired token\", \"cause\": \"" + causa + "\"}");
     }
 }
