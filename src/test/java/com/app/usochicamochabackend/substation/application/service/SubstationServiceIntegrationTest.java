@@ -372,6 +372,34 @@ class SubstationServiceIntegrationTest {
         assertEquals("NO_PROGRAMADO", guardada.motivoNoCatalogado());
     }
 
+    private EjecucionRequest libre(LocalDate fecha, Integer mes, Integer semana, String resultado, String observaciones) {
+        return new EjecucionRequest(fecha, mes, semana, estacionUno.getId(), "CIVIL",
+                "PREVENTIVO", "MANTENIMIENTO", null, null, "NO_PROGRAMADO",
+                resultado, observaciones, "trabajo no catalogado", UUID.randomUUID());
+    }
+
+    @Test
+    void registrarEjecucion_rechazaConMensajeClaroLosDatosImposibles() {
+        // Auditoría QA 2026-10-13: entraban fechas 1900/2099 (aparecían como años con datos en la
+        // web), textos de 10 MB, y un resultado null respondía 500 en vez de 400.
+        LocalDate hoy = LocalDate.of(2026, 9, 15);
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(LocalDate.of(1900, 1, 1), 1, 1, "CONFORME", "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(LocalDate.of(2099, 1, 1), 1, 1, "CONFORME", "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(hoy, 13, 1, "CONFORME", "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(hoy, 9, 5, "CONFORME", "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(hoy, null, 1, "CONFORME", "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(hoy, 9, 1, null, "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(hoy, 9, 1, "CONFORME", "x".repeat(2001)), usuario));
+    }
+
+    @Test
+    void registrarEjecucion_aceptaTextosLargosDeColasViejasYLimitesDelPeriodo() {
+        // Un registro ya encolado con más de 500 caracteres (el móvil no cortaba) no debe quedar
+        // rechazado para siempre: el tope del backend es holgado.
+        assertNotNull(ejecucionUseCase.registrarEjecucion(libre(LocalDate.of(2026, 9, 15), 12, 4, "CONFORME", "x".repeat(2000)), usuario));
+        assertNotNull(ejecucionUseCase.registrarEjecucion(libre(LocalDate.of(2026, 9, 15), 1, 1, "CONFORME", "obs"), usuario));
+    }
+
     @Test
     void registrarEjecucion_esIdempotentePorUuidCliente() {
         UUID uuidCliente = UUID.randomUUID();
