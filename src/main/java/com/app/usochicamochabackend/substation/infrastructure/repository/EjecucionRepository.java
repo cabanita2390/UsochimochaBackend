@@ -67,7 +67,9 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
      * Observaciones más repetidas por tipo de actividad (sugerencias del móvil). Agrupa sin
      * distinguir mayúsculas ni espacios de los extremos y muestra la redacción más reciente.
      * Columnas: tipoActividad, texto. Hasta :limite por tipo, de más a menos usada. Deja fuera las
-     * frases que no dicen nada ("No aplica", "Ninguna"…) y el tipo obsoleto NO_PROGRAMADO.
+     * frases que no dicen nada ("No aplica", "Ninguna"…), los textos de más de 200 caracteres (un
+     * relato largo no es una frase reutilizable y tapaba el formulario del móvil) y el tipo
+     * obsoleto NO_PROGRAMADO.
      */
     @Query(value = """
         SELECT tipo_actividad, texto FROM (
@@ -77,7 +79,7 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
                                       ORDER BY count(*) DESC, max(e.fecha) DESC) AS puesto
             FROM mant_ejecucion e JOIN mant_disciplina d ON d.id = e.disciplina_id
             WHERE (CAST(:disciplina AS text) IS NULL OR d.codigo = :disciplina)
-              AND length(btrim(e.observaciones)) >= 4
+              AND length(btrim(e.observaciones)) BETWEEN 4 AND 200
               AND e.tipo_actividad <> 'NO_PROGRAMADO'
               AND lower(btrim(e.observaciones)) NOT IN
                   ('no aplica', 'ninguna', 'ninguno', 'sin observaciones', 'sin novedad', 'n/a')

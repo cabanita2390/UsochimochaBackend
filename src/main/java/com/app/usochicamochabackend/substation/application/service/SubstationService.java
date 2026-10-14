@@ -112,8 +112,9 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             return toResponse(existente.get());
         }
 
+        requerido(request.uuidCliente(), "uuidCliente");
         requerido(request.estacionId(), "estacionId");
-        requerido(request.fecha(), "fecha");
+        validarPeriodo(request.fecha(), request.mesEjecucion(), request.semanaEjecucion());
         validarCoherencia(request.disciplina(), request.tipoMantenimiento(), request.tipoActividad(),
                 request.actividadId(), request.motivoNoCatalogado(), request.resultado(),
                 request.observaciones(), request.descripcionLibre());
@@ -138,6 +139,16 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             boolean coincide = programacion.getEstacion().getId().equals(estacion.getId())
                     && actividad != null && programacion.getActividad().getId().equals(actividad.getId());
             programacion = coincide ? citaVigenteParaEjecucion(programacion) : null;
+            // Una cita = una ejecución. Si otro técnico (u otro teléfono, sin señal) ya la
+            // registró, este trabajo se guarda igual pero como no programado: no se pierde y no
+            // infla el conteo de la cita. Rechazarlo no sirve: el móvil lo reintentaría siempre.
+            // El bloqueo de la cita serializa dos registros simultáneos de la misma cita.
+            if (programacion != null) {
+                programacionRepository.findByIdParaActualizar(programacion.getId());
+                if (ejecucionRepository.existsByProgramacion_Id(programacion.getId())) {
+                    programacion = null;
+                }
+            }
         }
 
         UserEntity usuarioEntity = userRepositoryJpa.getUserEntityById(usuario.id());
@@ -289,24 +300,62 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         }
     }
 
+    /** Fechas imposibles (1900, 2099) entraban y aparecían como años con datos en la web. */
+    private static final LocalDate FECHA_MINIMA = LocalDate.of(2000, 1, 1);
+    /**
+     * Holgado a propósito: el móvil muestra 500 pero hasta ahora no cortaba el texto, y un
+     * registro ya encolado que el backend rechace se quedaría reintentando para siempre.
+     */
+    static final int LARGO_MAXIMO_TEXTO = 2000;
+    private static final int AÑOS_FUTUROS_PERMITIDOS = 5;
+
+    private void validarPeriodo(LocalDate fecha, Integer mes, Integer semana) {
+        requerido(fecha, "fecha");
+        requerido(mes, "mesEjecucion");
+        requerido(semana, "semanaEjecucion");
+        // El móvil ya no deja elegir fechas futuras; aquí solo se frenan años absurdos (2099).
+        // No se exige "hasta hoy": los tests de integración simulan años futuros con registros
+        // en 2030 (reloj fijo en 2026), y un tope corto los invalidaría.
+        LocalDate fechaMaxima = LocalDate.of(calendario.anioActual() + AÑOS_FUTUROS_PERMITIDOS, 12, 31);
+        if (fecha.isBefore(FECHA_MINIMA) || fecha.isAfter(fechaMaxima)) {
+            throw new BadRequestException("fecha fuera de rango: " + fecha
+                    + " (debe estar entre " + FECHA_MINIMA + " y " + fechaMaxima + ").");
+        }
+        if (mes < 1 || mes > 12) {
+            throw new BadRequestException("mesEjecucion debe estar entre 1 y 12: " + mes);
+        }
+        if (semana < 1 || semana > 4) {
+            throw new BadRequestException("semanaEjecucion debe estar entre 1 y 4: " + semana);
+        }
+    }
+
+    private static void validarLargo(String texto, String campo) {
+        if (texto != null && texto.length() > LARGO_MAXIMO_TEXTO) {
+            throw new BadRequestException(campo + " supera el máximo de " + LARGO_MAXIMO_TEXTO + " caracteres.");
+        }
+    }
+
     private void validarCoherencia(String disciplina, String tipoMantenimiento, String tipoActividad,
             Long actividadId, String motivoNoCatalogado, String resultado, String observaciones,
             String descripcionLibre) {
-        if (!TIPO_MANTENIMIENTO_VALIDOS.contains(tipoMantenimiento)) {
+        // Set.of(...).contains(null) lanza NPE: un null llegaba como 500 en vez de 400.
+        if (tipoMantenimiento == null || !TIPO_MANTENIMIENTO_VALIDOS.contains(tipoMantenimiento)) {
             throw new BadRequestException("tipoMantenimiento inválido: " + tipoMantenimiento);
         }
-        if (!RESULTADO_VALIDOS.contains(resultado)) {
+        if (resultado == null || !RESULTADO_VALIDOS.contains(resultado)) {
             throw new BadRequestException("resultado inválido: " + resultado);
         }
         Set<String> tipoActividadPermitidos =
                 "CIVIL".equals(disciplina) ? TIPO_ACTIVIDAD_VALIDOS_CIVIL : TIPO_ACTIVIDAD_VALIDOS;
-        if (!tipoActividadPermitidos.contains(tipoActividad)) {
+        if (tipoActividad == null || !tipoActividadPermitidos.contains(tipoActividad)) {
             throw new BadRequestException(
                     "tipoActividad inválido para disciplina " + disciplina + ": " + tipoActividad);
         }
         if (observaciones == null || observaciones.isBlank()) {
             throw new BadRequestException("observaciones es obligatorio.");
         }
+        validarLargo(observaciones, "observaciones");
+        validarLargo(descripcionLibre, "descripcionLibre");
 
         boolean tieneActividad = actividadId != null;
         if (!tieneActividad) {
@@ -334,7 +383,8 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             throw new BadRequestException("motivoEdicion debe tener al menos 15 caracteres.");
         }
 
-        requerido(request.fecha(), "fecha");
+        validarPeriodo(request.fecha(), request.mesEjecucion(), request.semanaEjecucion());
+        validarLargo(request.motivoEdicion(), "motivoEdicion");
         EjecucionEntity entity = ejecucionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ejecución no encontrada: id=" + id));
 

@@ -372,6 +372,34 @@ class SubstationServiceIntegrationTest {
         assertEquals("NO_PROGRAMADO", guardada.motivoNoCatalogado());
     }
 
+    private EjecucionRequest libre(LocalDate fecha, Integer mes, Integer semana, String resultado, String observaciones) {
+        return new EjecucionRequest(fecha, mes, semana, estacionUno.getId(), "CIVIL",
+                "PREVENTIVO", "MANTENIMIENTO", null, null, "NO_PROGRAMADO",
+                resultado, observaciones, "trabajo no catalogado", UUID.randomUUID());
+    }
+
+    @Test
+    void registrarEjecucion_rechazaConMensajeClaroLosDatosImposibles() {
+        // Auditoría QA 2026-10-13: entraban fechas 1900/2099 (aparecían como años con datos en la
+        // web), textos de 10 MB, y un resultado null respondía 500 en vez de 400.
+        LocalDate hoy = LocalDate.of(2026, 9, 15);
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(LocalDate.of(1900, 1, 1), 1, 1, "CONFORME", "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(LocalDate.of(2099, 1, 1), 1, 1, "CONFORME", "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(hoy, 13, 1, "CONFORME", "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(hoy, 9, 5, "CONFORME", "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(hoy, null, 1, "CONFORME", "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(hoy, 9, 1, null, "obs"), usuario));
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(libre(hoy, 9, 1, "CONFORME", "x".repeat(2001)), usuario));
+    }
+
+    @Test
+    void registrarEjecucion_aceptaTextosLargosDeColasViejasYLimitesDelPeriodo() {
+        // Un registro ya encolado con más de 500 caracteres (el móvil no cortaba) no debe quedar
+        // rechazado para siempre: el tope del backend es holgado.
+        assertNotNull(ejecucionUseCase.registrarEjecucion(libre(LocalDate.of(2026, 9, 15), 12, 4, "CONFORME", "x".repeat(2000)), usuario));
+        assertNotNull(ejecucionUseCase.registrarEjecucion(libre(LocalDate.of(2026, 9, 15), 1, 1, "CONFORME", "obs"), usuario));
+    }
+
     @Test
     void registrarEjecucion_esIdempotentePorUuidCliente() {
         UUID uuidCliente = UUID.randomUUID();
@@ -1070,6 +1098,26 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void segundaEjecucionDeLaMismaCita_seGuardaComoNoProgramada_yLaCitaQuedaConUna() {
+        // Una cita = una ejecución. Dos técnicos (o dos teléfonos sin señal) registran la misma
+        // cita: el segundo trabajo no se pierde, pero no infla el conteo de la cita.
+        ProgramacionEntity cita = programar(estacionUno, actividadUno, 2026, 9);
+        java.util.function.Supplier<EjecucionRequest> registro = () -> new EjecucionRequest(
+                LocalDate.of(2026, 9, 10), 9, 2, estacionUno.getId(), "CIVIL",
+                "PREVENTIVO", "MANTENIMIENTO", actividadUno.getId(), cita.getId(), null,
+                "CONFORME", "Pintura de muros.", null, UUID.randomUUID());
+
+        EjecucionResponse primera = ejecucionUseCase.registrarEjecucion(registro.get(), usuario);
+        EjecucionResponse segunda = ejecucionUseCase.registrarEjecucion(registro.get(), usuario);
+        entityManager.flush();
+
+        assertTrue(primera.esProgramada());
+        assertFalse(segunda.esProgramada());
+        assertNotEquals(primera.id(), segunda.id());
+        assertEquals(primera.id(), ejecucionUseCase.obtenerEjecucionPorProgramacion(cita.getId()).id());
+    }
+
+    @Test
     void citasDelAnioEnConfiguracion_cuentaSoloLasPublicadas() {
         int anioActual = 2026; // reloj fijo del test
         programar(estacionUno, actividadUno, anioActual, 11);
@@ -1728,6 +1776,22 @@ class SubstationServiceIntegrationTest {
         assertEquals(2, ejecucionUseCase.observacionesFrecuentes("CIVIL", 2).stream()
                 .filter(o -> o.tipoActividad().equals("MANTENIMIENTO")).findFirst().orElseThrow().textos().size());
         assertTrue(ejecucionUseCase.observacionesFrecuentes("ELECTRICO", null).isEmpty());
+    }
+
+    @Test
+    void observacionesFrecuentes_ignoraTextosLargos() {
+        // Auditoría QA 2026-10-13: una observación enorme repetida terminaba como sugerencia y
+        // ocupaba toda la pantalla del paso Resultado en el móvil.
+        LocalDate d = LocalDate.of(2026, 3, 1);
+        String largo = "Se encontró ".concat("x".repeat(250));
+        for (int i = 0; i < 6; i++) conObservacion("MANTENIMIENTO", largo, d.plusDays(i));
+        conObservacion("MANTENIMIENTO", "Se pinta la baranda", d);
+        entityManager.flush();
+        entityManager.clear();
+
+        var mant = ejecucionUseCase.observacionesFrecuentes("CIVIL", null).stream()
+                .filter(o -> o.tipoActividad().equals("MANTENIMIENTO")).findFirst().orElseThrow();
+        assertEquals(List.of("Se pinta la baranda"), mant.textos());
     }
 
     @Test

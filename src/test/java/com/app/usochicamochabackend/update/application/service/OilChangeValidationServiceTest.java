@@ -200,4 +200,45 @@ public class OilChangeValidationServiceTest {
         );
         assertDoesNotThrow(() -> validationService.validateOilChangeRequest(maxRequest));
     }
+
+    private VehicleOilChangeRequest conFechaYCantidad(LocalDateTime fecha, Double cantidad) {
+        return new VehicleOilChangeRequest(
+            validRequest.placa(), fecha, validRequest.oilType(),
+            validRequest.brandId(), cantidad,
+            validRequest.kmAtChange(), validRequest.intervalKm(),
+            validRequest.airFilterChanged()
+        );
+    }
+
+    @Test
+    public void testFechaAtrasada_Pasa() {
+        assertDoesNotThrow(() -> validationService.validateOilChangeRequest(
+            conFechaYCantidad(LocalDateTime.now().minusDays(20), 5.0)));
+    }
+
+    @Test
+    public void testFechaDeHoyMasTarde_Pasa() {
+        // Reloj del celular un poco adelantado: mismo día, no se rechaza.
+        LocalDateTime hoyAlFinal = java.time.LocalDate.now(java.time.ZoneId.of("America/Bogota")).atTime(23, 59);
+        assertDoesNotThrow(() -> validationService.validateOilChangeRequest(conFechaYCantidad(hoyAlFinal, 5.0)));
+    }
+
+    @Test
+    public void testFechaFutura_Falla() {
+        InvalidOilChangeDataException ex = assertThrows(InvalidOilChangeDataException.class,
+            () -> validationService.validateOilChangeRequest(conFechaYCantidad(LocalDateTime.now().plusDays(1), 5.0)));
+        assertTrue(ex.getMessage().contains("futura"));
+    }
+
+    @Test
+    public void testFechaNula_Pasa() {
+        assertDoesNotThrow(() -> validationService.validateOilChangeRequest(conFechaYCantidad(null, 5.0)));
+    }
+
+    @Test
+    public void testCantidadNula_Falla() {
+        InvalidOilChangeDataException ex = assertThrows(InvalidOilChangeDataException.class,
+            () -> validationService.validateOilChangeRequest(conFechaYCantidad(LocalDateTime.now(), null)));
+        assertEquals("Cantidad de aceite es obligatoria", ex.getMessage());
+    }
 }

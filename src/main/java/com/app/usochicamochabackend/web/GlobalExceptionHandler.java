@@ -1,5 +1,9 @@
 package com.app.usochicamochabackend.web;
 
+import com.app.usochicamochabackend.update.application.exception.BrandNotFoundException;
+import com.app.usochicamochabackend.update.application.exception.InvalidOilChangeDataException;
+import com.app.usochicamochabackend.update.application.exception.OilChangeException;
+import com.app.usochicamochabackend.update.application.exception.VehicleNotFoundException;
 import com.app.usochicamochabackend.exception.BadRequestException;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.exception.UserSoftDeletedConflictException;
@@ -198,6 +202,18 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handlePropertyReference(PropertyReferenceException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body("Campo de ordenamiento inválido: " + ex.getPropertyName());
+    }
+
+    /** Datos de cambio de aceite inválidos (fecha futura, km/intervalo fuera de rango...): antes caían en el 500 genérico. */
+    @ExceptionHandler(InvalidOilChangeDataException.class)
+    public ResponseEntity<String> handleInvalidOilChangeData(InvalidOilChangeDataException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ex.getMessage());
+    }
+
+    /** Placa o marca de aceite inexistente al registrar un cambio de aceite. */
+    @ExceptionHandler({VehicleNotFoundException.class, BrandNotFoundException.class})
+    public ResponseEntity<String> handleOilChangeNotFound(OilChangeException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

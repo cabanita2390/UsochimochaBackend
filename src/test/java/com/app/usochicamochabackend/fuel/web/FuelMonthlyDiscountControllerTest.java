@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.fuel.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.fuel.application.dto.FuelMonthlyDiscountResponse;
 import com.app.usochicamochabackend.fuel.application.port.ManageFuelMonthlyDiscountUseCase;
@@ -50,6 +51,9 @@ class FuelMonthlyDiscountControllerTest {
 
     @MockBean
     private JwtUtils jwtUtils;
+
+    @MockBean
+    private UserRepositoryJpa userRepositoryJpa;
 
     private static RequestPostProcessor as(Long id, String username, String role) {
         GrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role);

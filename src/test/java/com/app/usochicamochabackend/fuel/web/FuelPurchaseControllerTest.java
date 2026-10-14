@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.fuel.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.fuel.application.dto.FuelPurchaseResponse;
 import com.app.usochicamochabackend.fuel.application.port.RegisterFuelPurchaseUseCase;
@@ -52,6 +53,9 @@ class FuelPurchaseControllerTest {
 
     @MockBean
     private JwtUtils jwtUtils;
+
+    @MockBean
+    private UserRepositoryJpa userRepositoryJpa;
 
     private final MockMultipartFile factura = new MockMultipartFile("factura", "f.pdf", "application/pdf", new byte[]{1, 2, 3});
 

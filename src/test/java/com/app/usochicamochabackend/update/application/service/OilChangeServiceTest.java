@@ -7,6 +7,10 @@ import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
+import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
+import com.app.usochicamochabackend.update.application.exception.InvalidOilChangeDataException;
+import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
+import com.app.usochicamochabackend.update.infrastructure.entity.OilType;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.update.application.dto.PerformChangeHydraulicOilRequest;
 import com.app.usochicamochabackend.update.application.dto.PerformChangeMotorOilRequest;
@@ -29,8 +33,11 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -51,8 +58,10 @@ class OilChangeServiceTest {
     @BeforeEach
     void setUp() {
         oilChangeService = new OilChangeService(
-                machineRepository, brandRepository, inspectionRepository, oilChangeRepository,
-                saveActionUseCase, notificationService, preventiveAlertCalculationService);
+                machineRepository, brandRepository,
+                new LecturaHorometroMaquina(inspectionRepository, oilChangeRepository),
+                oilChangeRepository, saveActionUseCase, notificationService,
+                preventiveAlertCalculationService, new OilChangeValidationService());
 
         UserPrincipal principal = new UserPrincipal(1L, "tecnico");
         Authentication auth = new UsernamePasswordAuthenticationToken(
@@ -247,5 +256,108 @@ class OilChangeServiceTest {
         verify(oilChangeRepository).save(entity);
         verify(machineRepository, never()).save(any());
         verify(preventiveAlertCalculationService).calculateAndEmitAlerts();
+    }
+
+    // ---- fecha del servicio ----
+
+    @Test
+    void motor_ConFechaAtrasada_SeGuardaConEsaFecha() {
+        MachineEntity machine = maquina(500);
+        when(machineRepository.findById(1L)).thenReturn(Optional.of(machine));
+        LocalDateTime atrasada = LocalDateTime.now().minusDays(8).withHour(10).withMinute(30).withSecond(0).withNano(0);
+
+        oilChangeService.performMotorOilChange(new PerformChangeMotorOilRequest(1L, atrasada, null, 4.0, 300.0, 250));
+
+        verify(oilChangeRepository).save(argThat(e -> atrasada.equals(e.getDateStamp())));
+    }
+
+    @Test
+    void motor_ConFechaFutura_LanzaInvalidOilChangeDataYNoGuarda() {
+        var request = new PerformChangeMotorOilRequest(1L, LocalDateTime.now().plusDays(1), null, 4.0, 300.0, 250);
+
+        assertThrows(InvalidOilChangeDataException.class, () -> oilChangeService.performMotorOilChange(request));
+
+        verify(oilChangeRepository, never()).save(any());
+    }
+
+    @Test
+    void hidraulico_SinFecha_UsaLaFechaActual() {
+        when(machineRepository.findById(1L)).thenReturn(Optional.of(maquina(500)));
+
+        oilChangeService.performChangeHydraulicOil(new PerformChangeHydraulicOilRequest(1L, null, null, 4.0, 600.0, 250));
+
+        verify(oilChangeRepository).save(argThat(e -> e.getDateStamp() != null));
+    }
+
+    @Test
+    void actualizarCambioAceite_ConFechaFutura_LanzaInvalidOilChangeData() {
+        var request = new PerformChangeMotorOilRequest(1L, LocalDateTime.now().plusDays(3), null, 4.0, 300.0, 250);
+
+        assertThrows(InvalidOilChangeDataException.class, () -> oilChangeService.actualizarCambioAceite(10L, request));
+
+        verify(oilChangeRepository, never()).findByIdAndStatus(any(), any());
+    }
+
+    // ---- consolidado: horómetro actual ----
+
+    private OilChangeEntity cambio(OilType tipo, double horometro, LocalDateTime fecha) {
+        return OilChangeEntity.builder().id(tipo == OilType.MOTOR ? 1L : 2L).oilType(tipo)
+                .hourMeter(horometro).averageHoursChange(250).dateStamp(fecha).quantity(4.0).status(true).build();
+    }
+
+    @Test
+    void consolidado_CambioPosteriorConHorometroMayor_EsElHorometroActual() {
+        MachineEntity machine = maquina(1600);
+        LocalDateTime fechaInspeccion = LocalDateTime.now().minusDays(10);
+        LocalDateTime fechaCambio = LocalDateTime.now().minusDays(2);
+        when(machineRepository.findById(1L)).thenReturn(Optional.of(machine));
+        when(inspectionRepository.getLastInspection(1L)).thenReturn(
+                InspectionEntity.builder().hourMeter(1500.0).dateStamp(fechaInspeccion).build());
+        when(oilChangeRepository.getLastMotorOilChangeByMachineId(1L)).thenReturn(cambio(OilType.MOTOR, 1600.0, fechaCambio));
+
+        var dto = oilChangeService.getConsolidateHydraulicAndMotorOilById(1L);
+
+        assertEquals(1600.0, dto.currentData().currentHourMeter());
+        assertEquals(fechaCambio, dto.currentData().lastUpdate());
+        // Horas restantes nunca mayores al intervalo: 1600 + 250 - 1600
+        assertEquals(250.0, dto.consolidateMotorOil().remainingHoursNextUpdateMouths());
+    }
+
+    @Test
+    void consolidado_CambioAtrasadoConHorometroMenor_NoBajaElHorometroActual() {
+        MachineEntity machine = maquina(1500);
+        LocalDateTime fechaInspeccion = LocalDateTime.now().minusDays(1);
+        when(machineRepository.findById(1L)).thenReturn(Optional.of(machine));
+        when(inspectionRepository.getLastInspection(1L)).thenReturn(
+                InspectionEntity.builder().hourMeter(1500.0).dateStamp(fechaInspeccion).build());
+        when(oilChangeRepository.getLastMotorOilChangeByMachineId(1L))
+                .thenReturn(cambio(OilType.MOTOR, 1400.0, LocalDateTime.now().minusDays(8)));
+
+        var dto = oilChangeService.getConsolidateHydraulicAndMotorOilById(1L);
+
+        assertEquals(1500.0, dto.currentData().currentHourMeter());
+        assertEquals(fechaInspeccion, dto.currentData().lastUpdate());
+        assertEquals(150.0, dto.consolidateMotorOil().remainingHoursNextUpdateMouths());
+    }
+
+    @Test
+    void consolidado_MaquinaConCambioPeroSinInspeccion_SiAparece() {
+        when(machineRepository.findById(1L)).thenReturn(Optional.of(maquina(800)));
+        when(oilChangeRepository.getLastHydraulicOilChangeByMachineId(1L))
+                .thenReturn(cambio(OilType.HYDRAULIC, 800.0, LocalDateTime.now().minusDays(3)));
+
+        var dto = oilChangeService.getConsolidateHydraulicAndMotorOilById(1L);
+
+        assertNotNull(dto);
+        assertEquals(800.0, dto.currentData().currentHourMeter());
+        assertNull(dto.consolidateMotorOil());
+        assertNotNull(dto.consolidateHydraulicOil());
+    }
+
+    @Test
+    void consolidado_MaquinaSinInspeccionNiCambios_NoAparece() {
+        when(machineRepository.findById(1L)).thenReturn(Optional.of(maquina(0)));
+
+        assertNull(oilChangeService.getConsolidateHydraulicAndMotorOilById(1L));
     }
 }

@@ -62,7 +62,7 @@ public class UserDetailsServiceImp
         this.saveLoginAuditAsync(userPrincipal.username());
 
         return new AuthResponse(userEntity.getId(), username, userEntity.getFullName(), userEntity.getRole(),
-                "logged successfully!", jwtToken, refreshToken, true);
+                "logged successfully!", jwtToken, refreshToken, jwtUtils.createArchivosToken(authentication), true);
     }
 
     @Override
@@ -94,6 +94,9 @@ public class UserDetailsServiceImp
     public RefreshTokenResponse refreshToken(RefreshTokenRequest request) {
         try {
             DecodedJWT decodedJWT = jwtUtils.verifyToken(request.refreshToken());
+            if (!jwtUtils.esRefreshToken(decodedJWT)) {
+                throw new BadCredentialsException("Se esperaba un refresh token");
+            }
             String username = jwtUtils.extractUsername(decodedJWT);
 
             UserEntity userEntity = userRepository.findActiveByUsername(username)
@@ -107,7 +110,7 @@ public class UserDetailsServiceImp
 
             String newAccessToken = jwtUtils.createToken(authentication);
 
-            return new RefreshTokenResponse(newAccessToken);
+            return new RefreshTokenResponse(newAccessToken, jwtUtils.createArchivosToken(authentication));
 
         } catch (Exception e) {
             throw new BadCredentialsException("Refresh token inválido o expirado");
