@@ -83,9 +83,9 @@ class RefuelingRecordControllerTest {
     // FuelModuleE2ETest — ver comentario equivalente en FuelPurchaseControllerTest.
 
     @Test
-    @DisplayName("GET /refueling: ALMACEN autorizado, devuelve 200")
-    @WithMockUser(roles = "ALMACEN")
-    void listar_ConRolAlmacen_Devuelve200() throws Exception {
+    @DisplayName("GET /refueling: SUPERVISOR_OPERATIVO autorizado, devuelve 200")
+    @WithMockUser(roles = "SUPERVISOR_OPERATIVO")
+    void listar_ConRolSupervisor_Devuelve200() throws Exception {
         Page<RefuelingRecordResponse> page = new PageImpl<>(List.of());
         when(registerRefuelingRecordUseCase.listar(any(), any())).thenReturn(page);
 

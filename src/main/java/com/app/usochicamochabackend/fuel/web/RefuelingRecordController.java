@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/v1/fuel/refueling")
@@ -34,7 +35,7 @@ public class RefuelingRecordController {
     private final RegisterRefuelingRecordUseCase registerRefuelingRecordUseCase;
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('OPERARIO', 'ALMACEN', 'SUPERVISOR_OPERATIVO', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERARIO', 'SUPERVISOR_OPERATIVO', 'ADMIN')")
     public ResponseEntity<RefuelingRecordResponse> registrar(
             @RequestPart(value = "vehicleId", required = false) String vehicleId,
             @RequestPart(value = "machineId", required = false) String machineId,
@@ -48,9 +49,10 @@ public class RefuelingRecordController {
             @RequestPart(value = "descuento", required = false) String descuento,
             @RequestPart(value = "totalIngresado", required = false) String totalIngresado,
             @RequestPart(value = "origen", required = false) String origen,
+            @RequestPart(value = "fecha", required = false) String fecha,
             @RequestPart(value = "factura", required = false) MultipartFile factura) {
         RefuelingRecordRequest request = parseRequest(vehicleId, machineId, lugar, areaCosto, fuelTypeId,
-                cantidadGalones, horometroKm, esFull, precioUnitario, descuento, totalIngresado, origen);
+                cantidadGalones, horometroKm, esFull, precioUnitario, descuento, totalIngresado, origen, fecha);
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         RefuelingRecordResponse response = registerRefuelingRecordUseCase.registrar(request, factura, userPrincipal.id());
@@ -58,7 +60,7 @@ public class RefuelingRecordController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('OPERARIO', 'ALMACEN', 'SUPERVISOR_OPERATIVO', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERARIO', 'SUPERVISOR_OPERATIVO', 'ADMIN')")
     public ResponseEntity<Page<RefuelingRecordResponse>> listar(
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) Boolean activo) {
@@ -66,7 +68,7 @@ public class RefuelingRecordController {
     }
 
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
     public ResponseEntity<RefuelingRecordResponse> actualizar(
             @PathVariable Long id,
             @RequestPart(value = "vehicleId", required = false) String vehicleId,
@@ -81,14 +83,17 @@ public class RefuelingRecordController {
             @RequestPart(value = "descuento", required = false) String descuento,
             @RequestPart(value = "totalIngresado", required = false) String totalIngresado,
             @RequestPart(value = "origen", required = false) String origen,
+            @RequestPart(value = "fecha", required = false) String fecha,
             @RequestPart(value = "factura", required = false) MultipartFile factura) {
         RefuelingRecordRequest request = parseRequest(vehicleId, machineId, lugar, areaCosto, fuelTypeId,
-                cantidadGalones, horometroKm, esFull, precioUnitario, descuento, totalIngresado, origen);
+                cantidadGalones, horometroKm, esFull, precioUnitario, descuento, totalIngresado, origen, fecha);
         return ResponseEntity.ok(registerRefuelingRecordUseCase.actualizar(id, request, factura));
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    // SUPERVISOR_OPERATIVO también elimina: maneja mucha información de combustibles y
+    // necesita corregir sus propios errores (CRUD completo en combustibles). Es soft-delete.
+    @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
     public ResponseEntity<Void> eliminar(@PathVariable Long id) {
         registerRefuelingRecordUseCase.eliminar(id);
         return ResponseEntity.noContent().build();
@@ -96,7 +101,7 @@ public class RefuelingRecordController {
 
     private RefuelingRecordRequest parseRequest(String vehicleId, String machineId, String lugar, String areaCosto,
             String fuelTypeId, String cantidadGalones, String horometroKm, String esFull, String precioUnitario,
-            String descuento, String totalIngresado, String origen) {
+            String descuento, String totalIngresado, String origen, String fecha) {
         return new RefuelingRecordRequest(
                 vehicleId != null && !vehicleId.isBlank() ? Integer.valueOf(vehicleId) : null,
                 machineId != null && !machineId.isBlank() ? Long.valueOf(machineId) : null,
@@ -109,6 +114,7 @@ public class RefuelingRecordController {
                 precioUnitario != null && !precioUnitario.isBlank() ? new BigDecimal(precioUnitario) : null,
                 descuento != null && !descuento.isBlank() ? new BigDecimal(descuento) : null,
                 totalIngresado != null && !totalIngresado.isBlank() ? new BigDecimal(totalIngresado) : null,
-                origen);
+                origen,
+                fecha != null && !fecha.isBlank() ? LocalDateTime.parse(fecha) : null);
     }
 }

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -99,5 +100,18 @@ class ActionsServiceTest {
 
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
+    }
+
+    @Test
+    @DisplayName("save: recorta el detalle al largo de la columna (varchar 255)")
+    void save_RecortaDetalleLargo() {
+        when(userRepositoryJpa.getUserEntityById(1L)).thenReturn(mockUserEntity);
+
+        actionsService.save("El usuario admin ha asignado 3 citas de " + "Actividad larga ".repeat(20));
+
+        ArgumentCaptor<ActionEntity> guardada = ArgumentCaptor.forClass(ActionEntity.class);
+        verify(actionRepository).save(guardada.capture());
+        assertEquals(ActionsService.MAX_DETALLE, guardada.getValue().getDetails().length());
+        assertTrue(guardada.getValue().getDetails().endsWith("…"));
     }
 }

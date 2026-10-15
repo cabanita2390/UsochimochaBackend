@@ -7,6 +7,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+
 /**
  * Servicio de validación para cambios de aceite
  * Valida datos de entrada y lanza excepciones de dominio específicas
@@ -22,6 +26,7 @@ public class OilChangeValidationService {
     private static final int MAX_INTERVAL_KM = 100000;
     private static final double MIN_QUANTITY = 0.5;
     private static final double MAX_QUANTITY = 100.0;
+    private static final ZoneId ZONA = ZoneId.of("America/Bogota");
 
     /**
      * Valida un request de cambio de aceite
@@ -36,6 +41,7 @@ public class OilChangeValidationService {
         validateIntervalKm(request.intervalKm());
         validateQuantity(request.quantity());
         validateOilType(request.oilType());
+        validateServiceDate(request.dateStamp());
 
         logger.debug("Validación completada exitosamente para vehículo: {}", request.placa());
     }
@@ -92,6 +98,19 @@ public class OilChangeValidationService {
             throw new InvalidOilChangeDataException(
                 "Intervalo de cambio no puede exceder " + MAX_INTERVAL_KM + " km, recibido: " + intervalKm
             );
+        }
+    }
+
+    /**
+     * Se permite registrar un cambio atrasado, pero no uno con fecha futura: dejaría
+     * "días desde el cambio" negativo en el Consolidado. Se compara por día (hora de
+     * Colombia), no por instante, para que un reloj de celular un poco adelantado no
+     * rechace un cambio registrado "ahora". Null = el servicio usa la fecha actual.
+     */
+    public void validateServiceDate(LocalDateTime dateStamp) {
+        if (dateStamp != null && dateStamp.toLocalDate().isAfter(LocalDate.now(ZONA))) {
+            logger.warn("Fecha de cambio de aceite futura: {}", dateStamp);
+            throw new InvalidOilChangeDataException("La fecha del cambio de aceite no puede ser futura.");
         }
     }
 

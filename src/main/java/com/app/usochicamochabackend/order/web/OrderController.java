@@ -99,13 +99,20 @@ public class OrderController {
         return ResponseEntity.ok(getAllOrdersByVehicleInspectionIdUseCase.getAllOrdersByVehicleInspectionId(vehicleInspectionId));
     }
 
-    @Operation(summary = "Get all vehicle orders (paginated)", description = "Returns all work orders linked to vehicle inspections, sorted by most recent.")
+    @Operation(summary = "Get all vehicle orders (paginated)",
+            description = "Returns all work orders linked to vehicle inspections, sorted by most recent. " +
+                    "Con `soloMotos=true` filtra solo motocicletas, con `soloMotos=false` excluye motocicletas; " +
+                    "sin el parámetro retorna ambos. El filtro se aplica antes de paginar.")
     @GetMapping("/vehicle/all")
     public ResponseEntity<Page<OrderWithVehicleDTO>> getAllVehicleOrders(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Boolean soloMotos) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
-        return ResponseEntity.ok(getAllVehicleOrdersUseCase.getAllVehicleOrders(pageable));
+        Page<OrderWithVehicleDTO> orders = soloMotos == null
+                ? getAllVehicleOrdersUseCase.getAllVehicleOrders(pageable)
+                : getAllVehicleOrdersUseCase.getAllVehicleOrders(pageable, soloMotos);
+        return ResponseEntity.ok(orders);
     }
 
     @Operation(summary = "Exportar órdenes de maquinaria a Excel")

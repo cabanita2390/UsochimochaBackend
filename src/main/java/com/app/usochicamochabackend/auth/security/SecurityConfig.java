@@ -2,9 +2,12 @@ package com.app.usochicamochabackend.auth.security;
 
 import com.app.usochicamochabackend.auth.application.service.UserDetailsServiceImp;
 import com.app.usochicamochabackend.auth.security.filter.JwtTokenValidator;
+import com.app.usochicamochabackend.auth.security.filter.UploadsAccessFilter;
+import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -20,6 +23,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -34,6 +38,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtUtils jwtUtils;
+    private final UserRepositoryJpa userRepository;
+
+    /** Ver UploadsAccessFilter: "registrar" (por defecto) o "exigir". */
+    @Value("${app.uploads.proteccion:registrar}")
+    private String modoProteccionUploads;
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
@@ -41,7 +50,8 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(new JwtTokenValidator(jwtUtils), BasicAuthenticationFilter.class)
+                .addFilterBefore(new JwtTokenValidator(jwtUtils, userRepository), BasicAuthenticationFilter.class)
+                .addFilterAfter(new UploadsAccessFilter(jwtUtils, userRepository, modoProteccionUploads), JwtTokenValidator.class)
                 .authorizeHttpRequests(http -> {
                     // 1. Acceso Público (Auth, Swagger, Imágenes)
                     http.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
@@ -88,6 +98,25 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/moto/inspeccion/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.POST, "/api/v1/inspection/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
 
+                    // 4b. Subestaciones (mantenimiento Civil/Eléctrico/Electromecánico)
+                    // Lecturas del móvil (el OPERARIO solo usa la app; ver ApiService.kt del móvil).
+                    http.requestMatchers(HttpMethod.GET,
+                            "/api/v1/substation/estaciones", "/api/v1/substation/actividades",
+                            "/api/v1/substation/observaciones/frecuentes", "/api/v1/substation/programacion",
+                            "/api/v1/substation/indicadores/cumplimiento",
+                            "/api/v1/substation/ejecuciones", "/api/v1/substation/ejecuciones/*",
+                            "/api/v1/substation/ejecuciones/por-programacion/*")
+                            .hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Lo demás (cronograma con borradores, dashboard, resumen, criticidad) es de la web.
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/substation/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Captura desde el móvil; el PUT es el "Editar registro" del móvil, por eso incluye OPERARIO.
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/substation/ejecuciones", "/api/v1/substation/ejecuciones/*/evidencia").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/ejecuciones/*").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Seguimiento de hallazgos (web).
+                    http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/hallazgos/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Cualquier otra escritura (cronograma, publicación, catálogos): solo ADMIN.
+                    http.requestMatchers("/api/v1/substation/**").hasRole("ADMIN");
+
                     // Lecturas de inspección (móvil + supervisor + admin)
                     http.requestMatchers(HttpMethod.GET, "/api/v1/inspection/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle-inspection/documentos/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
@@ -131,31 +160,33 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.POST, "/api/v1/alerts/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.DELETE, "/api/v1/alerts/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
 
-                    // 10. Mantenimiento (lecturas: SUPERVISOR_OPERATIVO; creación: SUPERVISOR_OPERATIVO)
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/maintenance/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/maintenance").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
-
                     // 5. Combustibles
                     http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/purchases").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/purchases").hasAnyRole("ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/purchases").hasAnyRole( "SUPERVISOR_OPERATIVO", "ADMIN");
 
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/refueling").hasAnyRole("OPERARIO", "ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/refueling").hasAnyRole("OPERARIO", "ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/refueling").hasAnyRole( "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/refueling").hasAnyRole(  "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.PUT, "/api/v1/fuel/refueling/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.DELETE, "/api/v1/fuel/refueling/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
 
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/dashboard/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers("/api/v1/fuel/monthly-discount/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/almacen/**").hasAnyRole("ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/rendimiento").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/almacen/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/rendimiento/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/distribucion").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/reintegros").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers("/api/v1/fuel/config/**").hasRole("ADMIN");
+                    // Combustibles: SUPERVISOR_OPERATIVO tiene CRUD completo, igual que ADMIN (incluida
+                    // la configuración de consumo estándar por activo).
+                    http.requestMatchers("/api/v1/fuel/config/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     // Catálogo de tipos y cualquier otra ruta de fuel no listada arriba: cualquier autenticado.
                     http.requestMatchers("/api/v1/fuel/**").authenticated();
 
                     // Cualquier otra petición: solo ADMIN
                     http.anyRequest().hasRole("ADMIN");
                 })
-                .exceptionHandling(ex -> ex.accessDeniedHandler(accessDeniedHandler()));
+                .exceptionHandling(ex -> ex
+                        .accessDeniedHandler(accessDeniedHandler())
+                        .authenticationEntryPoint(authenticationEntryPoint()));
 
         return httpSecurity.build();
     }
@@ -196,6 +227,19 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * Petición sin token a una ruta protegida: 401 (antes respondía 403, como si fuera falta de
+     * permisos, y los clientes no intentaban renovar la sesión). 403 queda para "sin permiso".
+     */
+    @Bean
+    public AuthenticationEntryPoint authenticationEntryPoint() {
+        return (request, response, ex) -> {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.getWriter().write("{\"error\": \"Authentication required\"}");
+        };
     }
 
     @Bean

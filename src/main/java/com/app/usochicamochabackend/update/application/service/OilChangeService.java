@@ -10,8 +10,6 @@ import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.mapper.OilChangeMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
-import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
-import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.update.application.dto.*;
 import com.app.usochicamochabackend.update.application.port.*;
 import com.app.usochicamochabackend.update.infrastructure.entity.BrandEntity;
@@ -47,11 +45,12 @@ public class OilChangeService implements
 
     private final MachineRepository machineRepository;
     private final BrandRepository brandRepository;
-    private final InspectionRepository inspectionRepository;
+    private final LecturaHorometroMaquina lecturaHorometroMaquina;
     private final OilChangeRepository oilChangeRepository;
     private final SaveActionUseCase saveActionUseCase;
     private final NotificationService notificationService;
     private final PreventiveAlertCalculationService preventiveAlertCalculationService;
+    private final OilChangeValidationService oilChangeValidationService;
 
     @Override
     public List<ConsolidateHydraulicAndMotorOilDTO> getConsolidateHydraulicAndMotorOilAllMachines() {
@@ -73,15 +72,16 @@ public class OilChangeService implements
         MachineEntity machine = machineRepository.findById(machineId)
                 .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + machineId));
 
-        InspectionEntity lastInspection = inspectionRepository.getLastInspection(machineId);
+        // Horómetro actual = lectura más reciente (inspección o cambio de aceite), ver LecturaHorometroMaquina.
+        LecturaHorometroMaquina.Lectura lectura = lecturaHorometroMaquina.ultima(machineId);
 
-        if (lastInspection == null) return null;
+        if (lectura == null) return null;
 
         CurrentData currentData = new CurrentData(
                 machine.getBelongsTo(),
                 machine.getName(),
-                lastInspection.getHourMeter(),
-                lastInspection.getDateStamp()
+                lectura.horometro(),
+                lectura.fecha()
         );
 
         ConsolidateMotorOilDTO motorOil = getConsolidateMotorOilByIdMachine(machineId);
@@ -152,15 +152,16 @@ public class OilChangeService implements
         MachineEntity machine = machineRepository.findById(machineId)
                 .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + machineId));
 
-        InspectionEntity lastInspection = inspectionRepository.getLastInspection(machineId);
+        // Horómetro actual = lectura más reciente (inspección o cambio de aceite), ver LecturaHorometroMaquina.
+        LecturaHorometroMaquina.Lectura lectura = lecturaHorometroMaquina.ultima(machineId);
 
-        if (lastInspection == null) return null;
+        if (lectura == null) return null;
 
         CurrentData currentData = new CurrentData(
                 machine.getBelongsTo(),
                 machine.getName(),
-                lastInspection.getHourMeter(),
-                lastInspection.getDateStamp()
+                lectura.horometro(),
+                lectura.fecha()
         );
 
         OilChangeEntity oilLastChange = oilChangeRepository.getLastHydraulicOilChangeByMachineId(machineId);
@@ -227,12 +228,16 @@ public class OilChangeService implements
         MachineEntity machine = machineRepository.findById(machineId)
                 .orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + machineId));
 
-        InspectionEntity lastInspection = inspectionRepository.getLastInspection(machineId);
+        // Horómetro actual = lectura más reciente (inspección o cambio de aceite), ver LecturaHorometroMaquina.
+        LecturaHorometroMaquina.Lectura lectura = lecturaHorometroMaquina.ultima(machineId);
+
+        if (lectura == null) return null;
+
         CurrentData currentData = new CurrentData(
                 machine.getBelongsTo(),
                 machine.getName(),
-                lastInspection.getHourMeter(),
-                lastInspection.getDateStamp()
+                lectura.horometro(),
+                lectura.fecha()
         );
 
         OilChangeEntity oilLastChange = oilChangeRepository.getLastMotorOilChangeByMachineId(machineId);
@@ -287,8 +292,13 @@ public class OilChangeService implements
     @Override
     public PerformChangeMotorOilResponse performMotorOilChange(PerformChangeMotorOilRequest request) {
         validarHorometro(request.currentHourMeter());
+        oilChangeValidationService.validateServiceDate(request.dateTime());
 
         OilChangeEntity oilChange = OilChangeMapper.motorOilRequestToEntity(request, machineRepository, brandRepository);
+        // Sin fecha, el Consolidado fallaba al calcular "tiempo desde el último cambio".
+        if (oilChange.getDateStamp() == null) {
+            oilChange.setDateStamp(LocalDateTime.now());
+        }
 
         MachineEntity machine = machineRepository.findById(request.machineId()).orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
 
@@ -309,8 +319,13 @@ public class OilChangeService implements
     @Override
     public PerformChangeHydraulicOilResponse performChangeHydraulicOil(PerformChangeHydraulicOilRequest request) {
         validarHorometro(request.currentHourMeter());
+        oilChangeValidationService.validateServiceDate(request.dateTime());
 
         OilChangeEntity oilChange = OilChangeMapper.hydraulicOilRequestToEntity(request, machineRepository, brandRepository);
+        // Sin fecha, el Consolidado fallaba al calcular "tiempo desde el último cambio".
+        if (oilChange.getDateStamp() == null) {
+            oilChange.setDateStamp(LocalDateTime.now());
+        }
 
         MachineEntity machine = machineRepository.findById(request.machineId()).orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
 
@@ -388,6 +403,7 @@ public class OilChangeService implements
     @Transactional
     public void actualizarCambioAceite(Long id, PerformChangeMotorOilRequest request) {
         validarHorometro(request.currentHourMeter());
+        oilChangeValidationService.validateServiceDate(request.dateTime());
 
         OilChangeEntity entity = oilChangeRepository.findByIdAndStatus(id, true)
                 .orElseThrow(() -> new ResourceNotFoundException("Cambio de aceite no encontrado con id " + id));

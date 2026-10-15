@@ -48,7 +48,7 @@ class AuthControllerTest {
     void login_CredencialesValidas_Devuelve200() throws Exception {
         AuthResponse authResponse = new AuthResponse(
                 1L, "admin", "Admin User", "ROLE_ADMIN", "OK",
-                "mocked-jwt-token", "mocked-refresh-token", true);
+                "mocked-jwt-token", "mocked-refresh-token", "mocked-archivos-token", true);
         when(loginUseCase.login(any(AuthRequest.class))).thenReturn(authResponse);
 
         AuthRequest request = new AuthRequest("admin", "password");
@@ -82,7 +82,7 @@ class AuthControllerTest {
     @Test
     @DisplayName("POST /api/v1/auth/token/refresh: token válido → 200 con nuevo access token")
     void refreshToken_TokenValido_Devuelve200() throws Exception {
-        RefreshTokenResponse tokenResponse = new RefreshTokenResponse("new-access-token");
+        RefreshTokenResponse tokenResponse = new RefreshTokenResponse("new-access-token", "new-archivos-token");
         when(refreshTokenUseCase.refreshToken(any(RefreshTokenRequest.class))).thenReturn(tokenResponse);
 
         RefreshTokenRequest request = new RefreshTokenRequest("mocked-refresh-token");

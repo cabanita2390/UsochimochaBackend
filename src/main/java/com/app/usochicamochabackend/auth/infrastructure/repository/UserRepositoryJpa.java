@@ -24,6 +24,9 @@ public interface UserRepositoryJpa extends JpaRepository<UserEntity, Long> {
     @Query("SELECT u FROM UserEntity u WHERE u.status = true AND u.id = :id")
     Optional<UserEntity> findActiveById(@Param("id") Long id);
 
+    @Query("SELECT COUNT(u) > 0 FROM UserEntity u WHERE u.status = true AND u.id = :id")
+    boolean existsActiveById(@Param("id") Long id);
+
     // ✅ NUEVA: Lista eficiente de usuarios activos (filtro a nivel DB)
     @Query("SELECT u FROM UserEntity u WHERE u.status = true ORDER BY u.username ASC")
     List<UserEntity> findAllActive();

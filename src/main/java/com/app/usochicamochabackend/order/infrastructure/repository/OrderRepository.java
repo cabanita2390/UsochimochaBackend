@@ -22,4 +22,13 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
 
     @Query("SELECT o FROM OrderEntity o WHERE o.vehicleInspection.idVehiculo = :vehicleId")
     List<OrderEntity> findAllByVehicleId(@Param("vehicleId") Integer vehicleId);
+
+    @Query("SELECT o FROM OrderEntity o WHERE o.vehicleInspection IS NOT NULL " +
+            "AND LOWER(o.vehicleInspection.vehiculo.tipoVehiculo.nombreTipo) = LOWER(:tipo)")
+    Page<OrderEntity> findAllByVehicleInspectionIsNotNullAndTipoVehiculo(@Param("tipo") String tipo, Pageable pageable);
+
+    @Query("SELECT o FROM OrderEntity o WHERE o.vehicleInspection IS NOT NULL " +
+            "AND (o.vehicleInspection.vehiculo.tipoVehiculo.nombreTipo IS NULL " +
+            "     OR LOWER(o.vehicleInspection.vehiculo.tipoVehiculo.nombreTipo) <> LOWER(:tipo))")
+    Page<OrderEntity> findAllByVehicleInspectionIsNotNullAndTipoVehiculoNot(@Param("tipo") String tipo, Pageable pageable);
 }

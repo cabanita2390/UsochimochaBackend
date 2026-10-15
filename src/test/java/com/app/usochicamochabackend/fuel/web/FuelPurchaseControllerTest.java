@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.fuel.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.fuel.application.dto.FuelPurchaseResponse;
 import com.app.usochicamochabackend.fuel.application.port.RegisterFuelPurchaseUseCase;
@@ -53,6 +54,9 @@ class FuelPurchaseControllerTest {
     @MockBean
     private JwtUtils jwtUtils;
 
+    @MockBean
+    private UserRepositoryJpa userRepositoryJpa;
+
     private final MockMultipartFile factura = new MockMultipartFile("factura", "f.pdf", "application/pdf", new byte[]{1, 2, 3});
 
     private static RequestPostProcessor as(Long id, String username, String role) {
@@ -90,9 +94,9 @@ class FuelPurchaseControllerTest {
     }
 
     @Test
-    @DisplayName("GET /purchases: ALMACEN autorizado, devuelve 200")
-    @WithMockUser(roles = "ALMACEN")
-    void listar_ConRolAlmacen_Devuelve200() throws Exception {
+    @DisplayName("GET /purchases: SUPERVISOR_OPERATIVO autorizado, devuelve 200")
+    @WithMockUser(roles = "SUPERVISOR_OPERATIVO")
+    void listar_ConRolSupervisor_Devuelve200() throws Exception {
         Page<FuelPurchaseResponse> page = new PageImpl<>(List.of());
         when(registerFuelPurchaseUseCase.listar(any())).thenReturn(page);
 
