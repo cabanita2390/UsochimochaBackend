@@ -114,6 +114,9 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/ejecuciones/*").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     // Seguimiento de hallazgos (web).
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/hallazgos/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Órdenes de trabajo de estación: las crean, editan, verifican y anulan Supervisor y Admin.
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/substation/ordenes").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/ordenes/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     // Cualquier otra escritura (cronograma, publicación, catálogos): solo ADMIN.
                     http.requestMatchers("/api/v1/substation/**").hasRole("ADMIN");
 
