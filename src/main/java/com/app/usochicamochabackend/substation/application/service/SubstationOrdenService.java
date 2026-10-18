@@ -59,6 +59,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     static final String MODULO = "EB";
     private static final Set<String> PRIORIDADES = Set.of("ALTA", "MEDIA");
     private static final int MAX_TEXTO = 2000;
+    private static final int MAX_DIAS_PLAZO = 365;
     private static final DateTimeFormatter DD_MM = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
 
@@ -391,6 +392,10 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
         }
         if (fecha.isBefore(calendario.hoy())) {
             throw new BadRequestException("La fecha límite no puede ser anterior a hoy.");
+        }
+        // Una corrección no se planea a años: un 2062 por un error de tecleo nunca saldría como vencida.
+        if (fecha.isAfter(calendario.hoy().plusDays(MAX_DIAS_PLAZO))) {
+            throw new BadRequestException("La fecha límite puede ser hasta dentro de un año.");
         }
         return fecha;
     }

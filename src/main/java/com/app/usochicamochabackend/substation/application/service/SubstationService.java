@@ -455,11 +455,23 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         EjecucionEntity entity = ejecucionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Ejecución no encontrada: id=" + id));
 
-        // Un registro que viene de una cita del cronograma conserva su actividad.
+        // Un registro que viene de una cita del cronograma o de una orden de trabajo conserva su actividad.
         Long actividadActualId = entity.getActividad() != null ? entity.getActividad().getId() : null;
         if (entity.getProgramacion() != null && !Objects.equals(request.actividadId(), actividadActualId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "La actividad de un registro del cronograma no se puede cambiar");
+        }
+        if (entity.getOrden() != null && !Objects.equals(request.actividadId(), actividadActualId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "La actividad de un registro de una orden de trabajo no se puede cambiar");
+        }
+        // Pasar a Conforme un hallazgo que tiene una orden en curso la dejaría huérfana (el operario la
+        // seguiría viendo para corregir algo que ya no existe): primero hay que anularla.
+        if ("CONFORME".equals(request.resultado()) && !"CONFORME".equals(entity.getResultado())) {
+            ordenTrabajoRepository.vigenteDeHallazgo(entity.getId()).filter(OrdenTrabajoEntity::enCurso).ifPresent(o -> {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Este hallazgo tiene la orden de trabajo "
+                        + o.getConsecutivo() + " en curso: pida al supervisor que la anule antes de marcarlo Conforme.");
+            });
         }
 
         String disciplina = entity.getDisciplina().getCodigo();

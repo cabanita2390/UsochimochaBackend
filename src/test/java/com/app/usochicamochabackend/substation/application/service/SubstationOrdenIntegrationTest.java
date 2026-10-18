@@ -436,4 +436,36 @@ class SubstationOrdenIntegrationTest {
                 .isEqualTo("Reasignada de Técnico OT a cualquier operario");
         assertThat(ordenUseCase.asignadas(new UserPrincipal(otroOperario.getId(), otroOperario.getUsername()))).hasSize(1);
     }
+
+    // ---- Prueba adversarial 2026-10-18 ----
+
+    @Test
+    void laFechaLimiteNoPuedePasarDeUnAnio() {
+        Long id = visita("CON_HALLAZGOS").id();
+        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", HOY.plusDays(366),
+                operarioEntity.getId(), null, correccion.getId(), "x"), supervisor));
+        assertThat(ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", HOY.plusDays(365), operarioEntity.getId(), null,
+                correccion.getId(), "x"), supervisor).fechaLimite()).isEqualTo(HOY.plusDays(365));
+    }
+
+    @Test
+    void noSePuedePasarAConformeUnHallazgoConOrdenEnCurso_niCambiarLaActividadDeLaVisitaDeLaOrden() {
+        EjecucionResponse hallazgo = visita("CON_HALLAZGOS");
+        OrdenResumenResponse orden = ordenUseCase.crear(pedido(hallazgo.id()), supervisor);
+        var aConforme = new com.app.usochicamochabackend.substation.application.dto.EjecucionEditRequest(
+                hallazgo.fecha(), hallazgo.mesEjecucion(), hallazgo.semanaEjecucion(), "PREVENTIVO", "INSPECCION", null,
+                "NO_PROGRAMADO", "CONFORME", "Estaba bien", "revisión de rutina", "Me equivoqué al marcar el resultado");
+
+        conEstado(HttpStatus.CONFLICT, () -> ejecucionUseCase.editarEjecucion(hallazgo.id(), aConforme, operario));
+
+        EjecucionResponse visitaOrden = visitaDeOrden(orden.id(), estacion.getId(), "CONFORME");
+        var otraActividad = new com.app.usochicamochabackend.substation.application.dto.EjecucionEditRequest(
+                visitaOrden.fecha(), visitaOrden.mesEjecucion(), visitaOrden.semanaEjecucion(), "CORRECTIVO", "MANTENIMIENTO",
+                null, "NO_PROGRAMADO", "CONFORME", "Otra cosa", "otra cosa distinta", "Cambio la actividad del registro");
+        conEstado(HttpStatus.BAD_REQUEST, () -> ejecucionUseCase.editarEjecucion(visitaOrden.id(), otraActividad, operario));
+
+        // Anulada la orden, ya se puede corregir el resultado.
+        ordenUseCase.anular(orden.id(), new ComentarioOrdenRequest("No había hallazgo"), supervisor);
+        assertThat(ejecucionUseCase.editarEjecucion(hallazgo.id(), aConforme, operario).resultado()).isEqualTo("CONFORME");
+    }
 }
