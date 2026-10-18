@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.substation.application.dto.ComentarioOrdenRe
 import com.app.usochicamochabackend.substation.application.dto.CrearOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EditarOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.OperarioResponse;
+import com.app.usochicamochabackend.substation.application.dto.OrdenMovilResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenDetalleResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenResumenResponse;
 import org.springframework.data.domain.Page;
@@ -30,4 +31,7 @@ public interface SubstationOrdenUseCase {
     OrdenResumenResponse anular(Long id, ComentarioOrdenRequest request, UserPrincipal usuario);
 
     List<OperarioResponse> operarios();
+
+    /** Órdenes ASIGNADA del operario (lista "Prioritarias" del móvil), primero las de prioridad alta. */
+    List<OrdenMovilResponse> asignadas(UserPrincipal usuario);
 }

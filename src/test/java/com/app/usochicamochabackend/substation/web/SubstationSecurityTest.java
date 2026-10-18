@@ -121,6 +121,7 @@ class SubstationSecurityTest {
             "GET,    /api/v1/substation/ordenes,                    SUPERVISOR_OPERATIVO, true",
             "GET,    /api/v1/substation/ordenes/1,                  OPERARIO,             false",
             "GET,    /api/v1/substation/ordenes/operarios,          OPERARIO,             false",
+            "GET,    /api/v1/substation/ordenes/asignadas,          OPERARIO,             true",
             // Cronograma: solo ADMIN
             "POST,   /api/v1/substation/cronograma/citas,           ADMIN,                true",
             "POST,   /api/v1/substation/cronograma/citas,           SUPERVISOR_OPERATIVO, false",

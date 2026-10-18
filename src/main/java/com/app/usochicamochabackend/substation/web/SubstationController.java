@@ -121,7 +121,8 @@ public class SubstationController {
                     + "resultado acepta uno o varios valores separados por coma (ej. resultado=CON_HALLAZGOS,"
                     + "REQUIERE_INTERVENCION para el preset 'solo hallazgos' de la pantalla de Ejecuciones). "
                     + "seguimiento filtra por estado del hallazgo (ej. seguimiento=ABIERTO,EN_PROCESO para "
-                    + "el chip 'Solo hallazgos abiertos').")
+                    + "el chip 'Solo hallazgos abiertos'). conOrden=true deja solo las visitas de órdenes de trabajo "
+                    + "(con esProgramada=false nunca entran: no son imprevistos).")
     public ResponseEntity<Page<EjecucionResponse>> listarEjecuciones(
             @RequestParam(required = false) Long estacionId,
             @RequestParam(required = false) LocalDate fechaInicio,
@@ -133,10 +134,11 @@ public class SubstationController {
             @RequestParam(required = false) String tipoActividad,
             @RequestParam(required = false) List<String> seguimiento,
             @RequestParam(required = false) String disciplina,
+            @RequestParam(required = false) Boolean conOrden,
             Pageable pageable) {
         return ResponseEntity.ok(ejecucionUseCase.listarEjecuciones(
                 estacionId, fechaInicio, fechaFin, esProgramada,
-                resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, disciplina, pageable));
+                resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, disciplina, conOrden, pageable));
     }
 
     @GetMapping("/indicadores/cumplimiento")

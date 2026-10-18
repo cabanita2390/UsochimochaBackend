@@ -11,10 +11,12 @@ import com.app.usochicamochabackend.order.infrastructure.repository.OrderCounter
 import com.app.usochicamochabackend.substation.application.dto.ComentarioOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.CrearOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EditarOrdenRequest;
+import com.app.usochicamochabackend.substation.application.dto.EvidenciaResponse;
 import com.app.usochicamochabackend.substation.application.dto.OperarioResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenCostoResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenDetalleResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenEventoResponse;
+import com.app.usochicamochabackend.substation.application.dto.OrdenMovilResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenResumenResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationOrdenUseCase;
@@ -25,6 +27,7 @@ import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenEvento
 import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenTrabajoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.EvidenciaRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.HallazgoSeguimientoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenCostoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenEventoRepository;
@@ -63,6 +66,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     private final OrdenTrabajoRepository ordenRepository;
     private final OrdenEventoRepository eventoRepository;
     private final OrdenCostoRepository costoRepository;
+    private final EvidenciaRepository evidenciaRepository;
     private final EjecucionRepository ejecucionRepository;
     private final HallazgoSeguimientoRepository seguimientoRepository;
     private final ActividadRepository actividadRepository;
@@ -250,6 +254,34 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
                 .map(u -> new OperarioResponse(u.getId(), nombre(u), u.getUsername()))
                 .sorted(Comparator.comparing(OperarioResponse::nombre, String.CASE_INSENSITIVE_ORDER))
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<OrdenMovilResponse> asignadas(UserPrincipal usuario) {
+        LocalDate hoy = calendario.hoy();
+        return ordenRepository.asignadasA(usuario.id()).stream()
+                .map(o -> new OrdenMovilResponse(
+                        OrdenResumenResponse.fromEntity(o, hoy),
+                        evidenciaRepository.findByEjecucion_Id(o.getEjecucionOrigen().getId()).stream()
+                                .map(EvidenciaResponse::fromEntity).toList(),
+                        ultimaDevolucion(o.getId())))
+                .toList();
+    }
+
+    /** El motivo de la última devolución, si la orden volvió al operario después de ejecutarla. */
+    private String ultimaDevolucion(Long ordenId) {
+        List<OrdenEventoEntity> eventos = eventoRepository.findByOrden_IdOrderByCreadoEnAscIdAsc(ordenId);
+        for (int i = eventos.size() - 1; i >= 0; i--) {
+            String tipo = eventos.get(i).getTipo();
+            if ("DEVUELTA".equals(tipo)) {
+                return eventos.get(i).getComentario();
+            }
+            if ("CREADA".equals(tipo) || "EJECUTADA".equals(tipo)) {
+                return null;
+            }
+        }
+        return null;
     }
 
     // ---- Apoyo ----

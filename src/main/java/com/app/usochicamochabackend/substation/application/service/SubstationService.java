@@ -15,7 +15,10 @@ import com.app.usochicamochabackend.substation.infrastructure.entity.DisciplinaE
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEdicionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EvidenciaEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.EstacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.HallazgoSeguimientoEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenEventoEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenTrabajoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ProgramacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.CumplimientoViewRepository;
@@ -26,6 +29,8 @@ import com.app.usochicamochabackend.substation.infrastructure.repository.Ejecuci
 import com.app.usochicamochabackend.substation.infrastructure.repository.EstacionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EvidenciaRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.HallazgoSeguimientoRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenEventoRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenTrabajoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ProgramacionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -71,6 +76,8 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     private final CalendarioMantenimiento calendario;
     private final EjecucionEdicionRepository ejecucionEdicionRepository;
     private final HallazgoSeguimientoRepository hallazgoSeguimientoRepository;
+    private final OrdenTrabajoRepository ordenTrabajoRepository;
+    private final OrdenEventoRepository ordenEventoRepository;
     private final SubstationEventosPort eventos;
 
     // NO_PROGRAMADO en tipoMantenimiento / tipoActividad es obsoleto: si un trabajo estaba en el
@@ -125,13 +132,16 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         DisciplinaEntity disciplina = disciplinaRepository.findByCodigo(request.disciplina())
                 .orElseThrow(() -> new BadRequestException("Disciplina desconocida: " + request.disciplina()));
 
+        // La corrección de un hallazgo (orden de trabajo) no es una cita: con orden no se toca el cronograma.
+        OrdenTrabajoEntity orden = ordenDeLaVisita(request.ordenId(), estacion);
+
         ActividadEntity actividad = null;
         ProgramacionEntity programacion = null;
         if (request.actividadId() != null) {
             actividad = actividadRepository.findById(request.actividadId())
                     .orElseThrow(() -> new ResourceNotFoundException("Actividad no encontrada: id=" + request.actividadId()));
         }
-        if (request.programacionId() != null) {
+        if (request.programacionId() != null && orden == null) {
             programacion = programacionRepository.findById(request.programacionId())
                     .orElseThrow(() -> new ResourceNotFoundException("Cita de programación no encontrada: id=" + request.programacionId()));
             // Una cita de otra estación o actividad no se da por cumplida con este trabajo: el
@@ -170,9 +180,13 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .observaciones(request.observaciones())
                 .descripcionLibre(actividad == null ? request.descripcionLibre() : null)
                 .uuidCliente(request.uuidCliente())
+                .orden(orden)
                 .build();
 
         EjecucionEntity guardada = ejecucionRepository.save(entity);
+        if (orden != null) {
+            marcarOrdenEjecutada(orden, guardada, usuarioEntity);
+        }
 
         // todo hallazgo arranca con seguimiento ABIERTO, en la misma transacción.
         // Inserción trivial y sin validaciones a propósito: si este POST respondiera error, el
@@ -190,6 +204,50 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         eventos.ejecucionCambio(estacion.getId(), guardada.getId(), "REGISTRADA");
 
         return toResponse(guardada);
+    }
+
+    /**
+     * La orden que ejecuta esta visita, si existe y es de la misma estación; si no, la visita se
+     * guarda igual sin enlazar (como una cita que no coincide). Nunca lanza: el móvil marcaría el
+     * registro como fallido.
+     */
+    private OrdenTrabajoEntity ordenDeLaVisita(Long ordenId, EstacionEntity estacion) {
+        if (ordenId == null) {
+            return null;
+        }
+        // Bloqueada: dos visitas de la misma orden al tiempo (dos teléfonos sin señal) se atienden en fila
+        // y la segunda ve el estado que dejó la primera.
+        return ordenTrabajoRepository.findByIdParaActualizar(ordenId)
+                .filter(OrdenTrabajoEntity::getStatus)
+                .filter(o -> o.getEstacion().getId().equals(estacion.getId()))
+                .orElse(null);
+    }
+
+    /**
+     * La orden ASIGNADA pasa a POR_VERIFICAR con esta visita. Si ya no estaba asignada (la anularon,
+     * la cerraron o ya llegó otra visita, p. ej. sin señal), la visita queda enlazada igual y la línea
+     * de tiempo lo registra para que el supervisor lo revise.
+     */
+    private void marcarOrdenEjecutada(OrdenTrabajoEntity orden, EjecucionEntity visita, UserEntity operario) {
+        LocalDateTime ahora = calendario.ahora();
+        String tipo;
+        String comentario;
+        if (OrdenTrabajoEntity.ASIGNADA.equals(orden.getEstado())) {
+            orden.setEstado(OrdenTrabajoEntity.POR_VERIFICAR);
+            orden.setEjecucionCierre(visita);
+            orden.setActualizadoEn(ahora);
+            ordenTrabajoRepository.save(orden);
+            tipo = "EJECUTADA";
+            comentario = "Registrada desde el móvil el " + visita.getFecha().format(DD_MM) + " · resultado "
+                    + visita.getResultado().toLowerCase().replace('_', ' ');
+        } else {
+            tipo = "EJECUCION_FUERA_DE_ESTADO";
+            comentario = "Llegó una visita del " + visita.getFecha().format(DD_MM) + " cuando la orden ya estaba "
+                    + orden.getEstado().toLowerCase().replace('_', ' ') + ". Revísela.";
+        }
+        ordenEventoRepository.save(OrdenEventoEntity.builder()
+                .orden(orden).tipo(tipo).comentario(comentario).ejecucion(visita).usuario(operario).creadoEn(ahora)
+                .build());
     }
 
     @Override
@@ -302,6 +360,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
     /** Fechas imposibles (1900, 2099) entraban y aparecían como años con datos en la web. */
     private static final LocalDate FECHA_MINIMA = LocalDate.of(2000, 1, 1);
+    private static final java.time.format.DateTimeFormatter DD_MM = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
     /**
      * Holgado a propósito: el móvil muestra 500 pero hasta ahora no cortaba el texto, y un
      * registro ya encolado que el backend rechace se quedaría reintentando para siempre.
@@ -500,12 +559,12 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     public Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
-            List<String> seguimiento, String disciplina, Pageable pageable) {
+            List<String> seguimiento, String disciplina, Boolean conOrden, Pageable pageable) {
         LocalDate desde = fechaInicio != null ? fechaInicio : LocalDate.of(2000, 1, 1);
         LocalDate hasta = fechaFin != null ? fechaFin : LocalDate.now();
         var spec = EjecucionSpecifications.filtrar(
                 estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad,
-                seguimiento, disciplina);
+                seguimiento, disciplina, conOrden);
         return ejecucionRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
@@ -519,7 +578,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .toList();
         SeguimientoResponse seguimiento = hallazgoSeguimientoRepository.findByEjecucion_Id(entity.getId())
                 .filter(HallazgoSeguimientoEntity::getStatus)
-                .map(SeguimientoResponse::fromEntity)
+                .map(s -> SeguimientoResponse.fromEntity(s, ordenTrabajoRepository.vigenteDeHallazgo(entity.getId()).orElse(null)))
                 .orElse(null);
         return EjecucionResponse.fromEntity(entity, evidencias, ediciones, seguimiento);
     }

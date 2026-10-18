@@ -20,6 +20,7 @@ import com.app.usochicamochabackend.substation.infrastructure.entity.DisciplinaE
 import com.app.usochicamochabackend.substation.infrastructure.entity.EstacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.DisciplinaRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EstacionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.HallazgoSeguimientoRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,6 +74,7 @@ class SubstationOrdenIntegrationTest {
     @Autowired private EstacionRepository estacionRepository;
     @Autowired private ActividadRepository actividadRepository;
     @Autowired private DisciplinaRepository disciplinaRepository;
+    @Autowired private EjecucionRepository ejecucionRepository;
 
     private UserPrincipal operario;
     private UserPrincipal supervisor;
@@ -111,6 +113,14 @@ class SubstationOrdenIntegrationTest {
                 HOY.minusDays(3), 10, 2, estacion.getId(), "CIVIL", "PREVENTIVO", "INSPECCION",
                 null, null, "NO_PROGRAMADO", resultado, "Fisura en el muro norte", "revisión de rutina",
                 UUID.randomUUID()), operario);
+    }
+
+    /** La visita del operario que ejecuta una orden, como la manda el móvil. */
+    private EjecucionResponse visitaDeOrden(Long ordenId, Long estacionId, String resultado) {
+        return ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                HOY, 10, 3, estacionId, "CIVIL", "CORRECTIVO", "MANTENIMIENTO",
+                correccion.getId(), null, null, resultado, "Se selló la fisura", null,
+                UUID.randomUUID(), ordenId), operario);
     }
 
     private CrearOrdenRequest pedido(Long ejecucionId) {
@@ -231,5 +241,88 @@ class SubstationOrdenIntegrationTest {
     void operarios_soloLosOperariosActivosOrdenadosPorNombre() {
         assertThat(ordenUseCase.operarios()).extracting("nombre").containsSubsequence("Ana Operaria", "Técnico OT")
                 .doesNotContain("Operario Inactivo", "Carlos Rivas");
+    }
+
+    // ---- SUB-16: la visita del operario ----
+
+    @Test
+    void visitaDeLaOrden_laPasaAPorVerificarYQuedaEnLaLineaDeTiempo() {
+        EjecucionResponse hallazgo = visita("REQUIERE_INTERVENCION");
+        OrdenResumenResponse orden = ordenUseCase.crear(pedido(hallazgo.id()), supervisor);
+
+        EjecucionResponse correccionHecha = visitaDeOrden(orden.id(), estacion.getId(), "CONFORME");
+
+        assertThat(correccionHecha.orden().consecutivo()).isEqualTo("OT-EB-00001");
+        assertThat(correccionHecha.esProgramada()).isFalse();
+        assertThat(correccionHecha.programacionId()).isNull();
+        OrdenDetalleResponse detalle = ordenUseCase.detalle(orden.id());
+        assertThat(detalle.orden().estado()).isEqualTo("POR_VERIFICAR");
+        assertThat(detalle.ejecucion().id()).isEqualTo(correccionHecha.id());
+        assertThat(detalle.eventos()).extracting("tipo").containsExactly("CREADA", "EJECUTADA");
+        assertThat(detalle.eventos().get(1).ejecucionId()).isEqualTo(correccionHecha.id());
+        // El seguimiento del hallazgo muestra su orden.
+        assertThat(ejecucionUseCase.obtenerEjecucion(hallazgo.id()).seguimiento().orden().estado()).isEqualTo("POR_VERIFICAR");
+        // Ya no está en la lista del operario.
+        assertThat(ordenUseCase.asignadas(operario)).isEmpty();
+    }
+
+    @Test
+    void visitaDeUnaOrdenQueYaNoEstaAsignada_seGuardaIgualYSeAvisaEnLaLineaDeTiempo() {
+        OrdenResumenResponse orden = ordenUseCase.crear(pedido(visita("CON_HALLAZGOS").id()), supervisor);
+        ordenUseCase.anular(orden.id(), new ComentarioOrdenRequest("Duplicada"), supervisor);
+
+        EjecucionResponse tarde = visitaDeOrden(orden.id(), estacion.getId(), "CONFORME");
+
+        assertThat(tarde.id()).isNotNull();
+        assertThat(tarde.orden().id()).isEqualTo(orden.id());
+        OrdenDetalleResponse detalle = ordenUseCase.detalle(orden.id());
+        assertThat(detalle.orden().estado()).isEqualTo("ANULADA");
+        assertThat(detalle.eventos()).extracting("tipo").endsWith("EJECUCION_FUERA_DE_ESTADO");
+    }
+
+    @Test
+    void visitaConUnaOrdenInexistenteODeOtraEstacion_seGuardaSinEnlazar() {
+        OrdenResumenResponse orden = ordenUseCase.crear(pedido(visita("CON_HALLAZGOS").id()), supervisor);
+        EstacionEntity otra = estacionRepository.save(EstacionEntity.builder().nombre("Otra").tipo("BOMBEO")
+                .frecuenciaBase("ANUAL").status(true).build());
+
+        assertThat(visitaDeOrden(999_999L, estacion.getId(), "CONFORME").orden()).isNull();
+        assertThat(visitaDeOrden(orden.id(), otra.getId(), "CONFORME").orden()).isNull();
+        assertThat(ordenUseCase.detalle(orden.id()).orden().estado()).isEqualTo("ASIGNADA");
+    }
+
+    @Test
+    void lasVisitasDeOrdenesNoSonImprevistosNiCuentanEnLosIndicadores() {
+        OrdenResumenResponse orden = ordenUseCase.crear(pedido(visita("CON_HALLAZGOS").id()), supervisor);
+        EjecucionResponse deOrden = visitaDeOrden(orden.id(), estacion.getId(), "CONFORME");
+        var pagina = PageRequest.of(0, 20);
+
+        var imprevistos = ejecucionUseCase.listarEjecuciones(estacion.getId(), HOY.minusDays(30), HOY, false,
+                null, null, null, null, null, null, pagina).getContent();
+        assertThat(imprevistos).extracting("id").doesNotContain(deOrden.id()).hasSize(1);
+        var deOrdenes = ejecucionUseCase.listarEjecuciones(null, HOY.minusDays(30), HOY, null,
+                null, null, null, null, null, null, true, pagina).getContent();
+        assertThat(deOrdenes).extracting("id").containsExactly(deOrden.id());
+
+        // estacionId, total, programadas, noProgramadas, …: solo la visita del hallazgo.
+        Object[] fila = ejecucionRepository.contarPorEstacion("CIVIL", HOY.minusDays(30), HOY).get(0);
+        assertThat(((Number) fila[1]).longValue()).isEqualTo(1);
+        assertThat(((Number) fila[3]).longValue()).isEqualTo(1);
+    }
+
+    @Test
+    void asignadas_soloLasDelOperarioPrimeroLasDePrioridadAlta() {
+        OrdenResumenResponse media = ordenUseCase.crear(new CrearOrdenRequest(visita("CON_HALLAZGOS").id(), "MEDIA",
+                HOY.plusDays(2), operarioEntity.getId(), correccion.getId(), "Revisar"), supervisor);
+        OrdenResumenResponse alta = ordenUseCase.crear(pedido(visita("REQUIERE_INTERVENCION").id()), supervisor);
+        ordenUseCase.crear(new CrearOrdenRequest(visita("CON_HALLAZGOS").id(), "ALTA", HOY.plusDays(1),
+                otroOperario.getId(), correccion.getId(), "De Ana"), supervisor);
+
+        var mias = ordenUseCase.asignadas(operario);
+
+        assertThat(mias).extracting(o -> o.orden().id()).containsExactly(alta.id(), media.id());
+        assertThat(mias.get(0).evidenciasHallazgo()).isEmpty();
+        assertThat(mias.get(0).motivoDevolucion()).isNull();
+        assertThat(mias.get(0).orden().instrucciones()).isEqualTo("Sellar la fisura con mortero epóxico.");
     }
 }

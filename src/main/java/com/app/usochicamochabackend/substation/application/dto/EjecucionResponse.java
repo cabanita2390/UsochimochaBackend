@@ -31,7 +31,8 @@ public record EjecucionResponse(
         Boolean evidenciaPendiente,
         @Schema(description = "Historial de ediciones, orden cronológico") List<EjecucionEdicionResponse> ediciones,
         @Schema(description = "Cita del cronograma que se ejecutó; null en registros libres") Long programacionId,
-        @Schema(description = "Seguimiento del hallazgo; null si el resultado es CONFORME") SeguimientoResponse seguimiento
+        @Schema(description = "Seguimiento del hallazgo; null si el resultado es CONFORME") SeguimientoResponse seguimiento,
+        @Schema(description = "Orden de trabajo que esta visita ejecutó; null en citas e imprevistos") OrdenRefResponse orden
 ) {
     public static EjecucionResponse fromEntity(
             EjecucionEntity entity, List<EvidenciaResponse> evidencias, List<EjecucionEdicionResponse> ediciones,
@@ -60,6 +61,7 @@ public record EjecucionResponse(
                 evidenciaPendiente,
                 ediciones,
                 entity.getProgramacion() != null ? entity.getProgramacion().getId() : null,
-                seguimiento);
+                seguimiento,
+                OrdenRefResponse.fromEntity(entity.getOrden()));
     }
 }

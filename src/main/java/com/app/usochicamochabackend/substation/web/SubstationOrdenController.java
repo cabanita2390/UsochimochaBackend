@@ -6,6 +6,7 @@ import com.app.usochicamochabackend.substation.application.dto.CrearOrdenRequest
 import com.app.usochicamochabackend.substation.application.dto.EditarOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.OperarioResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenDetalleResponse;
+import com.app.usochicamochabackend.substation.application.dto.OrdenMovilResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenResumenResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationOrdenUseCase;
 import io.swagger.v3.oas.annotations.Operation;
@@ -63,6 +64,14 @@ public class SubstationOrdenController {
     @Operation(summary = "Operarios activos a los que se puede asignar una orden")
     public ResponseEntity<List<OperarioResponse>> operarios() {
         return ResponseEntity.ok(ordenUseCase.operarios());
+    }
+
+    @GetMapping("/asignadas")
+    @Operation(summary = "Órdenes asignadas al usuario (lista \"Prioritarias\" del móvil)",
+            description = "Solo las ASIGNADA, primero las de prioridad alta y las que vencen antes; con las fotos del hallazgo "
+                    + "y, si la devolvieron, el motivo.")
+    public ResponseEntity<List<OrdenMovilResponse>> asignadas(Authentication authentication) {
+        return ResponseEntity.ok(ordenUseCase.asignadas(usuario(authentication)));
     }
 
     @GetMapping("/{id}")

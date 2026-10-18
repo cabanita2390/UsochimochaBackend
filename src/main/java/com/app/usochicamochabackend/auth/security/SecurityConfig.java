@@ -105,7 +105,8 @@ public class SecurityConfig {
                             "/api/v1/substation/observaciones/frecuentes", "/api/v1/substation/programacion",
                             "/api/v1/substation/indicadores/cumplimiento",
                             "/api/v1/substation/ejecuciones", "/api/v1/substation/ejecuciones/*",
-                            "/api/v1/substation/ejecuciones/por-programacion/*")
+                            "/api/v1/substation/ejecuciones/por-programacion/*",
+                            "/api/v1/substation/ordenes/asignadas")
                             .hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     // Lo demás (cronograma con borradores, dashboard, resumen, criticidad) es de la web.
                     http.requestMatchers(HttpMethod.GET, "/api/v1/substation/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
