@@ -248,6 +248,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         ordenEventoRepository.save(OrdenEventoEntity.builder()
                 .orden(orden).tipo(tipo).comentario(comentario).ejecucion(visita).usuario(operario).creadoEn(ahora)
                 .build());
+        eventos.ordenCambio(orden.getEstacion().getId(), orden.getId(), tipo);
     }
 
     @Override

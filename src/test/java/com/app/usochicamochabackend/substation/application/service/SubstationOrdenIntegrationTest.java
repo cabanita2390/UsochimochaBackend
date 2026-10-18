@@ -6,12 +6,15 @@ import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositor
 import com.app.usochicamochabackend.exception.BadRequestException;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.substation.application.dto.ComentarioOrdenRequest;
+import com.app.usochicamochabackend.substation.application.dto.CostoOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.CrearOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EditarOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenDetalleResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenResumenResponse;
+import com.app.usochicamochabackend.substation.application.dto.ResolverHallazgoRequest;
+import com.app.usochicamochabackend.substation.application.port.SubstationHallazgoUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationEventosPort;
 import com.app.usochicamochabackend.substation.application.port.SubstationOrdenUseCase;
@@ -39,12 +42,16 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 
 /** Órdenes de trabajo de estación (SUB-15) contra el esquema H2 que genera Hibernate. */
 @SpringBootTest
@@ -75,6 +82,7 @@ class SubstationOrdenIntegrationTest {
     @Autowired private ActividadRepository actividadRepository;
     @Autowired private DisciplinaRepository disciplinaRepository;
     @Autowired private EjecucionRepository ejecucionRepository;
+    @Autowired private SubstationHallazgoUseCase hallazgoUseCase;
 
     private UserPrincipal operario;
     private UserPrincipal supervisor;
@@ -324,5 +332,100 @@ class SubstationOrdenIntegrationTest {
         assertThat(mias.get(0).evidenciasHallazgo()).isEmpty();
         assertThat(mias.get(0).motivoDevolucion()).isNull();
         assertThat(mias.get(0).orden().instrucciones()).isEqualTo("Sellar la fisura con mortero epóxico.");
+    }
+
+    // ---- SUB-17: verificar y costos ----
+
+    private OrdenResumenResponse ordenEjecutada(EjecucionResponse hallazgo) {
+        OrdenResumenResponse orden = ordenUseCase.crear(pedido(hallazgo.id()), supervisor);
+        visitaDeOrden(orden.id(), estacion.getId(), "CONFORME");
+        return orden;
+    }
+
+    @Test
+    void cerrar_dejaElHallazgoResueltoEnLaVisitaDeLaOrden() {
+        EjecucionResponse hallazgo = visita("REQUIERE_INTERVENCION");
+        OrdenResumenResponse orden = ordenUseCase.crear(pedido(hallazgo.id()), supervisor);
+        conEstado(HttpStatus.CONFLICT, () -> ordenUseCase.cerrar(orden.id(), new ComentarioOrdenRequest("ok"), supervisor));
+        EjecucionResponse arreglo = visitaDeOrden(orden.id(), estacion.getId(), "CONFORME");
+
+        assertThrows(BadRequestException.class, () -> ordenUseCase.cerrar(orden.id(), new ComentarioOrdenRequest(""), supervisor));
+        OrdenResumenResponse cerrada = ordenUseCase.cerrar(orden.id(), new ComentarioOrdenRequest("Revisado en sitio: quedó sellada."), supervisor);
+
+        assertThat(cerrada.estado()).isEqualTo("CERRADA");
+        OrdenDetalleResponse detalle = ordenUseCase.detalle(orden.id());
+        assertThat(detalle.verificadoPor()).isEqualTo("Carlos Rivas");
+        assertThat(detalle.observacionCierre()).isEqualTo("Revisado en sitio: quedó sellada.");
+        var seguimiento = ejecucionUseCase.obtenerEjecucion(hallazgo.id()).seguimiento();
+        assertThat(seguimiento.estado()).isEqualTo("RESUELTO");
+        assertThat(seguimiento.resueltoEnEjecucionId()).isEqualTo(arreglo.id());
+        assertThat(seguimiento.observacionesCierre()).startsWith("OT-EB-00001: ");
+        verify(eventos).ordenCambio(eq(estacion.getId()), eq(orden.id()), eq("CERRADA"));
+        conEstado(HttpStatus.CONFLICT, () -> ordenUseCase.devolver(orden.id(), new ComentarioOrdenRequest("x"), supervisor));
+    }
+
+    @Test
+    void devolver_laRegresaAlOperarioConElMotivoYOtraVisitaLaVuelveAPorVerificar() {
+        OrdenResumenResponse orden = ordenEjecutada(visita("CON_HALLAZGOS"));
+
+        ordenUseCase.devolver(orden.id(), new ComentarioOrdenRequest("La foto no muestra el muro sellado."), supervisor);
+
+        var mias = ordenUseCase.asignadas(operario);
+        assertThat(mias).extracting(o -> o.orden().id()).containsExactly(orden.id());
+        assertThat(mias.get(0).motivoDevolucion()).isEqualTo("La foto no muestra el muro sellado.");
+        assertThat(ordenUseCase.detalle(orden.id()).ejecucion()).isNull();
+
+        EjecucionResponse segunda = visitaDeOrden(orden.id(), estacion.getId(), "CONFORME");
+        OrdenDetalleResponse detalle = ordenUseCase.detalle(orden.id());
+        assertThat(detalle.orden().estado()).isEqualTo("POR_VERIFICAR");
+        assertThat(detalle.ejecucion().id()).isEqualTo(segunda.id());
+        assertThat(detalle.eventos()).extracting("tipo").containsExactly("CREADA", "EJECUTADA", "DEVUELTA", "EJECUTADA");
+    }
+
+    @Test
+    void costos_seReemplazanSumanYSeValidan() {
+        OrdenResumenResponse orden = ordenEjecutada(visita("CON_HALLAZGOS"));
+
+        OrdenDetalleResponse conCostos = ordenUseCase.guardarCostos(orden.id(), List.of(
+                new CostoOrdenRequest("MATERIAL", "Mortero epóxico 5 kg", "Ferretería El Puente", new BigDecimal("2"), new BigDecimal("180000")),
+                new CostoOrdenRequest("MANO_OBRA", "Albañil", "Contratista Pérez", null, new BigDecimal("95000.50"))), supervisor);
+
+        assertThat(conCostos.costos()).hasSize(2);
+        assertThat(conCostos.costos().get(1).cantidad()).isEqualByComparingTo("1");
+        assertThat(conCostos.totalCostos()).isEqualByComparingTo("275000.50");
+        assertThat(conCostos.eventos()).extracting("comentario").contains("2 costos · total $275.001");
+
+        assertThat(ordenUseCase.guardarCostos(orden.id(), List.of(
+                new CostoOrdenRequest("MATERIAL", "Pintura", null, BigDecimal.ONE, new BigDecimal("40000"))), supervisor)
+                .totalCostos()).isEqualByComparingTo("40000");
+
+        assertThrows(BadRequestException.class, () -> ordenUseCase.guardarCostos(orden.id(), List.of(
+                new CostoOrdenRequest("VIATICOS", "x", null, BigDecimal.ONE, BigDecimal.TEN)), supervisor));
+        assertThrows(BadRequestException.class, () -> ordenUseCase.guardarCostos(orden.id(), List.of(
+                new CostoOrdenRequest("MATERIAL", "x", null, BigDecimal.ZERO, BigDecimal.TEN)), supervisor));
+        assertThrows(BadRequestException.class, () -> ordenUseCase.guardarCostos(orden.id(), List.of(
+                new CostoOrdenRequest("MATERIAL", "x", null, BigDecimal.ONE, new BigDecimal("-1"))), supervisor));
+        // Una validación fallida no borra lo que había.
+        assertThat(ordenUseCase.detalle(orden.id()).totalCostos()).isEqualByComparingTo("40000");
+
+        // Se corrigen aun cerrada; anulada no.
+        ordenUseCase.cerrar(orden.id(), new ComentarioOrdenRequest("Bien"), supervisor);
+        assertThat(ordenUseCase.guardarCostos(orden.id(), List.of(), supervisor).costos()).isEmpty();
+        OrdenResumenResponse otra = ordenUseCase.crear(pedido(visita("CON_HALLAZGOS").id()), supervisor);
+        ordenUseCase.anular(otra.id(), new ComentarioOrdenRequest("No procede"), supervisor);
+        conEstado(HttpStatus.CONFLICT, () -> ordenUseCase.guardarCostos(otra.id(), List.of(), supervisor));
+    }
+
+    @Test
+    void conUnaOrdenEnCurso_elHallazgoNoSeResuelveSinElla() {
+        EjecucionResponse hallazgo = visita("CON_HALLAZGOS");
+        OrdenResumenResponse orden = ordenUseCase.crear(pedido(hallazgo.id()), supervisor);
+        var resolver = new ResolverHallazgoRequest("Se arregló", null, true);
+
+        conEstado(HttpStatus.CONFLICT, () -> hallazgoUseCase.resolver(hallazgo.id(), resolver, supervisor));
+
+        ordenUseCase.anular(orden.id(), new ComentarioOrdenRequest("Se arregló en la misma visita"), supervisor);
+        assertThat(hallazgoUseCase.resolver(hallazgo.id(), resolver, supervisor).estado()).isEqualTo("RESUELTO");
+        verify(eventos).ordenCambio(eq(estacion.getId()), anyLong(), eq("ANULADA"));
     }
 }

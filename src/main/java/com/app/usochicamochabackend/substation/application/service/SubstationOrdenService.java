@@ -9,6 +9,7 @@ import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderCounterEntity;
 import com.app.usochicamochabackend.order.infrastructure.repository.OrderCounterRepository;
 import com.app.usochicamochabackend.substation.application.dto.ComentarioOrdenRequest;
+import com.app.usochicamochabackend.substation.application.dto.CostoOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.CrearOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EditarOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EvidenciaResponse;
@@ -19,10 +20,12 @@ import com.app.usochicamochabackend.substation.application.dto.OrdenEventoRespon
 import com.app.usochicamochabackend.substation.application.dto.OrdenMovilResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenResumenResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
+import com.app.usochicamochabackend.substation.application.port.SubstationEventosPort;
 import com.app.usochicamochabackend.substation.application.port.SubstationOrdenUseCase;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ActividadEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.HallazgoSeguimientoEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenCostoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenEventoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenTrabajoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
@@ -62,6 +65,8 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     private static final Set<String> PRIORIDADES = Set.of("ALTA", "MEDIA");
     private static final int MAX_TEXTO = 2000;
     private static final DateTimeFormatter DD_MM = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final int MAX_COSTOS = 50;
+
 
     private final OrdenTrabajoRepository ordenRepository;
     private final OrdenEventoRepository eventoRepository;
@@ -75,6 +80,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     private final SubstationEjecucionUseCase ejecucionUseCase;
     private final SaveActionUseCase saveActionUseCase;
     private final CalendarioMantenimiento calendario;
+    private final SubstationEventosPort eventos;
 
     @Override
     @Transactional
@@ -130,6 +136,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
 
         saveActionUseCase.save("El usuario " + creador.getUsername() + " creó la orden de trabajo " + orden.getConsecutivo()
                 + " para el hallazgo de la ejecución #" + hallazgo.getId() + " en la estación " + hallazgo.getEstacion().getNombre());
+        eventos.ordenCambio(orden.getEstacion().getId(), orden.getId(), "CREADA");
         return OrdenResumenResponse.fromEntity(orden, calendario.hoy());
     }
 
@@ -212,6 +219,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
         registrarEvento(orden, "EDITADA", String.join(" · ", cambios), null, editor, ahora);
         saveActionUseCase.save("El usuario " + editor.getUsername() + " editó la orden de trabajo " + orden.getConsecutivo()
                 + ": " + String.join("; ", cambios));
+        eventos.ordenCambio(orden.getEstacion().getId(), orden.getId(), "EDITADA");
         return OrdenResumenResponse.fromEntity(orden, calendario.hoy());
     }
 
@@ -243,7 +251,97 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
 
         saveActionUseCase.save("El usuario " + quien.getUsername() + " anuló la orden de trabajo " + orden.getConsecutivo()
                 + ": " + motivo);
+        eventos.ordenCambio(orden.getEstacion().getId(), orden.getId(), "ANULADA");
         return OrdenResumenResponse.fromEntity(orden, calendario.hoy());
+    }
+
+    @Override
+    @Transactional
+    public OrdenResumenResponse cerrar(Long id, ComentarioOrdenRequest request, UserPrincipal usuario) {
+        OrdenTrabajoEntity orden = porVerificar(id, "cerrar");
+        String observacion = textoValido(request != null ? request.comentario() : null, "La observación");
+        UserEntity quien = userRepositoryJpa.getUserEntityById(usuario.id());
+        LocalDateTime ahora = calendario.ahora();
+        orden.setEstado(OrdenTrabajoEntity.CERRADA);
+        orden.setObservacionCierre(observacion);
+        orden.setVerificadoPor(quien);
+        orden.setVerificadoEn(ahora);
+        orden.setActualizadoEn(ahora);
+        ordenRepository.save(orden);
+        registrarEvento(orden, "CERRADA", observacion, orden.getEjecucionCierre(), quien, ahora);
+
+        // El hallazgo queda resuelto en la visita de la orden.
+        seguimientoRepository.findByEjecucion_Id(orden.getEjecucionOrigen().getId())
+                .filter(HallazgoSeguimientoEntity::getStatus)
+                .ifPresent(s -> {
+                    s.setEstado("RESUELTO");
+                    s.setObservacionesCierre(orden.getConsecutivo() + ": " + observacion);
+                    s.setResueltoEnEjecucion(orden.getEjecucionCierre());
+                    s.setResueltoMismaVisita(false);
+                    s.setCerradoPor(quien);
+                    s.setCerradoEn(ahora);
+                    s.setActualizadoPor(quien);
+                    s.setActualizadoEn(ahora);
+                    seguimientoRepository.save(s);
+                });
+
+        saveActionUseCase.save("El usuario " + quien.getUsername() + " verificó y cerró la orden de trabajo "
+                + orden.getConsecutivo());
+        eventos.ordenCambio(orden.getEstacion().getId(), orden.getId(), "CERRADA");
+        return OrdenResumenResponse.fromEntity(orden, calendario.hoy());
+    }
+
+    @Override
+    @Transactional
+    public OrdenResumenResponse devolver(Long id, ComentarioOrdenRequest request, UserPrincipal usuario) {
+        OrdenTrabajoEntity orden = porVerificar(id, "devolver");
+        String motivo = textoValido(request != null ? request.comentario() : null, "El motivo");
+        UserEntity quien = userRepositoryJpa.getUserEntityById(usuario.id());
+        LocalDateTime ahora = calendario.ahora();
+        // La visita sigue enlazada a la orden (y en la línea de tiempo); la próxima la reemplaza.
+        EjecucionEntity visita = orden.getEjecucionCierre();
+        orden.setEstado(OrdenTrabajoEntity.ASIGNADA);
+        orden.setEjecucionCierre(null);
+        orden.setActualizadoEn(ahora);
+        ordenRepository.save(orden);
+        registrarEvento(orden, "DEVUELTA", motivo, visita, quien, ahora);
+        saveActionUseCase.save("El usuario " + quien.getUsername() + " devolvió la orden de trabajo "
+                + orden.getConsecutivo() + " a " + nombre(orden.getAsignadoA()) + ": " + motivo);
+        eventos.ordenCambio(orden.getEstacion().getId(), orden.getId(), "DEVUELTA");
+        return OrdenResumenResponse.fromEntity(orden, calendario.hoy());
+    }
+
+    @Override
+    @Transactional
+    public OrdenDetalleResponse guardarCostos(Long id, List<CostoOrdenRequest> costos, UserPrincipal usuario) {
+        OrdenTrabajoEntity orden = buscar(id);
+        if (OrdenTrabajoEntity.ANULADA.equals(orden.getEstado())) {
+            throw conflicto("La orden " + orden.getConsecutivo() + " está anulada: no lleva costos.");
+        }
+        List<CostoOrdenRequest> lista = costos != null ? costos : List.of();
+        if (lista.size() > MAX_COSTOS) {
+            throw new BadRequestException("Una orden admite hasta " + MAX_COSTOS + " costos.");
+        }
+        List<OrdenCostoEntity> nuevos = new ArrayList<>();
+        for (int i = 0; i < lista.size(); i++) {
+            nuevos.add(costoValido(orden, lista.get(i), i + 1));
+        }
+        costoRepository.deleteByOrden_Id(id);
+        costoRepository.flush();
+        costoRepository.saveAll(nuevos);
+
+        BigDecimal total = nuevos.stream().map(OrdenCostoEntity::getValorTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
+        UserEntity quien = userRepositoryJpa.getUserEntityById(usuario.id());
+        LocalDateTime ahora = calendario.ahora();
+        orden.setActualizadoEn(ahora);
+        ordenRepository.save(orden);
+        String resumen = nuevos.isEmpty() ? "Sin costos"
+                : nuevos.size() + (nuevos.size() == 1 ? " costo" : " costos") + " · total $" + pesos(total);
+        registrarEvento(orden, "COSTOS", resumen, null, quien, ahora);
+        saveActionUseCase.save("El usuario " + quien.getUsername() + " registró los costos de la orden de trabajo "
+                + orden.getConsecutivo() + ": " + resumen);
+        eventos.ordenCambio(orden.getEstacion().getId(), orden.getId(), "COSTOS");
+        return detalle(id);
     }
 
     @Override
@@ -285,6 +383,40 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     }
 
     // ---- Apoyo ----
+
+    /** La orden bloqueada y en POR_VERIFICAR (cerrar y devolver solo se hacen ahí). */
+    private OrdenTrabajoEntity porVerificar(Long id, String accion) {
+        OrdenTrabajoEntity orden = ordenRepository.findByIdParaActualizar(id).filter(OrdenTrabajoEntity::getStatus)
+                .orElseThrow(() -> new ResourceNotFoundException("Orden de trabajo no encontrada: id=" + id));
+        if (!OrdenTrabajoEntity.POR_VERIFICAR.equals(orden.getEstado())) {
+            throw conflicto("La orden " + orden.getConsecutivo() + " está " + legible(orden.getEstado())
+                    + ": solo se puede " + accion + " cuando el operario ya registró el trabajo.");
+        }
+        return orden;
+    }
+
+    private static OrdenCostoEntity costoValido(OrdenTrabajoEntity orden, CostoOrdenRequest c, int fila) {
+        String donde = "Costo " + fila + ": ";
+        if (c == null || c.tipo() == null || !Set.of("MANO_OBRA", "MATERIAL").contains(c.tipo())) {
+            throw new BadRequestException(donde + "el tipo es MANO_OBRA o MATERIAL.");
+        }
+        if (c.descripcion() == null || c.descripcion().isBlank() || c.descripcion().trim().length() > 200) {
+            throw new BadRequestException(donde + "la descripción es obligatoria (hasta 200 caracteres).");
+        }
+        if (c.proveedor() != null && c.proveedor().trim().length() > 200) {
+            throw new BadRequestException(donde + "el proveedor admite hasta 200 caracteres.");
+        }
+        BigDecimal cantidad = c.cantidad() != null ? c.cantidad() : BigDecimal.ONE;
+        if (cantidad.signum() <= 0) {
+            throw new BadRequestException(donde + "la cantidad debe ser mayor que cero.");
+        }
+        if (c.valorTotal() == null || c.valorTotal().signum() < 0) {
+            throw new BadRequestException(donde + "el valor total es obligatorio y no puede ser negativo.");
+        }
+        String proveedor = c.proveedor() == null || c.proveedor().isBlank() ? null : c.proveedor().trim();
+        return OrdenCostoEntity.builder().orden(orden).tipo(c.tipo()).descripcion(c.descripcion().trim())
+                .proveedor(proveedor).cantidad(cantidad).valorTotal(c.valorTotal()).build();
+    }
 
     OrdenTrabajoEntity buscar(Long id) {
         return ordenRepository.findById(id).filter(OrdenTrabajoEntity::getStatus)
@@ -355,6 +487,14 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
             throw new BadRequestException(campo + " admite hasta " + MAX_TEXTO + " caracteres.");
         }
         return limpio;
+    }
+
+    /** "$275.001": miles con punto, sin centavos. DecimalFormat no es seguro entre hilos: uno por llamada. */
+    private static String pesos(BigDecimal valor) {
+        java.text.DecimalFormat formato = new java.text.DecimalFormat("#,##0",
+                java.text.DecimalFormatSymbols.getInstance(new java.util.Locale("es", "CO")));
+        formato.setRoundingMode(java.math.RoundingMode.HALF_UP);
+        return formato.format(valor);
     }
 
     static ResponseStatusException conflicto(String mensaje) {
