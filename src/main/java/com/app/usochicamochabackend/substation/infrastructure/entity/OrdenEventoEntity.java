@@ -31,7 +31,7 @@ public class OrdenEventoEntity {
     private OrdenTrabajoEntity orden;
 
     @Column(nullable = false, length = 30)
-    private String tipo; // CREADA / EDITADA / EJECUTADA / DEVUELTA / CERRADA / ANULADA / COSTOS / EJECUCION_FUERA_DE_ESTADO
+    private String tipo; // CREADA / EDITADA / EJECUTADA / DEVUELTA / CERRADA / ANULADA / EJECUCION_FUERA_DE_ESTADO
 
     @Column(columnDefinition = "TEXT")
     private String comentario;

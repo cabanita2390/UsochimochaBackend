@@ -6,7 +6,6 @@ import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositor
 import com.app.usochicamochabackend.exception.BadRequestException;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.substation.application.dto.ComentarioOrdenRequest;
-import com.app.usochicamochabackend.substation.application.dto.CostoOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.CrearOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EditarOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionRequest;
@@ -42,7 +41,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -160,7 +158,6 @@ class SubstationOrdenIntegrationTest {
         assertThat(detalle.eventos().get(0).usuario()).isEqualTo("Carlos Rivas");
         assertThat(detalle.hallazgo().id()).isEqualTo(hallazgo.id());
         assertThat(detalle.ejecucion()).isNull();
-        assertThat(detalle.totalCostos()).isZero();
 
         // El consecutivo sigue: la segunda orden es la 00002.
         assertThat(ordenUseCase.crear(pedido(visita("CON_HALLAZGOS").id()), supervisor).consecutivo()).isEqualTo("OT-EB-00002");
@@ -334,7 +331,7 @@ class SubstationOrdenIntegrationTest {
         assertThat(mias.get(0).orden().instrucciones()).isEqualTo("Sellar la fisura con mortero epóxico.");
     }
 
-    // ---- SUB-17: verificar y costos ----
+    // ---- SUB-17: verificar ----
 
     private OrdenResumenResponse ordenEjecutada(EjecucionResponse hallazgo) {
         OrdenResumenResponse orden = ordenUseCase.crear(pedido(hallazgo.id()), supervisor);
@@ -380,40 +377,6 @@ class SubstationOrdenIntegrationTest {
         assertThat(detalle.orden().estado()).isEqualTo("POR_VERIFICAR");
         assertThat(detalle.ejecucion().id()).isEqualTo(segunda.id());
         assertThat(detalle.eventos()).extracting("tipo").containsExactly("CREADA", "EJECUTADA", "DEVUELTA", "EJECUTADA");
-    }
-
-    @Test
-    void costos_seReemplazanSumanYSeValidan() {
-        OrdenResumenResponse orden = ordenEjecutada(visita("CON_HALLAZGOS"));
-
-        OrdenDetalleResponse conCostos = ordenUseCase.guardarCostos(orden.id(), List.of(
-                new CostoOrdenRequest("MATERIAL", "Mortero epóxico 5 kg", "Ferretería El Puente", new BigDecimal("2"), new BigDecimal("180000")),
-                new CostoOrdenRequest("MANO_OBRA", "Albañil", "Contratista Pérez", null, new BigDecimal("95000.50"))), supervisor);
-
-        assertThat(conCostos.costos()).hasSize(2);
-        assertThat(conCostos.costos().get(1).cantidad()).isEqualByComparingTo("1");
-        assertThat(conCostos.totalCostos()).isEqualByComparingTo("275000.50");
-        assertThat(conCostos.eventos()).extracting("comentario").contains("2 costos · total $275.001");
-
-        assertThat(ordenUseCase.guardarCostos(orden.id(), List.of(
-                new CostoOrdenRequest("MATERIAL", "Pintura", null, BigDecimal.ONE, new BigDecimal("40000"))), supervisor)
-                .totalCostos()).isEqualByComparingTo("40000");
-
-        assertThrows(BadRequestException.class, () -> ordenUseCase.guardarCostos(orden.id(), List.of(
-                new CostoOrdenRequest("VIATICOS", "x", null, BigDecimal.ONE, BigDecimal.TEN)), supervisor));
-        assertThrows(BadRequestException.class, () -> ordenUseCase.guardarCostos(orden.id(), List.of(
-                new CostoOrdenRequest("MATERIAL", "x", null, BigDecimal.ZERO, BigDecimal.TEN)), supervisor));
-        assertThrows(BadRequestException.class, () -> ordenUseCase.guardarCostos(orden.id(), List.of(
-                new CostoOrdenRequest("MATERIAL", "x", null, BigDecimal.ONE, new BigDecimal("-1"))), supervisor));
-        // Una validación fallida no borra lo que había.
-        assertThat(ordenUseCase.detalle(orden.id()).totalCostos()).isEqualByComparingTo("40000");
-
-        // Se corrigen aun cerrada; anulada no.
-        ordenUseCase.cerrar(orden.id(), new ComentarioOrdenRequest("Bien"), supervisor);
-        assertThat(ordenUseCase.guardarCostos(orden.id(), List.of(), supervisor).costos()).isEmpty();
-        OrdenResumenResponse otra = ordenUseCase.crear(pedido(visita("CON_HALLAZGOS").id()), supervisor);
-        ordenUseCase.anular(otra.id(), new ComentarioOrdenRequest("No procede"), supervisor);
-        conEstado(HttpStatus.CONFLICT, () -> ordenUseCase.guardarCostos(otra.id(), List.of(), supervisor));
     }
 
     @Test

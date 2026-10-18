@@ -9,12 +9,10 @@ import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderCounterEntity;
 import com.app.usochicamochabackend.order.infrastructure.repository.OrderCounterRepository;
 import com.app.usochicamochabackend.substation.application.dto.ComentarioOrdenRequest;
-import com.app.usochicamochabackend.substation.application.dto.CostoOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.CrearOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EditarOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EvidenciaResponse;
 import com.app.usochicamochabackend.substation.application.dto.OperarioResponse;
-import com.app.usochicamochabackend.substation.application.dto.OrdenCostoResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenDetalleResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenEventoResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenMovilResponse;
@@ -25,14 +23,12 @@ import com.app.usochicamochabackend.substation.application.port.SubstationOrdenU
 import com.app.usochicamochabackend.substation.infrastructure.entity.ActividadEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.HallazgoSeguimientoEntity;
-import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenCostoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenEventoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenTrabajoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EvidenciaRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.HallazgoSeguimientoRepository;
-import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenCostoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenEventoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenTrabajoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenTrabajoSpecifications;
@@ -46,7 +42,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -65,12 +60,10 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     private static final Set<String> PRIORIDADES = Set.of("ALTA", "MEDIA");
     private static final int MAX_TEXTO = 2000;
     private static final DateTimeFormatter DD_MM = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-    private static final int MAX_COSTOS = 50;
 
 
     private final OrdenTrabajoRepository ordenRepository;
     private final OrdenEventoRepository eventoRepository;
-    private final OrdenCostoRepository costoRepository;
     private final EvidenciaRepository evidenciaRepository;
     private final EjecucionRepository ejecucionRepository;
     private final HallazgoSeguimientoRepository seguimientoRepository;
@@ -157,9 +150,6 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     @Transactional(readOnly = true)
     public OrdenDetalleResponse detalle(Long id) {
         OrdenTrabajoEntity orden = buscar(id);
-        List<OrdenCostoResponse> costos = costoRepository.findByOrden_IdOrderByIdAsc(id).stream()
-                .map(OrdenCostoResponse::fromEntity).toList();
-        BigDecimal total = costos.stream().map(OrdenCostoResponse::valorTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
         return new OrdenDetalleResponse(
                 OrdenResumenResponse.fromEntity(orden, calendario.hoy()),
                 ejecucionUseCase.obtenerEjecucion(orden.getEjecucionOrigen().getId()),
@@ -168,9 +158,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
                 nombre(orden.getVerificadoPor()),
                 orden.getVerificadoEn(),
                 orden.getMotivoAnulacion(),
-                eventoRepository.findByOrden_IdOrderByCreadoEnAscIdAsc(id).stream().map(OrdenEventoResponse::fromEntity).toList(),
-                costos,
-                total);
+                eventoRepository.findByOrden_IdOrderByCreadoEnAscIdAsc(id).stream().map(OrdenEventoResponse::fromEntity).toList());
     }
 
     @Override
@@ -316,38 +304,6 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
         return OrdenResumenResponse.fromEntity(orden, calendario.hoy());
     }
 
-    @Override
-    @Transactional
-    public OrdenDetalleResponse guardarCostos(Long id, List<CostoOrdenRequest> costos, UserPrincipal usuario) {
-        OrdenTrabajoEntity orden = buscar(id);
-        if (OrdenTrabajoEntity.ANULADA.equals(orden.getEstado())) {
-            throw conflicto("La orden " + orden.getConsecutivo() + " está anulada: no lleva costos.");
-        }
-        List<CostoOrdenRequest> lista = costos != null ? costos : List.of();
-        if (lista.size() > MAX_COSTOS) {
-            throw new BadRequestException("Una orden admite hasta " + MAX_COSTOS + " costos.");
-        }
-        List<OrdenCostoEntity> nuevos = new ArrayList<>();
-        for (int i = 0; i < lista.size(); i++) {
-            nuevos.add(costoValido(orden, lista.get(i), i + 1));
-        }
-        costoRepository.deleteByOrden_Id(id);
-        costoRepository.flush();
-        costoRepository.saveAll(nuevos);
-
-        BigDecimal total = nuevos.stream().map(OrdenCostoEntity::getValorTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
-        UserEntity quien = userRepositoryJpa.getUserEntityById(usuario.id());
-        LocalDateTime ahora = calendario.ahora();
-        orden.setActualizadoEn(ahora);
-        ordenRepository.save(orden);
-        String resumen = nuevos.isEmpty() ? "Sin costos"
-                : nuevos.size() + (nuevos.size() == 1 ? " costo" : " costos") + " · total $" + pesos(total);
-        registrarEvento(orden, "COSTOS", resumen, null, quien, ahora);
-        saveActionUseCase.save("El usuario " + quien.getUsername() + " registró los costos de la orden de trabajo "
-                + orden.getConsecutivo() + ": " + resumen);
-        eventos.ordenCambio(orden.getEstacion().getId(), orden.getId(), "COSTOS");
-        return detalle(id);
-    }
 
     @Override
     @Transactional(readOnly = true)
@@ -400,28 +356,6 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
         return orden;
     }
 
-    private static OrdenCostoEntity costoValido(OrdenTrabajoEntity orden, CostoOrdenRequest c, int fila) {
-        String donde = "Costo " + fila + ": ";
-        if (c == null || c.tipo() == null || !Set.of("MANO_OBRA", "MATERIAL").contains(c.tipo())) {
-            throw new BadRequestException(donde + "el tipo es MANO_OBRA o MATERIAL.");
-        }
-        if (c.descripcion() == null || c.descripcion().isBlank() || c.descripcion().trim().length() > 200) {
-            throw new BadRequestException(donde + "la descripción es obligatoria (hasta 200 caracteres).");
-        }
-        if (c.proveedor() != null && c.proveedor().trim().length() > 200) {
-            throw new BadRequestException(donde + "el proveedor admite hasta 200 caracteres.");
-        }
-        BigDecimal cantidad = c.cantidad() != null ? c.cantidad() : BigDecimal.ONE;
-        if (cantidad.signum() <= 0) {
-            throw new BadRequestException(donde + "la cantidad debe ser mayor que cero.");
-        }
-        if (c.valorTotal() == null || c.valorTotal().signum() < 0) {
-            throw new BadRequestException(donde + "el valor total es obligatorio y no puede ser negativo.");
-        }
-        String proveedor = c.proveedor() == null || c.proveedor().isBlank() ? null : c.proveedor().trim();
-        return OrdenCostoEntity.builder().orden(orden).tipo(c.tipo()).descripcion(c.descripcion().trim())
-                .proveedor(proveedor).cantidad(cantidad).valorTotal(c.valorTotal()).build();
-    }
 
     OrdenTrabajoEntity buscar(Long id) {
         return ordenRepository.findById(id).filter(OrdenTrabajoEntity::getStatus)
@@ -513,13 +447,6 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
         return limpio;
     }
 
-    /** "$275.001": miles con punto, sin centavos. DecimalFormat no es seguro entre hilos: uno por llamada. */
-    private static String pesos(BigDecimal valor) {
-        java.text.DecimalFormat formato = new java.text.DecimalFormat("#,##0",
-                java.text.DecimalFormatSymbols.getInstance(new java.util.Locale("es", "CO")));
-        formato.setRoundingMode(java.math.RoundingMode.HALF_UP);
-        return formato.format(valor);
-    }
 
     static ResponseStatusException conflicto(String mensaje) {
         return new ResponseStatusException(HttpStatus.CONFLICT, mensaje);

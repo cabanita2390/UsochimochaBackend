@@ -2,7 +2,6 @@ package com.app.usochicamochabackend.substation.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.substation.application.dto.ComentarioOrdenRequest;
-import com.app.usochicamochabackend.substation.application.dto.CostoOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.CrearOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EditarOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.OperarioResponse;
@@ -76,7 +75,7 @@ public class SubstationOrdenController {
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Detalle: hallazgo (antes), visita que la corrigió (después), línea de tiempo y costos")
+    @Operation(summary = "Detalle: hallazgo (antes), visita que la corrigió (después) y línea de tiempo")
     public ResponseEntity<OrdenDetalleResponse> detalle(@PathVariable Long id) {
         return ResponseEntity.ok(ordenUseCase.detalle(id));
     }
@@ -111,15 +110,6 @@ public class SubstationOrdenController {
     public ResponseEntity<OrdenResumenResponse> devolver(@PathVariable Long id, @RequestBody ComentarioOrdenRequest request,
             Authentication authentication) {
         return ResponseEntity.ok(ordenUseCase.devolver(id, request, usuario(authentication)));
-    }
-
-    @PutMapping("/{id}/costos")
-    @Operation(summary = "Guardar los costos de la orden (reemplaza la lista)",
-            description = "Mano de obra (propia o contratista) y materiales. Se pueden corregir aun con la orden cerrada; "
-                    + "409 si está anulada; 400 si un costo no tiene tipo, descripción o valor.")
-    public ResponseEntity<OrdenDetalleResponse> costos(@PathVariable Long id, @RequestBody List<CostoOrdenRequest> costos,
-            Authentication authentication) {
-        return ResponseEntity.ok(ordenUseCase.guardarCostos(id, costos, usuario(authentication)));
     }
 
     private UserPrincipal usuario(Authentication authentication) {

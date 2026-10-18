@@ -125,8 +125,6 @@ class SubstationSecurityTest {
             "PUT,    /api/v1/substation/ordenes/1/cerrar,           SUPERVISOR_OPERATIVO, true",
             "PUT,    /api/v1/substation/ordenes/1/cerrar,           OPERARIO,             false",
             "PUT,    /api/v1/substation/ordenes/1/devolver,         ADMIN,                true",
-            "PUT,    /api/v1/substation/ordenes/1/costos,           SUPERVISOR_OPERATIVO, true",
-            "PUT,    /api/v1/substation/ordenes/1/costos,           OPERARIO,             false",
             // Cronograma: solo ADMIN
             "POST,   /api/v1/substation/cronograma/citas,           ADMIN,                true",
             "POST,   /api/v1/substation/cronograma/citas,           SUPERVISOR_OPERATIVO, false",

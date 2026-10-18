@@ -2,7 +2,6 @@ package com.app.usochicamochabackend.substation.application.port;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.substation.application.dto.ComentarioOrdenRequest;
-import com.app.usochicamochabackend.substation.application.dto.CostoOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.CrearOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.EditarOrdenRequest;
 import com.app.usochicamochabackend.substation.application.dto.OperarioResponse;
@@ -36,9 +35,6 @@ public interface SubstationOrdenUseCase {
 
     /** No quedó bien: POR_VERIFICAR → ASIGNADA, vuelve a la lista del operario con el motivo. */
     OrdenResumenResponse devolver(Long id, ComentarioOrdenRequest request, UserPrincipal usuario);
-
-    /** Reemplaza los costos (mano de obra y materiales). Se pueden corregir aun cerrada; no en ANULADA. */
-    OrdenDetalleResponse guardarCostos(Long id, List<CostoOrdenRequest> costos, UserPrincipal usuario);
 
     List<OperarioResponse> operarios();
 
