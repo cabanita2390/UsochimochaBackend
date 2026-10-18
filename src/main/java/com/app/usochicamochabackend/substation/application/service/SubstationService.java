@@ -233,12 +233,19 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         String tipo;
         String comentario;
         if (OrdenTrabajoEntity.ASIGNADA.equals(orden.getEstado())) {
+            // Una orden para cualquier operario queda a nombre de quien la hizo (si la devuelven, vuelve a él).
+            String tomada = "";
+            if (orden.getAsignadoA() == null) {
+                orden.setAsignadoA(operario);
+                tomada = "Tomada por " + (operario.getFullName() != null && !operario.getFullName().isBlank()
+                        ? operario.getFullName() : operario.getUsername()) + ". ";
+            }
             orden.setEstado(OrdenTrabajoEntity.POR_VERIFICAR);
             orden.setEjecucionCierre(visita);
             orden.setActualizadoEn(ahora);
             ordenTrabajoRepository.save(orden);
             tipo = "EJECUTADA";
-            comentario = "Registrada desde el móvil el " + visita.getFecha().format(DD_MM) + " · resultado "
+            comentario = tomada + "Registrada desde el móvil el " + visita.getFecha().format(DD_MM) + " · resultado "
                     + visita.getResultado().toLowerCase().replace('_', ' ');
         } else {
             tipo = "EJECUCION_FUERA_DE_ESTADO";

@@ -63,8 +63,8 @@ public class OrdenTrabajoEntity {
     private LocalDate fechaLimite;
 
     @ManyToOne
-    @JoinColumn(name = "asignado_a", nullable = false)
-    private UserEntity asignadoA;
+    @JoinColumn(name = "asignado_a")
+    private UserEntity asignadoA; // null = para cualquier operario, hasta que alguno la ejecuta
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String instrucciones;

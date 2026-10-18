@@ -132,7 +132,7 @@ class SubstationOrdenIntegrationTest {
     }
 
     private CrearOrdenRequest pedido(Long ejecucionId) {
-        return new CrearOrdenRequest(ejecucionId, "ALTA", HOY.plusDays(7), operarioEntity.getId(), correccion.getId(),
+        return new CrearOrdenRequest(ejecucionId, "ALTA", HOY.plusDays(7), operarioEntity.getId(), null, correccion.getId(),
                 "Sellar la fisura con mortero epóxico.");
     }
 
@@ -183,13 +183,13 @@ class SubstationOrdenIntegrationTest {
         Long act = correccion.getId();
         LocalDate plazo = HOY.plusDays(3);
 
-        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "URGENTE", plazo, op, act, "x"), supervisor));
-        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", HOY.minusDays(1), op, act, "x"), supervisor));
-        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", plazo, supervisor.id(), act, "x"), supervisor));
-        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", plazo, op, electrica.getId(), "x"), supervisor));
-        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", plazo, op, act, "  "), supervisor));
+        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "URGENTE", plazo, op, null, act, "x"), supervisor));
+        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", HOY.minusDays(1), op, null, act, "x"), supervisor));
+        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", plazo, supervisor.id(), null, act, "x"), supervisor));
+        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", plazo, op, null, electrica.getId(), "x"), supervisor));
+        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", plazo, op, null, act, "  "), supervisor));
         // Hoy mismo sí vale como fecha límite.
-        assertThat(ordenUseCase.crear(new CrearOrdenRequest(id, "MEDIA", HOY, op, act, "x"), supervisor).prioridad()).isEqualTo("MEDIA");
+        assertThat(ordenUseCase.crear(new CrearOrdenRequest(id, "MEDIA", HOY, op, null, act, "x"), supervisor).prioridad()).isEqualTo("MEDIA");
     }
 
     @Test
@@ -197,7 +197,7 @@ class SubstationOrdenIntegrationTest {
         OrdenResumenResponse orden = ordenUseCase.crear(pedido(visita("CON_HALLAZGOS").id()), supervisor);
 
         OrdenResumenResponse editada = ordenUseCase.editar(orden.id(),
-                new EditarOrdenRequest(null, HOY.plusDays(20), otroOperario.getId(), null, null), supervisor);
+                new EditarOrdenRequest(null, HOY.plusDays(20), otroOperario.getId(), null, null, null), supervisor);
 
         assertThat(editada.asignadoANombre()).isEqualTo("Ana Operaria");
         assertThat(editada.fechaLimite()).isEqualTo(HOY.plusDays(20));
@@ -206,7 +206,7 @@ class SubstationOrdenIntegrationTest {
         assertThat(eventos.get(1).comentario()).contains("Reasignada de Técnico OT a Ana Operaria").contains("22/10/2026 → 04/11/2026");
 
         // Sin cambios reales no se agrega nada.
-        ordenUseCase.editar(orden.id(), new EditarOrdenRequest("ALTA", null, null, null, null), supervisor);
+        ordenUseCase.editar(orden.id(), new EditarOrdenRequest("ALTA", null, null, null, null, null), supervisor);
         assertThat(ordenUseCase.detalle(orden.id()).eventos()).hasSize(2);
     }
 
@@ -223,7 +223,7 @@ class SubstationOrdenIntegrationTest {
         assertThat(ordenUseCase.detalle(orden.id()).motivoAnulacion()).isEqualTo("Lo corrigió el contratista de la obra.");
         conEstado(HttpStatus.CONFLICT, () -> ordenUseCase.anular(orden.id(), new ComentarioOrdenRequest("otra vez"), supervisor));
         conEstado(HttpStatus.CONFLICT, () -> ordenUseCase.editar(orden.id(),
-                new EditarOrdenRequest("MEDIA", null, null, null, null), supervisor));
+                new EditarOrdenRequest("MEDIA", null, null, null, null, null), supervisor));
 
         assertThat(ordenUseCase.crear(pedido(hallazgo.id()), supervisor).estado()).isEqualTo("ASIGNADA");
     }
@@ -232,7 +232,7 @@ class SubstationOrdenIntegrationTest {
     void listar_filtraPorEstadoPrioridadYVencidas() {
         OrdenResumenResponse alta = ordenUseCase.crear(pedido(visita("REQUIERE_INTERVENCION").id()), supervisor);
         OrdenResumenResponse media = ordenUseCase.crear(new CrearOrdenRequest(visita("CON_HALLAZGOS").id(), "MEDIA",
-                HOY, operarioEntity.getId(), correccion.getId(), "Revisar"), supervisor);
+                HOY, operarioEntity.getId(), null, correccion.getId(), "Revisar"), supervisor);
         ordenUseCase.anular(media.id(), new ComentarioOrdenRequest("No procede"), supervisor);
 
         var pagina = PageRequest.of(0, 20);
@@ -321,10 +321,10 @@ class SubstationOrdenIntegrationTest {
     @Test
     void asignadas_soloLasDelOperarioPrimeroLasDePrioridadAlta() {
         OrdenResumenResponse media = ordenUseCase.crear(new CrearOrdenRequest(visita("CON_HALLAZGOS").id(), "MEDIA",
-                HOY.plusDays(2), operarioEntity.getId(), correccion.getId(), "Revisar"), supervisor);
+                HOY.plusDays(2), operarioEntity.getId(), null, correccion.getId(), "Revisar"), supervisor);
         OrdenResumenResponse alta = ordenUseCase.crear(pedido(visita("REQUIERE_INTERVENCION").id()), supervisor);
         ordenUseCase.crear(new CrearOrdenRequest(visita("CON_HALLAZGOS").id(), "ALTA", HOY.plusDays(1),
-                otroOperario.getId(), correccion.getId(), "De Ana"), supervisor);
+                otroOperario.getId(), null, correccion.getId(), "De Ana"), supervisor);
 
         var mias = ordenUseCase.asignadas(operario);
 
@@ -427,5 +427,50 @@ class SubstationOrdenIntegrationTest {
         ordenUseCase.anular(orden.id(), new ComentarioOrdenRequest("Se arregló en la misma visita"), supervisor);
         assertThat(hallazgoUseCase.resolver(hallazgo.id(), resolver, supervisor).estado()).isEqualTo("RESUELTO");
         verify(eventos).ordenCambio(eq(estacion.getId()), anyLong(), eq("ANULADA"));
+    }
+
+    // ---- Para cualquier operario ----
+
+    @Test
+    void paraCualquierOperario_laVenTodosYQuedaANombreDeQuienLaEjecuta() {
+        OrdenResumenResponse orden = ordenUseCase.crear(new CrearOrdenRequest(visita("CON_HALLAZGOS").id(), "ALTA",
+                HOY.plusDays(5), null, true, correccion.getId(), "La toma el que llegue primero"), supervisor);
+        assertThat(orden.paraCualquiera()).isTrue();
+        assertThat(orden.asignadoAId()).isNull();
+        UserPrincipal ana = new UserPrincipal(otroOperario.getId(), otroOperario.getUsername());
+
+        assertThat(ordenUseCase.asignadas(operario)).extracting(o -> o.orden().id()).containsExactly(orden.id());
+        assertThat(ordenUseCase.asignadas(ana)).extracting(o -> o.orden().id()).containsExactly(orden.id());
+
+        // La hace Ana: queda a su nombre y deja de aparecerle al otro.
+        ejecucionUseCase.registrarEjecucion(new EjecucionRequest(HOY, 10, 3, estacion.getId(), "CIVIL", "CORRECTIVO",
+                "MANTENIMIENTO", correccion.getId(), null, null, "CONFORME", "Listo", null, UUID.randomUUID(), orden.id()), ana);
+        OrdenDetalleResponse detalle = ordenUseCase.detalle(orden.id());
+        assertThat(detalle.orden().asignadoANombre()).isEqualTo("Ana Operaria");
+        assertThat(detalle.orden().paraCualquiera()).isFalse();
+        assertThat(detalle.eventos().get(1).comentario()).startsWith("Tomada por Ana Operaria.");
+        assertThat(ordenUseCase.asignadas(operario)).isEmpty();
+
+        // Si la devuelven, vuelve a quien la hizo.
+        ordenUseCase.devolver(orden.id(), new ComentarioOrdenRequest("Falta una foto"), supervisor);
+        assertThat(ordenUseCase.asignadas(ana)).hasSize(1);
+        assertThat(ordenUseCase.asignadas(operario)).isEmpty();
+    }
+
+    @Test
+    void paraCualquierOperario_noSeCombinaConUnOperarioYSeLlegaEditando() {
+        Long id = visita("CON_HALLAZGOS").id();
+        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", HOY.plusDays(5),
+                operarioEntity.getId(), true, correccion.getId(), "x"), supervisor));
+        assertThrows(BadRequestException.class, () -> ordenUseCase.crear(new CrearOrdenRequest(id, "ALTA", HOY.plusDays(5),
+                null, null, correccion.getId(), "x"), supervisor));
+
+        OrdenResumenResponse orden = ordenUseCase.crear(pedido(id), supervisor);
+        OrdenResumenResponse general = ordenUseCase.editar(orden.id(), new EditarOrdenRequest(null, null, null, true, null, null), supervisor);
+
+        assertThat(general.paraCualquiera()).isTrue();
+        assertThat(ordenUseCase.detalle(orden.id()).eventos().get(1).comentario())
+                .isEqualTo("Reasignada de Técnico OT a cualquier operario");
+        assertThat(ordenUseCase.asignadas(new UserPrincipal(otroOperario.getId(), otroOperario.getUsername()))).hasSize(1);
     }
 }

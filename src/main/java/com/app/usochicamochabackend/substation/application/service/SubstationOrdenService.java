@@ -102,7 +102,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
 
         String prioridad = prioridadValida(request.prioridad());
         LocalDate fechaLimite = fechaLimiteValida(request.fechaLimite());
-        UserEntity asignado = operarioValido(request.asignadoAId());
+        UserEntity asignado = asignadoDe(request.asignadoAId(), request.paraCualquiera());
         ActividadEntity actividad = actividadValida(request.actividadId(), hallazgo);
         String instrucciones = textoValido(request.instrucciones(), "instrucciones");
 
@@ -123,7 +123,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
                 .actualizadoEn(ahora)
                 .build());
 
-        registrarEvento(orden, "CREADA", "Asignada a " + nombre(asignado) + " · prioridad " + prioridad.toLowerCase()
+        registrarEvento(orden, "CREADA", destino(asignado) + " · prioridad " + prioridad.toLowerCase()
                 + " · vence el " + fechaLimite.format(DD_MM), null, creador, ahora);
 
         // El hallazgo ya se está atendiendo.
@@ -195,10 +195,15 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
             cambios.add("Vence el " + orden.getFechaLimite().format(DD_MM) + " → " + nueva.format(DD_MM));
             orden.setFechaLimite(nueva);
         }
-        if (request.asignadoAId() != null && !request.asignadoAId().equals(orden.getAsignadoA().getId())) {
-            UserEntity nuevo = operarioValido(request.asignadoAId());
-            cambios.add("Reasignada de " + nombre(orden.getAsignadoA()) + " a " + nombre(nuevo));
-            orden.setAsignadoA(nuevo);
+        boolean aCualquiera = Boolean.TRUE.equals(request.paraCualquiera());
+        Long actualId = orden.getAsignadoA() != null ? orden.getAsignadoA().getId() : null;
+        if (aCualquiera || request.asignadoAId() != null) {
+            UserEntity nuevo = asignadoDe(request.asignadoAId(), request.paraCualquiera());
+            Long nuevoId = nuevo != null ? nuevo.getId() : null;
+            if (!Objects.equals(actualId, nuevoId)) {
+                cambios.add("Reasignada de " + paraQuien(orden.getAsignadoA()) + " a " + paraQuien(nuevo));
+                orden.setAsignadoA(nuevo);
+            }
         }
         if (request.actividadId() != null && !request.actividadId().equals(orden.getActividad().getId())) {
             ActividadEntity nueva = actividadValida(request.actividadId(), orden.getEjecucionOrigen());
@@ -306,7 +311,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
         ordenRepository.save(orden);
         registrarEvento(orden, "DEVUELTA", motivo, visita, quien, ahora);
         saveActionUseCase.save("El usuario " + quien.getUsername() + " devolvió la orden de trabajo "
-                + orden.getConsecutivo() + " a " + nombre(orden.getAsignadoA()) + ": " + motivo);
+                + orden.getConsecutivo() + " a " + paraQuien(orden.getAsignadoA()) + ": " + motivo);
         eventos.ordenCambio(orden.getEstacion().getId(), orden.getId(), "DEVUELTA");
         return OrdenResumenResponse.fromEntity(orden, calendario.hoy());
     }
@@ -454,6 +459,25 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
             throw new BadRequestException("La fecha límite no puede ser anterior a hoy.");
         }
         return fecha;
+    }
+
+    /** El operario elegido, o null si es para cualquiera; nunca las dos cosas ni ninguna. */
+    private UserEntity asignadoDe(Long usuarioId, Boolean paraCualquiera) {
+        if (Boolean.TRUE.equals(paraCualquiera)) {
+            if (usuarioId != null) {
+                throw new BadRequestException("Elija un operario o \"cualquier operario\", no ambos.");
+            }
+            return null;
+        }
+        return operarioValido(usuarioId);
+    }
+
+    private static String destino(UserEntity asignado) {
+        return asignado == null ? "Para cualquier operario" : "Asignada a " + nombre(asignado);
+    }
+
+    private static String paraQuien(UserEntity asignado) {
+        return asignado == null ? "cualquier operario" : nombre(asignado);
     }
 
     private UserEntity operarioValido(Long usuarioId) {

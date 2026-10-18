@@ -33,10 +33,13 @@ public interface OrdenTrabajoRepository extends JpaRepository<OrdenTrabajoEntity
         """)
     List<OrdenTrabajoEntity> vigentesDeHallazgos(@Param("ejecucionIds") List<Long> ejecucionIds);
 
-    /** Órdenes que el operario tiene por hacer (lista "Prioritarias" del móvil). */
+    /**
+     * Órdenes que el operario tiene por hacer (lista "Prioritarias" del móvil): las suyas y las que son
+     * para cualquier operario. LEFT JOIN: con o.asignadoA.id las de cualquiera (sin asignado) no salían.
+     */
     @Query("""
-        SELECT o FROM OrdenTrabajoEntity o
-        WHERE o.asignadoA.id = :usuarioId AND o.status = true AND o.estado = 'ASIGNADA'
+        SELECT o FROM OrdenTrabajoEntity o LEFT JOIN o.asignadoA a
+        WHERE (a.id = :usuarioId OR a IS NULL) AND o.status = true AND o.estado = 'ASIGNADA'
         ORDER BY CASE WHEN o.prioridad = 'ALTA' THEN 0 ELSE 1 END, o.fechaLimite, o.id
         """)
     List<OrdenTrabajoEntity> asignadasA(@Param("usuarioId") Long usuarioId);

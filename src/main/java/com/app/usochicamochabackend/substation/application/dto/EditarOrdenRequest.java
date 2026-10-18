@@ -9,6 +9,7 @@ public record EditarOrdenRequest(
         @Schema(example = "MEDIA") String prioridad,
         @Schema(example = "2026-11-05") LocalDate fechaLimite,
         @Schema(example = "12") Long asignadoAId,
+        @Schema(description = "true = pasarla a cualquier operario (excluye asignadoAId)") Boolean paraCualquiera,
         @Schema(example = "5") Long actividadId,
         String instrucciones
 ) {

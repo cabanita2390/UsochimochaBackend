@@ -22,8 +22,9 @@ public record OrdenResumenResponse(
         String disciplina,
         Long actividadId,
         String actividadNombre,
-        Long asignadoAId,
+        @Schema(description = "null si es para cualquier operario y nadie la ha tomado") Long asignadoAId,
         String asignadoANombre,
+        @Schema(description = "true si es para cualquier operario y nadie la ha tomado todavía") Boolean paraCualquiera,
         String instrucciones,
         String creadoPor,
         LocalDateTime creadoEn,
@@ -41,7 +42,8 @@ public record OrdenResumenResponse(
                 Math.max(0, ChronoUnit.DAYS.between(o.getCreadoEn().toLocalDate(), fin)),
                 o.getEstacion().getId(), o.getEstacion().getNombre(), o.getDisciplina().getCodigo(),
                 o.getActividad().getId(), o.getActividad().getNombre(),
-                o.getAsignadoA().getId(), Nombres.de(o.getAsignadoA()), o.getInstrucciones(),
+                o.getAsignadoA() != null ? o.getAsignadoA().getId() : null, Nombres.de(o.getAsignadoA()),
+                o.getAsignadoA() == null, o.getInstrucciones(),
                 Nombres.de(o.getCreadoPor()), o.getCreadoEn(),
                 h.getId(), h.getFecha(), h.getResultado(), h.getObservaciones());
     }
