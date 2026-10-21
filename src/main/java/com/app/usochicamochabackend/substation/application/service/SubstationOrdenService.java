@@ -165,7 +165,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     @Override
     @Transactional
     public OrdenResumenResponse editar(Long id, EditarOrdenRequest request, UserPrincipal usuario) {
-        OrdenTrabajoEntity orden = buscar(id);
+        OrdenTrabajoEntity orden = bloqueada(id);
         if (!OrdenTrabajoEntity.ASIGNADA.equals(orden.getEstado())) {
             throw conflicto("La orden " + orden.getConsecutivo() + " está " + legible(orden.getEstado())
                     + ": solo se edita mientras está asignada.");
@@ -220,7 +220,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     @Override
     @Transactional
     public OrdenResumenResponse anular(Long id, ComentarioOrdenRequest request, UserPrincipal usuario) {
-        OrdenTrabajoEntity orden = buscar(id);
+        OrdenTrabajoEntity orden = bloqueada(id);
         if (!orden.enCurso()) {
             throw conflicto("La orden " + orden.getConsecutivo() + " ya está " + legible(orden.getEstado()) + ".");
         }
@@ -348,8 +348,7 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
 
     /** La orden bloqueada y en POR_VERIFICAR (cerrar y devolver solo se hacen ahí). */
     private OrdenTrabajoEntity porVerificar(Long id, String accion) {
-        OrdenTrabajoEntity orden = ordenRepository.findByIdParaActualizar(id).filter(OrdenTrabajoEntity::getStatus)
-                .orElseThrow(() -> new ResourceNotFoundException("Orden de trabajo no encontrada: id=" + id));
+        OrdenTrabajoEntity orden = bloqueada(id);
         if (!OrdenTrabajoEntity.POR_VERIFICAR.equals(orden.getEstado())) {
             throw conflicto("La orden " + orden.getConsecutivo() + " está " + legible(orden.getEstado())
                     + ": solo se puede " + accion + " cuando el operario ya registró el trabajo.");
@@ -357,6 +356,15 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
         return orden;
     }
 
+
+    /**
+     * La orden bloqueada para escritura. Editar o anular sin el bloqueo pisaba una visita que llegaba al
+     * mismo tiempo: la orden volvía a ASIGNADA (o quedaba ANULADA) sin la visita que la ejecutó.
+     */
+    private OrdenTrabajoEntity bloqueada(Long id) {
+        return ordenRepository.findByIdParaActualizar(id).filter(OrdenTrabajoEntity::getStatus)
+                .orElseThrow(() -> new ResourceNotFoundException("Orden de trabajo no encontrada: id=" + id));
+    }
 
     OrdenTrabajoEntity buscar(Long id) {
         return ordenRepository.findById(id).filter(OrdenTrabajoEntity::getStatus)
