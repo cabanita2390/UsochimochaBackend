@@ -243,6 +243,16 @@ class SubstationOrdenIntegrationTest {
     }
 
     @Test
+    void listar_soloOrdenaPorCamposDeLaOrden() {
+        ordenUseCase.crear(pedido(visita("CON_HALLAZGOS").id()), supervisor);
+
+        assertThat(ordenUseCase.listar(null, null, null, null, null,
+                PageRequest.of(0, 20, org.springframework.data.domain.Sort.by("fechaLimite"))).getContent()).hasSize(1);
+        assertThrows(BadRequestException.class, () -> ordenUseCase.listar(null, null, null, null, null,
+                PageRequest.of(0, 20, org.springframework.data.domain.Sort.by("asignadoA.password"))));
+    }
+
+    @Test
     void operarios_soloLosOperariosActivosOrdenadosPorNombre() {
         assertThat(ordenUseCase.operarios()).extracting("nombre").containsSubsequence("Ana Operaria", "Técnico OT")
                 .doesNotContain("Operario Inactivo", "Carlos Rivas");
@@ -293,6 +303,19 @@ class SubstationOrdenIntegrationTest {
 
         assertThat(visitaDeOrden(999_999L, estacion.getId(), "CONFORME").orden()).isNull();
         assertThat(visitaDeOrden(orden.id(), otra.getId(), "CONFORME").orden()).isNull();
+        assertThat(ordenUseCase.detalle(orden.id()).orden().estado()).isEqualTo("ASIGNADA");
+    }
+
+    @Test
+    void visitaDeOtraDisciplina_noEjecutaLaOrden() {
+        OrdenResumenResponse orden = ordenUseCase.crear(pedido(visita("CON_HALLAZGOS").id()), supervisor);
+
+        EjecucionResponse electricaHecha = ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
+                HOY, 10, 3, estacion.getId(), "ELECTRICO", "CORRECTIVO", "OTRO",
+                electrica.getId(), null, null, "CONFORME", "Termografía del tablero", null,
+                UUID.randomUUID(), orden.id()), operario);
+
+        assertThat(electricaHecha.orden()).isNull();
         assertThat(ordenUseCase.detalle(orden.id()).orden().estado()).isEqualTo("ASIGNADA");
     }
 

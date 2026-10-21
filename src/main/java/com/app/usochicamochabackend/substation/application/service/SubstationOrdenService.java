@@ -58,6 +58,8 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     /** Código del consecutivo en order_counters: OT-EB-00001 (EB = estaciones de bombeo). */
     static final String MODULO = "EB";
     private static final Set<String> PRIORIDADES = Set.of("ALTA", "MEDIA");
+    private static final Set<String> CAMPOS_ORDENABLES =
+            Set.of("id", "consecutivo", "creadoEn", "actualizadoEn", "fechaLimite", "prioridad", "estado");
     private static final int MAX_TEXTO = 2000;
     private static final int MAX_DIAS_PLAZO = 365;
     private static final DateTimeFormatter DD_MM = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -138,6 +140,13 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     @Transactional(readOnly = true)
     public Page<OrdenResumenResponse> listar(List<String> estados, Long estacionId, String prioridad, Boolean vencidas,
             String disciplina, Pageable pageable) {
+        // Solo campos propios de la orden: con ?sort=asignadoA.password Spring ordenaba por el hash de
+        // la contraseña de los usuarios (y deja adivinarlo comparando posiciones).
+        pageable.getSort().forEach(o -> {
+            if (!CAMPOS_ORDENABLES.contains(o.getProperty())) {
+                throw new BadRequestException("No se puede ordenar por " + o.getProperty() + ".");
+            }
+        });
         // Sin orden pedido: las más recientes primero.
         Pageable pagina = pageable.getSort().isSorted() ? pageable
                 : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "creadoEn", "id"));

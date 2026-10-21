@@ -133,7 +133,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .orElseThrow(() -> new BadRequestException("Disciplina desconocida: " + request.disciplina()));
 
         // La corrección de un hallazgo (orden de trabajo) no es una cita: con orden no se toca el cronograma.
-        OrdenTrabajoEntity orden = ordenDeLaVisita(request.ordenId(), estacion);
+        OrdenTrabajoEntity orden = ordenDeLaVisita(request.ordenId(), estacion, disciplina);
 
         ActividadEntity actividad = null;
         ProgramacionEntity programacion = null;
@@ -207,11 +207,11 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     }
 
     /**
-     * La orden que ejecuta esta visita, si existe y es de la misma estación; si no, la visita se
+     * La orden que ejecuta esta visita, si existe y es de la misma estación y disciplina; si no, la visita se
      * guarda igual sin enlazar (como una cita que no coincide). Nunca lanza: el móvil marcaría el
      * registro como fallido.
      */
-    private OrdenTrabajoEntity ordenDeLaVisita(Long ordenId, EstacionEntity estacion) {
+    private OrdenTrabajoEntity ordenDeLaVisita(Long ordenId, EstacionEntity estacion, DisciplinaEntity disciplina) {
         if (ordenId == null) {
             return null;
         }
@@ -220,6 +220,8 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         return ordenTrabajoRepository.findByIdParaActualizar(ordenId)
                 .filter(OrdenTrabajoEntity::getStatus)
                 .filter(o -> o.getEstacion().getId().equals(estacion.getId()))
+                // Una visita Eléctrica no corrige un hallazgo Civil: quedaría como el "después" de la orden.
+                .filter(o -> o.getDisciplina().getId().equals(disciplina.getId()))
                 .orElse(null);
     }
 
