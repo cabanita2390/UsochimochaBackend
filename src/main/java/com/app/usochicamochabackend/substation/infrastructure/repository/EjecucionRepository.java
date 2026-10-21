@@ -32,7 +32,8 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
     List<Long> actividadesEjecutadas();
 
     /**
-     * Ejecuciones de la disciplina (null = todas) entre dos fechas, agrupadas por estación. Columnas:
+     * Ejecuciones de la disciplina (null = todas) entre dos fechas, agrupadas por estación, sin las
+     * visitas de órdenes de trabajo (van aparte: no son citas ni imprevistos). Columnas:
      * estacionId, total, programadas, noProgramadas, mantenimiento, inspeccion, conHallazgos.
      */
     @Query("""
@@ -44,6 +45,7 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
                SUM(CASE WHEN e.resultado <> 'CONFORME' THEN 1 ELSE 0 END)
         FROM EjecucionEntity e
         WHERE (:disciplina IS NULL OR e.disciplina.codigo = :disciplina) AND e.fecha BETWEEN :desde AND :hasta
+          AND e.orden IS NULL
         GROUP BY e.estacion.id
         """)
     List<Object[]> contarPorEstacion(@Param("disciplina") String disciplina,
@@ -58,6 +60,7 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
                SUM(CASE WHEN e.tipoActividad = 'INSPECCION' THEN 1 ELSE 0 END)
         FROM EjecucionEntity e
         WHERE e.actividad IS NOT NULL AND (:disciplina IS NULL OR e.disciplina.codigo = :disciplina) AND e.fecha BETWEEN :desde AND :hasta
+          AND e.orden IS NULL
         GROUP BY e.actividad.id
         """)
     List<Object[]> contarPorActividad(@Param("disciplina") String disciplina,

@@ -10,8 +10,10 @@ import com.app.usochicamochabackend.substation.application.dto.SeguimientoRespon
 import com.app.usochicamochabackend.substation.application.port.SubstationHallazgoUseCase;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.HallazgoSeguimientoEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenTrabajoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.HallazgoSeguimientoRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenTrabajoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ public class SubstationHallazgoService implements SubstationHallazgoUseCase {
 
     private final EjecucionRepository ejecucionRepository;
     private final HallazgoSeguimientoRepository hallazgoSeguimientoRepository;
+    private final OrdenTrabajoRepository ordenTrabajoRepository;
     private final UserRepositoryJpa userRepositoryJpa;
     private final SaveActionUseCase saveActionUseCase;
 
@@ -49,6 +52,12 @@ public class SubstationHallazgoService implements SubstationHallazgoUseCase {
     @Transactional
     public SeguimientoResponse resolver(Long ejecucionId, ResolverHallazgoRequest request, UserPrincipal usuario) {
         HallazgoSeguimientoEntity seguimiento = buscarSeguimientoAbierto(ejecucionId);
+        // Con una orden de trabajo en curso, el hallazgo se cierra al verificar la orden (o se anula
+        // la orden primero): si no, la orden quedaría abierta para un hallazgo ya resuelto.
+        ordenTrabajoRepository.vigenteDeHallazgo(ejecucionId).filter(OrdenTrabajoEntity::enCurso).ifPresent(o -> {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "El hallazgo tiene la orden " + o.getConsecutivo()
+                    + " en curso: ciérrela al verificarla o anúlela primero.");
+        });
 
         boolean mismaVisita = Boolean.TRUE.equals(request.resueltoMismaVisita());
         if (mismaVisita && request.resueltoEnEjecucionId() != null) {

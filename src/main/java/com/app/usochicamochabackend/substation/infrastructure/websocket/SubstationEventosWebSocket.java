@@ -16,32 +16,41 @@ import java.util.Map;
 public class SubstationEventosWebSocket implements SubstationEventosPort {
 
     public static final String TOPIC_EJECUCIONES = "/topic/subestaciones/ejecuciones";
+    public static final String TOPIC_ORDENES = "/topic/subestaciones/ordenes";
 
     private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     public void ejecucionCambio(Long estacionId, Long ejecucionId, String tipo) {
-        Map<String, Object> evento = Map.of("estacionId", estacionId, "ejecucionId", ejecucionId, "tipo", tipo);
+        despuesDelCommit(TOPIC_EJECUCIONES, Map.of("estacionId", estacionId, "ejecucionId", ejecucionId, "tipo", tipo));
+    }
+
+    @Override
+    public void ordenCambio(Long estacionId, Long ordenId, String tipo) {
+        despuesDelCommit(TOPIC_ORDENES, Map.of("estacionId", estacionId, "ordenId", ordenId, "tipo", tipo));
+    }
+
+    private void despuesDelCommit(String topic, Map<String, Object> evento) {
         // Solo después del commit: si la transacción se revierte la web no debe recargar por nada,
         // y si recarga antes del commit no vería el registro nuevo.
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    enviar(evento);
+                    enviar(topic, evento);
                 }
             });
         } else {
-            enviar(evento);
+            enviar(topic, evento);
         }
     }
 
-    private void enviar(Map<String, Object> evento) {
+    private void enviar(String topic, Map<String, Object> evento) {
         // Best-effort: un fallo del broker nunca debe tumbar el registro que ya se guardó.
         try {
-            messagingTemplate.convertAndSend(TOPIC_EJECUCIONES, evento);
+            messagingTemplate.convertAndSend(topic, evento);
         } catch (RuntimeException e) {
-            log.warn("No se pudo avisar por WebSocket el cambio de ejecución {}", evento, e);
+            log.warn("No se pudo avisar por WebSocket el cambio {} {}", topic, evento, e);
         }
     }
 }

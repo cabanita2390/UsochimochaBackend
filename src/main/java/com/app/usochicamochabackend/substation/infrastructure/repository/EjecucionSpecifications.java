@@ -27,6 +27,18 @@ public final class EjecucionSpecifications {
             Long estacionId, LocalDate desde, LocalDate hasta, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
             List<String> seguimiento, String disciplina) {
+        return filtrar(estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad,
+                seguimiento, disciplina, null);
+    }
+
+    /**
+     * @param conOrden true = solo visitas de órdenes de trabajo; false = sin ellas; null = todas. Con
+     *                 esProgramada=false (imprevistos) las visitas de órdenes nunca entran: van aparte.
+     */
+    public static Specification<EjecucionEntity> filtrar(
+            Long estacionId, LocalDate desde, LocalDate hasta, Boolean esProgramada,
+            List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
+            List<String> seguimiento, String disciplina, Boolean conOrden) {
         return (root, query, cb) -> {
             List<Predicate> predicados = new ArrayList<>();
             predicados.add(cb.between(root.get("fecha"), desde, hasta));
@@ -35,6 +47,12 @@ public final class EjecucionSpecifications {
             }
             if (esProgramada != null) {
                 predicados.add(cb.equal(root.get("esProgramada"), esProgramada));
+                if (!esProgramada) {
+                    predicados.add(cb.isNull(root.get("orden")));
+                }
+            }
+            if (conOrden != null) {
+                predicados.add(conOrden ? cb.isNotNull(root.get("orden")) : cb.isNull(root.get("orden")));
             }
             if (resultado != null && !resultado.isEmpty()) {
                 predicados.add(root.get("resultado").in(resultado));

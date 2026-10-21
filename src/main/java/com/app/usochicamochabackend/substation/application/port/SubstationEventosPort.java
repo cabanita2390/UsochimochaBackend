@@ -8,4 +8,7 @@ public interface SubstationEventosPort {
 
     /** Una ejecución se registró o se editó; se envía cuando la transacción ya confirmó. */
     void ejecucionCambio(Long estacionId, Long ejecucionId, String tipo);
+
+    /** Una orden de trabajo cambió (creada, editada, ejecutada, cerrada…); también después del commit. */
+    void ordenCambio(Long estacionId, Long ordenId, String tipo);
 }

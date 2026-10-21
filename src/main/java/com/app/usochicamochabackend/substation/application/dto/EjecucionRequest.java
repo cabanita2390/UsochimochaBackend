@@ -19,6 +19,16 @@ public record EjecucionRequest(
         @Schema(description = "Resultado de la visita", example = "CONFORME") String resultado,
         @Schema(description = "Observaciones de la actividad realizada") String observaciones,
         @Schema(description = "Descripción libre; requerida cuando actividadId es null") String descripcionLibre,
-        @Schema(description = "UUID generado por el cliente para idempotencia offline") UUID uuidCliente
+        @Schema(description = "UUID generado por el cliente para idempotencia offline") UUID uuidCliente,
+        @Schema(description = "Orden de trabajo que esta visita ejecuta; null en citas e imprevistos") Long ordenId
 ) {
+    /** Sin orden de trabajo (citas del cronograma e imprevistos; versiones del móvil anteriores a las OT). */
+    public EjecucionRequest(LocalDate fecha, Integer mesEjecucion, Integer semanaEjecucion, Long estacionId,
+            String disciplina, String tipoMantenimiento, String tipoActividad, Long actividadId, Long programacionId,
+            String motivoNoCatalogado, String resultado, String observaciones, String descripcionLibre,
+            UUID uuidCliente) {
+        this(fecha, mesEjecucion, semanaEjecucion, estacionId, disciplina, tipoMantenimiento, tipoActividad,
+                actividadId, programacionId, motivoNoCatalogado, resultado, observaciones, descripcionLibre,
+                uuidCliente, null);
+    }
 }
