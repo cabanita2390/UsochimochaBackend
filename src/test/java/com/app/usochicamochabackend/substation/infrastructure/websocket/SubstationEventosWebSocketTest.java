@@ -48,4 +48,16 @@ class SubstationEventosWebSocketTest {
 
         verify(template).convertAndSend(eq(SubstationEventosWebSocket.TOPIC_EJECUCIONES), any(Object.class));
     }
+
+    @Test
+    void lasOrdenesSeAvisanEnSuPropioTopicDespuesDelCommit() {
+        TransactionSynchronizationManager.initSynchronization();
+
+        eventos.ordenCambio(1L, 5L, "CERRADA");
+        verify(template, never()).convertAndSend(anyString(), any(Object.class));
+
+        TransactionSynchronizationManager.getSynchronizations().forEach(TransactionSynchronization::afterCommit);
+        verify(template).convertAndSend(SubstationEventosWebSocket.TOPIC_ORDENES,
+                (Object) Map.of("estacionId", 1L, "ordenId", 5L, "tipo", "CERRADA"));
+    }
 }

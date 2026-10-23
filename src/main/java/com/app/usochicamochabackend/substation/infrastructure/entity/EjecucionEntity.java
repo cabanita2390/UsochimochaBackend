@@ -5,7 +5,9 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -74,4 +76,12 @@ public class EjecucionEntity {
 
     @Column(name = "uuid_cliente", nullable = false, unique = true)
     private UUID uuidCliente; // idempotencia offline (móvil)
+
+    // La orden de trabajo que esta visita ejecutó; null en citas e imprevistos. Fuera de
+    // equals/hashCode/toString: la orden apunta de vuelta a esta ejecución.
+    @ManyToOne
+    @JoinColumn(name = "orden_id")
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private OrdenTrabajoEntity orden;
 }

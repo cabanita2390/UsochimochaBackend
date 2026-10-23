@@ -51,8 +51,17 @@ public interface SubstationEjecucionUseCase {
      */
     List<ObservacionesFrecuentesResponse> observacionesFrecuentes(String disciplina, Integer limite);
 
+    default Page<EjecucionResponse> listarEjecuciones(
+            Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
+            List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
+            List<String> seguimiento, String disciplina, Pageable pageable) {
+        return listarEjecuciones(estacionId, fechaInicio, fechaFin, esProgramada, resultado, actividadId,
+                tipoMantenimiento, tipoActividad, seguimiento, disciplina, null, pageable);
+    }
+
+    /** conOrden: true = solo visitas de órdenes de trabajo, false = sin ellas, null = todas. */
     Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
-            List<String> seguimiento, String disciplina, Pageable pageable);
+            List<String> seguimiento, String disciplina, Boolean conOrden, Pageable pageable);
 }

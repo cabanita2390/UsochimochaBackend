@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -13,6 +14,17 @@ public class WebConfig implements WebMvcConfigurer {
     /** Misma carpeta donde guardan los servicios de almacenamiento (evidencias, documentos). */
     @Value("${app.storage.uploads-root:uploads}")
     private String uploadsRoot;
+
+    private final SortSeguroInterceptor sortSeguroInterceptor;
+
+    public WebConfig(SortSeguroInterceptor sortSeguroInterceptor) {
+        this.sortSeguroInterceptor = sortSeguroInterceptor;
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(sortSeguroInterceptor);
+    }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {

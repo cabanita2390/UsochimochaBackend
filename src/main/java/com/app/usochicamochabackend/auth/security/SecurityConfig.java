@@ -105,7 +105,8 @@ public class SecurityConfig {
                             "/api/v1/substation/observaciones/frecuentes", "/api/v1/substation/programacion",
                             "/api/v1/substation/indicadores/cumplimiento",
                             "/api/v1/substation/ejecuciones", "/api/v1/substation/ejecuciones/*",
-                            "/api/v1/substation/ejecuciones/por-programacion/*")
+                            "/api/v1/substation/ejecuciones/por-programacion/*",
+                            "/api/v1/substation/ordenes/asignadas")
                             .hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     // Lo demás (cronograma con borradores, dashboard, resumen, criticidad) es de la web.
                     http.requestMatchers(HttpMethod.GET, "/api/v1/substation/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
@@ -114,6 +115,9 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/ejecuciones/*").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     // Seguimiento de hallazgos (web).
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/hallazgos/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Órdenes de trabajo de estación: las crean, editan, verifican y anulan Supervisor y Admin.
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/substation/ordenes").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/ordenes/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     // Cualquier otra escritura (cronograma, publicación, catálogos): solo ADMIN.
                     http.requestMatchers("/api/v1/substation/**").hasRole("ADMIN");
 
