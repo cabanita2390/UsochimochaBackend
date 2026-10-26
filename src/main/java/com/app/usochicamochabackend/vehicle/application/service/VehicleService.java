@@ -50,6 +50,7 @@ public class VehicleService implements VehicleUseCase {
     @Transactional
     public VehicleResponse createVehicle(VehicleRequest request) {
         VehicleRequest req = request.normalized();
+        validarPlaca(req.placa());
 
         Optional<VehicleEntity> existingVehicle = vehicleRepository.findByPlaca(req.placa());
 
@@ -102,6 +103,7 @@ public class VehicleService implements VehicleUseCase {
     @Transactional
     public VehicleResponse updateVehicle(Integer id, VehicleRequest request) {
         VehicleRequest req = request.normalized();
+        validarPlaca(req.placa());
         VehicleEntity entity = vehicleRepository.findActiveById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Vehículo no encontrado"));
 
@@ -166,5 +168,12 @@ public class VehicleService implements VehicleUseCase {
         }
 
         return findByPlaca(vehicle.getPlaca());
+    }
+
+    private static void validarPlaca(String placa) {
+        String error = InputTextNormalizer.errorPlaca(placa);
+        if (error != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, error);
+        }
     }
 }

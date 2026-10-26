@@ -275,8 +275,9 @@ public class MotoService implements MotoCRUDUseCase {
     public VehicleResponse createMoto(VehicleRequest request) {
         VehicleRequest req = request.normalized();
         String placa = req.placa();
-        if (placa.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La placa es obligatoria");
+        String errorPlaca = InputTextNormalizer.errorPlaca(placa);
+        if (errorPlaca != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorPlaca);
         }
 
         Optional<VehicleEntity> existingVehicle = vehicleRepository.findByPlaca(placa);
@@ -340,8 +341,9 @@ public class MotoService implements MotoCRUDUseCase {
         assertMotoTipo(entity);
 
         String placa = req.placa();
-        if (placa.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La placa es obligatoria");
+        String errorPlaca = InputTextNormalizer.errorPlaca(placa);
+        if (errorPlaca != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorPlaca);
         }
         if (!entity.getPlaca().equalsIgnoreCase(placa)
                 && vehicleRepository.findByPlaca(placa).isPresent()) {
