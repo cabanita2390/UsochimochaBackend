@@ -19,6 +19,8 @@ import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntit
 import com.app.usochicamochabackend.review.infrastructure.repository.ImageRepository;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.review.application.dto.ExpirationNotificationDTO;
+import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaResponse;
+import com.app.usochicamochabackend.tire.application.port.PresionLlantasInspeccionUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -55,6 +57,7 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     private final SaveActionUseCase saveActionUseCase;
     private final ApplicationEventPublisher eventPublisher;
     private final PreventiveAlertCalculationService preventiveAlertCalculationService;
+    private final PresionLlantasInspeccionUseCase presionLlantasUseCase;
 
     @Override
     public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
@@ -79,7 +82,11 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         }
 
         InspectionEntity saved = inspectionRepository.save(entity);
-        InspectionFormResponse inspectionResponse = InspectionMapper.toDto(saved);
+        // Solo reporte: una presión fuera de rango no genera orden ni notificación.
+        List<LecturaPresionLlantaResponse> presiones = presionLlantasUseCase.registrarParaInspeccionMaquina(
+                saved.getMachine().getId(), saved.getId(), request.presionesLlantas());
+        InspectionFormResponse inspectionResponse = InspectionMapper.toDto(
+                saved, presionLlantasUseCase.resumen(presiones), presiones);
 
         if (Boolean.TRUE.equals(saved.getUnexpected())) {
             notificationService.notifyInspection(inspectionResponse.toString());
@@ -248,7 +255,9 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado una inspeccion realizada a la maquina " + inspection.getMachine().getName() + " realizada el dia " + inspection.getDateStamp().toLocalDate());
 
 
-        return InspectionMapper.toDtoWithImagesAndOrders(inspection);
+        List<LecturaPresionLlantaResponse> presiones = presionLlantasUseCase
+                .lecturasPorInspeccionMaquina(List.of(inspectionId)).getOrDefault(inspectionId, List.of());
+        return InspectionMapper.toDtoWithImagesAndOrders(inspection, presionLlantasUseCase.resumen(presiones), presiones);
     }
 
     private String getFileExtension(MultipartFile file) {
@@ -281,7 +290,12 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     @Override
     public Page<InspectionFormResponse> getAllInspectionsWithoutImages(Pageable pageable) {
         Page<InspectionEntity> inspectionsPage = inspectionRepository.findAll(pageable);
-        Page<InspectionFormResponse> result = inspectionsPage.map(InspectionMapper::toDto);
+        Map<Long, List<LecturaPresionLlantaResponse>> presiones = presionLlantasUseCase.lecturasPorInspeccionMaquina(
+                inspectionsPage.getContent().stream().map(InspectionEntity::getId).toList());
+        Page<InspectionFormResponse> result = inspectionsPage.map(e -> {
+            List<LecturaPresionLlantaResponse> lecturas = presiones.getOrDefault(e.getId(), List.of());
+            return InspectionMapper.toDto(e, presionLlantasUseCase.resumen(lecturas), lecturas);
+        });
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado todas las inspecciones el dia " + LocalDateTime.now());

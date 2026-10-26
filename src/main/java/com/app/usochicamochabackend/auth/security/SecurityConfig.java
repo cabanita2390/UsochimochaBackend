@@ -185,6 +185,11 @@ public class SecurityConfig {
                     // Catálogo de tipos y cualquier otra ruta de fuel no listada arriba: cualquier autenticado.
                     http.requestMatchers("/api/v1/fuel/**").authenticated();
 
+                    // Presión de llantas: el móvil descarga perfiles y asignaciones; la configuración
+                    // la administran ADMIN y SUPERVISOR_OPERATIVO (igual que la de combustible).
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/tire/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers("/api/v1/tire/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+
                     // Cualquier otra petición: solo ADMIN
                     http.anyRequest().hasRole("ADMIN");
                 })

@@ -110,7 +110,7 @@ class VehicleE2ETest {
                 null, null, null, null, null, null, null, null,
                 true, true, true, true, true,
                 true, true, true, false, true, true,
-                testUbicacionId);
+                testUbicacionId, null);
         createVehiculoInspectionUseCase.create(request, inspector);
 
         // Paso 4 — Verificación de persistencia en BD

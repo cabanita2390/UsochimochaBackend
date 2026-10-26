@@ -103,7 +103,7 @@ class MotoControllerTest {
                 1, 5000, "BUENO", "Todo ok",
                 "Vigente", "Vigente", "N/A",
                 "Bueno", "Bueno", "Bueno",
-                1);
+                1, null);
 
         when(motoService.saveInspeccion(any())).thenReturn(100L);
 

@@ -1,7 +1,10 @@
 package com.app.usochicamochabackend.moto.application.dto;
 
+import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaRequest;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
+
+import java.util.List;
 
 @Schema(
         name = "InspeccionMotoRequest",
@@ -35,5 +38,9 @@ public record InspeccionMotoRequest(
 
         // Ubicación (Migrado a General)
         @Schema(description = "Id en `cat_ubicaciones` donde se reporta la inspección", example = "2")
-        Integer idUbicacion) {
+        Integer idUbicacion,
+
+        // Presión de llantas (opcional; según el perfil de llantas de la moto)
+        @Schema(description = "Presión medida por llanta (PSI). No bloquea la inspección si está fuera de rango.")
+        List<LecturaPresionLlantaRequest> presionesLlantas) {
 }

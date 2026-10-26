@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.review.application.dto;
 
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
 import com.app.usochicamochabackend.order.application.dto.OrderWithoutInspectionResponse;
+import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaResponse;
 import com.app.usochicamochabackend.user.application.dto.UserResponse;
 
 import java.time.LocalDateTime;
@@ -32,5 +33,8 @@ public record InspectionDTO(
         UserResponse user,
         MachineResponse machine,
         List<ImageDTO> images,
-        List<OrderWithoutInspectionResponse> orders
+        List<OrderWithoutInspectionResponse> orders,
+        /** OK | BAJA | ALTA | SIN_RANGO; null si la inspección no registró presiones. */
+        String presionLlantasEstado,
+        List<LecturaPresionLlantaResponse> presionesLlantas
 ) {}

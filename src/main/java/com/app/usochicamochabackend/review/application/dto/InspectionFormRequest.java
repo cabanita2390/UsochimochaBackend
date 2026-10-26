@@ -1,7 +1,10 @@
 package com.app.usochicamochabackend.review.application.dto;
 
+import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaRequest;
+
 import java.math.BigInteger;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record InspectionFormRequest(
         String UUID,
@@ -25,5 +28,7 @@ public record InspectionFormRequest(
         String greasingObservations,
         String observations,
         Long userId,
-        Long machineId
+        Long machineId,
+        /** Presión medida por llanta (PSI), opcional según el perfil de llantas de la máquina. */
+        List<LecturaPresionLlantaRequest> presionesLlantas
 ) {}

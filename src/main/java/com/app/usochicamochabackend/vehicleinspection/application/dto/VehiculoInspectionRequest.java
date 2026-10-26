@@ -1,7 +1,10 @@
 package com.app.usochicamochabackend.vehicleinspection.application.dto;
 
+import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaRequest;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
+
+import java.util.List;
 
 /**
  * DTO de la inspección pre-operativa de vehículo enviada desde el móvil.
@@ -69,5 +72,9 @@ public record VehiculoInspectionRequest(
         @Schema(description = "Consciencia de responsabilidad") Boolean conscienteResponsabilidad,
         @Schema(description = "Condición para conducir") Boolean condicionParaConducir,
         @Schema(description = "Id ubicación en `cat_ubicaciones` donde se reporta", example = "2")
-        Integer idUbicacion) {
+        Integer idUbicacion,
+
+        // ── insp_presion_llanta (opcional; según el perfil de llantas del vehículo) ──
+        @Schema(description = "Presión medida por llanta (PSI). No bloquea la inspección si está fuera de rango.")
+        List<LecturaPresionLlantaRequest> presionesLlantas) {
 }

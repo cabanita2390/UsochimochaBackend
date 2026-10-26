@@ -14,6 +14,7 @@ import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import com.app.usochicamochabackend.moto.application.port.MotoCRUDUseCase;
+import com.app.usochicamochabackend.tire.application.port.PresionLlantasInspeccionUseCase;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
@@ -55,6 +56,7 @@ public class MotoService implements MotoCRUDUseCase {
     private final DocumentacionYElementosRepository documentacionRepository;
     private final NotificationService notificationService;
     private final SaveActionUseCase saveActionUseCase;
+    private final PresionLlantasInspeccionUseCase presionLlantasUseCase;
     private final PreventiveAlertCalculationService preventiveAlertCalculationService;
 
         /** Retorna las motocicletas activas (tipo = MOTOCICLETA) con su ubicación base y marca */
@@ -220,6 +222,10 @@ public class MotoService implements MotoCRUDUseCase {
                                 .checkExtintor(req.checkExtintor())
                                 .build();
                 detalleDocumentosRepository.save(detalleDoc);
+
+                // ── 4: insp_presion_llanta (solo reporte: fuera de rango no bloquea) ──
+                presionLlantasUseCase.registrarParaInspeccionVehiculo(
+                                vehiculo.getIdVehiculo(), inspeccion.getIdInspeccion(), req.presionesLlantas());
 
                 notificationService.notifyDataUpdate("moto-inspections-updated");
 

@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.mapper;
 
+import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaResponse;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
@@ -57,7 +58,13 @@ public class InspectionMapper {
         return entity;
     }
 
+    /** Sin presión de llantas (null): para contextos que no la consultan, como la inspección dentro de una orden. */
     public static InspectionFormResponse toDto(InspectionEntity entity) {
+        return toDto(entity, null, null);
+    }
+
+    public static InspectionFormResponse toDto(InspectionEntity entity, String presionLlantasEstado,
+                                               List<LecturaPresionLlantaResponse> presionesLlantas) {
         if (entity == null) return null;
 
         return new InspectionFormResponse(
@@ -83,7 +90,9 @@ public class InspectionMapper {
                 entity.getGreasingObservations(),
                 entity.getObservations(),
                 UserMapper.toResponse(entity.getUser()),
-                MachineMapper.toResponse(entity.getMachine())
+                MachineMapper.toResponse(entity.getMachine()),
+                presionLlantasEstado,
+                presionesLlantas
         );
     }
 
@@ -91,7 +100,8 @@ public class InspectionMapper {
         return inspectionEntities.stream().map(InspectionMapper::toDto).toList();
     }
 
-    public static InspectionDTO toDtoWithImagesAndOrders(InspectionEntity entity) {
+    public static InspectionDTO toDtoWithImagesAndOrders(InspectionEntity entity, String presionLlantasEstado,
+                                                         List<LecturaPresionLlantaResponse> presionesLlantas) {
         if (entity == null) return null;
 
         return new InspectionDTO(
@@ -119,7 +129,9 @@ public class InspectionMapper {
                 UserMapper.toResponse(entity.getUser()),
                 MachineMapper.toResponse(entity.getMachine()),
                 ImagesMapper.toDtoList(entity.getImages()),
-                OrderMapper.toDtoListWithoutInspection(entity.getOrders())
+                OrderMapper.toDtoListWithoutInspection(entity.getOrders()),
+                presionLlantasEstado,
+                presionesLlantas
         );
     }
 }

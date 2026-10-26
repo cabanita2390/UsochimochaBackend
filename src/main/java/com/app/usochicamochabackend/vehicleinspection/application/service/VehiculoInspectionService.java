@@ -9,6 +9,8 @@ import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRep
 import com.app.usochicamochabackend.vehicleinspection.application.dto.*;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
+import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaResponse;
+import com.app.usochicamochabackend.tire.application.port.PresionLlantasInspeccionUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.port.CreateVehiculoInspectionUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.*;
@@ -62,6 +64,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     private final NotificationService notificationService;
     private final PreventiveAlertCalculationService preventiveAlertCalculationService;
     private final SaveActionUseCase saveActionUseCase;
+    private final PresionLlantasInspeccionUseCase presionLlantasUseCase;
 
     /**
      * POST — Guarda la inspección pre-operativa en las 5 tablas de inspección
@@ -139,6 +142,9 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                         .condicionParaConducir(req.condicionParaConducir())
                         .conscienteResponsabilidad(req.conscienteResponsabilidad())
                         .build());
+
+        // ── 6: insp_presion_llanta (solo reporte: fuera de rango no bloquea) ──
+        presionLlantasUseCase.registrarParaInspeccionVehiculo(idVehiculo, idInspeccion, req.presionesLlantas());
 
         mergeDocumentsFromInspectionRequest(idVehiculo, req, inspector);
 
@@ -356,9 +362,12 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
 
     private List<VehicleInspectionReportDTO> mapToReportDTO(List<InspPreOperativaEntity> inspections) {
         List<VehicleInspectionReportDTO> reportList = new java.util.ArrayList<>();
+        Map<Long, List<LecturaPresionLlantaResponse>> presiones = presionLlantasUseCase.lecturasPorInspeccionVehiculo(
+                inspections.stream().map(InspPreOperativaEntity::getIdInspeccion).toList());
 
         for (InspPreOperativaEntity inspection : inspections) {
             Long id = inspection.getIdInspeccion();
+            List<LecturaPresionLlantaResponse> lecturas = presiones.getOrDefault(id, List.of());
             var mecanico = detalleMecanicoRepository.findByIdInspeccion(id).orElse(new InspDetalleMecanicoEntity());
             var documentos = detalleDocumentosRepository.findByIdInspeccion(id).orElse(new InspDetalleDocumentosEntity());
             var elementos = detalleElementosRepository.findByIdInspeccion(id).orElse(new InspDetalleElementosEntity());
@@ -407,7 +416,10 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
 
                 null,  // mechanicName - no disponible en inspección
                 null,  // contractorName - no disponible en inspección
-                null   // timeSpent - no disponible en inspección
+                null,  // timeSpent - no disponible en inspección
+
+                presionLlantasUseCase.resumen(lecturas),
+                lecturas
             ));
         }
         return reportList;
