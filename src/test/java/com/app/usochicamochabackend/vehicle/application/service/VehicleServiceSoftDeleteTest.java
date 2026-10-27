@@ -194,14 +194,14 @@ class VehicleServiceSoftDeleteTest {
     @Test
     void testCreateVehicleWithActivePlaqueThrows400() {
         VehicleEntity active = vehicleRepository.save(VehicleEntity.builder()
-            .placa("ACTIVE-PLACA")
+            .placa("ACT-001")
             .idMarca(1)
             .idTipoVehiculo(1)
             .activo(true)
             .build());
 
         VehicleRequest request = new VehicleRequest(
-            "ACTIVE-PLACA",
+            "ACT-001",
             1,
             1,
             100,
@@ -218,14 +218,14 @@ class VehicleServiceSoftDeleteTest {
     @Test
     void testCreateVehicleWithSoftDeletedPlaqueThrows409() {
         VehicleEntity deleted = vehicleRepository.save(VehicleEntity.builder()
-            .placa("SOFT-DEL-PLACA")
+            .placa("DEL-0001")
             .idMarca(1)
             .idTipoVehiculo(1)
             .activo(false)
             .build());
 
         VehicleRequest request = new VehicleRequest(
-            "SOFT-DEL-PLACA",
+            "DEL-0001",
             1,
             1,
             100,
@@ -240,7 +240,7 @@ class VehicleServiceSoftDeleteTest {
             .satisfies(ex -> {
                 VehicleSoftDeletedConflictException conflict = (VehicleSoftDeletedConflictException) ex;
                 assertThat(conflict.getSoftDeletedVehicle()).isNotNull();
-                assertThat(conflict.getSoftDeletedVehicle().placa()).isEqualTo("SOFT-DEL-PLACA");
+                assertThat(conflict.getSoftDeletedVehicle().placa()).isEqualTo("DEL-0001");
                 assertThat(conflict.getSuggestedAction()).isEqualTo("restore_or_create_new");
             });
     }
@@ -248,7 +248,7 @@ class VehicleServiceSoftDeleteTest {
     @Test
     void testRestoreSoftDeletedVehicleSucceeds() {
         VehicleEntity deleted = vehicleRepository.save(VehicleEntity.builder()
-            .placa("RESTORE-TEST")
+            .placa("RST-0001")
             .idMarca(1)
             .idTipoVehiculo(1)
             .activo(false)
@@ -257,7 +257,7 @@ class VehicleServiceSoftDeleteTest {
         VehicleResponse restored = vehicleService.restoreVehicle(deleted.getIdVehiculo());
 
         assertThat(restored).isNotNull();
-        assertThat(restored.placa()).isEqualTo("RESTORE-TEST");
+        assertThat(restored.placa()).isEqualTo("RST-0001");
         assertThat(restored.activo()).isTrue();
 
         Optional<VehicleEntity> found = vehicleRepository.findById(deleted.getIdVehiculo());

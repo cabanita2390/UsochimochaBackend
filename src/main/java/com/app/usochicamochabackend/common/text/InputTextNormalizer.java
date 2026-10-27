@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.common.text;
 
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -12,6 +13,8 @@ public final class InputTextNormalizer {
 
     private InputTextNormalizer() {}
 
+    private static final Pattern PLACA_VALIDA = Pattern.compile("^[A-Z0-9-]{1,10}$");
+
     /**
      * Placa: sin espacios, todo en mayúsculas (letras y números tal cual tras limpiar espacios).
      */
@@ -20,6 +23,26 @@ public final class InputTextNormalizer {
             return "";
         }
         return raw.trim().replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Placa ya normalizada: solo letras, números y guion, máximo 10 caracteres. Un símbolo
+     * como "%" deja la placa inutilizable en las rutas que la llevan (GET /moto/{placa}): el
+     * firewall de Spring Security rechaza la URL antes de llegar al controlador.
+     *
+     * @return el mensaje para el usuario, o {@code null} si la placa es válida
+     */
+    public static String errorPlaca(String placaNormalizada) {
+        if (placaNormalizada == null || placaNormalizada.isEmpty()) {
+            return "La placa es obligatoria";
+        }
+        if (placaNormalizada.length() > 10) {
+            return "La placa admite máximo 10 caracteres";
+        }
+        if (!PLACA_VALIDA.matcher(placaNormalizada).matches()) {
+            return "La placa '" + placaNormalizada + "' solo puede tener letras, números y guion (ej. ABC123 o ABC12D)";
+        }
+        return null;
     }
 
     /**
