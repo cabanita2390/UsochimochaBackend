@@ -6,6 +6,7 @@ import com.app.usochicamochabackend.substation.application.dto.CumplimientoRespo
 import com.app.usochicamochabackend.substation.application.dto.EjecucionEditRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionResponse;
+import com.app.usochicamochabackend.substation.application.dto.ElementoIntervenidoResponse;
 import com.app.usochicamochabackend.substation.application.dto.EvidenciaResponse;
 import com.app.usochicamochabackend.substation.application.dto.IndicadorEstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ProgramacionResponse;
@@ -36,7 +37,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/substation")
 @RequiredArgsConstructor
-@Tag(name = "Subestaciones", description = "Mantenimiento de estaciones de bombeo e infraestructura complementaria (MVP: disciplina CIVIL).")
+@Tag(name = "Subestaciones", description = "Mantenimiento de estaciones de bombeo e infraestructura complementaria (disciplinas Civil y Eléctrico).")
 public class SubstationController {
 
     private final SubstationCatalogUseCase catalogUseCase;
@@ -122,7 +123,8 @@ public class SubstationController {
                     + "REQUIERE_INTERVENCION para el preset 'solo hallazgos' de la pantalla de Ejecuciones). "
                     + "seguimiento filtra por estado del hallazgo (ej. seguimiento=ABIERTO,EN_PROCESO para "
                     + "el chip 'Solo hallazgos abiertos'). conOrden=true deja solo las visitas de órdenes de trabajo "
-                    + "(con esProgramada=false nunca entran: no son imprevistos).")
+                    + "(con esProgramada=false nunca entran: no son imprevistos). elementoId deja solo las visitas que "
+                    + "marcaron ese elemento (Eléctrico).")
     public ResponseEntity<Page<EjecucionResponse>> listarEjecuciones(
             @RequestParam(required = false) Long estacionId,
             @RequestParam(required = false) LocalDate fechaInicio,
@@ -135,10 +137,12 @@ public class SubstationController {
             @RequestParam(required = false) List<String> seguimiento,
             @RequestParam(required = false) String disciplina,
             @RequestParam(required = false) Boolean conOrden,
+            @RequestParam(required = false) Long elementoId,
             Pageable pageable) {
         return ResponseEntity.ok(ejecucionUseCase.listarEjecuciones(
                 estacionId, fechaInicio, fechaFin, esProgramada,
-                resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, disciplina, conOrden, pageable));
+                resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, disciplina, conOrden, elementoId,
+                pageable));
     }
 
     @GetMapping("/indicadores/cumplimiento")
@@ -190,5 +194,17 @@ public class SubstationController {
             @RequestParam Long estacionId,
             @RequestParam(required = false) String disciplina) {
         return ResponseEntity.ok(indicadoresUseCase.criticidadPorEstacion(estacionId, disciplina));
+    }
+
+    @GetMapping("/indicadores/elementos")
+    @Operation(summary = "Elementos más intervenidos",
+            description = "Visitas del año que marcaron cada elemento (Eléctrico), de más a menos, y en cuántas "
+                    + "estaciones. anio: por defecto el actual; disciplina y estacionId opcionales.")
+    public ResponseEntity<List<ElementoIntervenidoResponse>> elementosIntervenidos(
+            @RequestParam(required = false) Integer anio,
+            @RequestParam(required = false) String disciplina,
+            @RequestParam(required = false) Long estacionId) {
+        return ResponseEntity.ok(indicadoresUseCase.elementosIntervenidos(
+                anio != null ? anio : calendario.anioActual(), disciplina, estacionId));
     }
 }

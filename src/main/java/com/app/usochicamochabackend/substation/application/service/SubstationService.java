@@ -668,12 +668,12 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     public Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
-            List<String> seguimiento, String disciplina, Boolean conOrden, Pageable pageable) {
+            List<String> seguimiento, String disciplina, Boolean conOrden, Long elementoId, Pageable pageable) {
         LocalDate desde = fechaInicio != null ? fechaInicio : LocalDate.of(2000, 1, 1);
         LocalDate hasta = fechaFin != null ? fechaFin : LocalDate.now();
         var spec = EjecucionSpecifications.filtrar(
                 estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad,
-                seguimiento, disciplina, conOrden);
+                seguimiento, disciplina, conOrden, elementoId);
         return ejecucionRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
@@ -792,6 +792,15 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     public List<CriticidadResponse> criticidadPorEstacion(Long estacionId, String disciplina) {
         return ejecucionRepository.criticidadPorEstacion(estacionId, disciplina).stream()
                 .map(f -> new CriticidadResponse((Long) f[0], (String) f[1], (String) f[2], entero(f, 3)))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ElementoIntervenidoResponse> elementosIntervenidos(Integer anio, String disciplina, Long estacionId) {
+        return ejecucionRepository.elementosIntervenidos(disciplina, estacionId,
+                        LocalDate.of(anio, 1, 1), LocalDate.of(anio, 12, 31)).stream()
+                .map(f -> new ElementoIntervenidoResponse((Long) f[0], (String) f[1], entero(f, 2), entero(f, 3)))
                 .toList();
     }
 

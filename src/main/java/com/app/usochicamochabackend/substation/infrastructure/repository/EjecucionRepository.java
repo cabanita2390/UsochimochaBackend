@@ -105,4 +105,20 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
         ORDER BY COUNT(e) DESC, a.nombre
         """)
     List<Object[]> criticidadPorEstacion(@Param("estacionId") Long estacionId, @Param("disciplina") String disciplina);
+
+    /**
+     * Elementos marcados en las visitas del periodo. Columnas: elementoId, nombre, intervenciones,
+     * estaciones distintas. De más a menos. estacionId y disciplina opcionales.
+     */
+    @Query("""
+        SELECT el.id, el.nombre, COUNT(e), COUNT(DISTINCT e.estacion.id)
+        FROM EjecucionEntity e JOIN e.elementos el
+        WHERE (:disciplina IS NULL OR e.disciplina.codigo = :disciplina)
+          AND (:estacionId IS NULL OR e.estacion.id = :estacionId)
+          AND e.fecha BETWEEN :desde AND :hasta
+        GROUP BY el.id, el.nombre
+        ORDER BY COUNT(e) DESC, el.nombre
+        """)
+    List<Object[]> elementosIntervenidos(@Param("disciplina") String disciplina, @Param("estacionId") Long estacionId,
+            @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 }
