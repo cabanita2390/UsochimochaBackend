@@ -102,6 +102,7 @@ public class SecurityConfig {
                     // Lecturas del móvil (el OPERARIO solo usa la app; ver ApiService.kt del móvil).
                     http.requestMatchers(HttpMethod.GET,
                             "/api/v1/substation/estaciones", "/api/v1/substation/actividades",
+                            "/api/v1/substation/conjuntos", "/api/v1/substation/elementos",
                             "/api/v1/substation/observaciones/frecuentes", "/api/v1/substation/programacion",
                             "/api/v1/substation/indicadores/cumplimiento",
                             "/api/v1/substation/ejecuciones", "/api/v1/substation/ejecuciones/*",

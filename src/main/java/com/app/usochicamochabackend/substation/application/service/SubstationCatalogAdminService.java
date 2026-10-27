@@ -7,14 +7,20 @@ import com.app.usochicamochabackend.substation.application.dto.ActividadRequest;
 import com.app.usochicamochabackend.substation.application.dto.ActividadResponse;
 import com.app.usochicamochabackend.substation.application.dto.EstacionRequest;
 import com.app.usochicamochabackend.substation.application.dto.EstacionResponse;
+import com.app.usochicamochabackend.substation.application.dto.ItemCatalogoRequest;
+import com.app.usochicamochabackend.substation.application.dto.ItemCatalogoResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogAdminUseCase;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ActividadEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.ConjuntoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.DisciplinaEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.ElementoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EstacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ProgramacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.ConjuntoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.DisciplinaRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.ElementoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EstacionRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ProgramacionRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +33,7 @@ import java.text.Normalizer;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,6 +49,8 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     private final SaveActionUseCase saveActionUseCase;
     private final CalendarioMantenimiento calendario;
     private final EjecucionRepository ejecucionRepository;
+    private final ConjuntoRepository conjuntoRepository;
+    private final ElementoRepository elementoRepository;
 
     // ---------------------------------------------------------------------
     // Estaciones
@@ -202,6 +211,161 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     }
 
     // ---------------------------------------------------------------------
+    // Conjuntos (Eléctrico: "Tipo de conjunto intervenido")
+    // ---------------------------------------------------------------------
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ItemCatalogoResponse> listarConjuntos(String disciplina, boolean incluirInactivas) {
+        List<ConjuntoEntity> conjuntos;
+        if (incluirInactivas) {
+            conjuntos = disciplina == null
+                    ? conjuntoRepository.findAllByOrderByNombreAsc()
+                    : conjuntoRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina);
+        } else {
+            conjuntos = disciplina == null
+                    ? conjuntoRepository.findByStatusTrueOrderByNombreAsc()
+                    : conjuntoRepository.findByDisciplina_CodigoAndStatusTrueOrderByNombreAsc(disciplina);
+        }
+        return conjuntos.stream()
+                .map(c -> ItemCatalogoResponse.fromEntity(c, conjuntoRepository.enUso(c.getId())))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ItemCatalogoResponse crearConjunto(ItemCatalogoRequest request, UserPrincipal usuario) {
+        DisciplinaEntity disciplina = buscarDisciplina(request.disciplina());
+        String nombre = normalizarNombre(request.nombre());
+        validarUnico(conjuntoRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina.getCodigo()),
+                ConjuntoEntity::getId, ConjuntoEntity::getNombre, nombre, null, "el conjunto", disciplina);
+
+        ConjuntoEntity guardado = conjuntoRepository.save(ConjuntoEntity.builder()
+                .nombre(nombre)
+                .disciplina(disciplina)
+                .build());
+
+        saveActionUseCase.save("El usuario " + usuario.username() + " ha creado el conjunto " + nombre
+                + " (" + disciplina.getCodigo() + ")");
+        return ItemCatalogoResponse.fromEntity(guardado, false);
+    }
+
+    @Override
+    @Transactional
+    public ItemCatalogoResponse actualizarConjunto(Long id, ItemCatalogoRequest request, UserPrincipal usuario) {
+        ConjuntoEntity conjunto = conjuntoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Conjunto no encontrado: " + id));
+        DisciplinaEntity disciplina = buscarDisciplina(request.disciplina());
+        String nombre = normalizarNombre(request.nombre());
+        validarUnico(conjuntoRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina.getCodigo()),
+                ConjuntoEntity::getId, ConjuntoEntity::getNombre, nombre, id, "el conjunto", disciplina);
+        boolean enUso = conjuntoRepository.enUso(id);
+        // Ya marcado en visitas: cambiarlo de disciplina dejaría esas visitas con un conjunto ajeno.
+        if (!conjunto.getDisciplina().getId().equals(disciplina.getId()) && enUso) {
+            throw conflicto("No se puede cambiar la disciplina: el conjunto ya está registrado en visitas");
+        }
+
+        conjunto.setNombre(nombre);
+        conjunto.setDisciplina(disciplina);
+        ConjuntoEntity guardado = conjuntoRepository.save(conjunto);
+
+        saveActionUseCase.save("El usuario " + usuario.username() + " ha editado el conjunto " + nombre
+                + " (" + disciplina.getCodigo() + ")");
+        return ItemCatalogoResponse.fromEntity(guardado, enUso);
+    }
+
+    @Override
+    @Transactional
+    public ItemCatalogoResponse cambiarEstadoConjunto(Long id, boolean activa, UserPrincipal usuario) {
+        ConjuntoEntity conjunto = conjuntoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Conjunto no encontrado: " + id));
+        conjunto.setStatus(activa);
+        ConjuntoEntity guardado = conjuntoRepository.save(conjunto);
+
+        saveActionUseCase.save("El usuario " + usuario.username() + " ha "
+                + (activa ? "reactivado" : "desactivado") + " el conjunto " + conjunto.getNombre());
+        return ItemCatalogoResponse.fromEntity(guardado, conjuntoRepository.enUso(id));
+    }
+
+    // ---------------------------------------------------------------------
+    // Elementos (Eléctrico: "Elementos inspeccionados o intervenidos")
+    // ---------------------------------------------------------------------
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ItemCatalogoResponse> listarElementos(String disciplina, boolean incluirInactivas) {
+        List<ElementoEntity> elementos;
+        if (incluirInactivas) {
+            elementos = disciplina == null
+                    ? elementoRepository.findAllByOrderByNombreAsc()
+                    : elementoRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina);
+        } else {
+            elementos = disciplina == null
+                    ? elementoRepository.findByStatusTrueOrderByNombreAsc()
+                    : elementoRepository.findByDisciplina_CodigoAndStatusTrueOrderByNombreAsc(disciplina);
+        }
+        return elementos.stream()
+                .map(e -> ItemCatalogoResponse.fromEntity(e, elementoRepository.enUso(e.getId())))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ItemCatalogoResponse crearElemento(ItemCatalogoRequest request, UserPrincipal usuario) {
+        DisciplinaEntity disciplina = buscarDisciplina(request.disciplina());
+        String nombre = normalizarNombre(request.nombre());
+        validarUnico(elementoRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina.getCodigo()),
+                ElementoEntity::getId, ElementoEntity::getNombre, nombre, null, "el elemento", disciplina);
+
+        ElementoEntity guardado = elementoRepository.save(ElementoEntity.builder()
+                .nombre(nombre)
+                .disciplina(disciplina)
+                .build());
+
+        saveActionUseCase.save("El usuario " + usuario.username() + " ha creado el elemento " + nombre
+                + " (" + disciplina.getCodigo() + ")");
+        return ItemCatalogoResponse.fromEntity(guardado, false);
+    }
+
+    @Override
+    @Transactional
+    public ItemCatalogoResponse actualizarElemento(Long id, ItemCatalogoRequest request, UserPrincipal usuario) {
+        ElementoEntity elemento = elementoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Elemento no encontrado: " + id));
+        DisciplinaEntity disciplina = buscarDisciplina(request.disciplina());
+        String nombre = normalizarNombre(request.nombre());
+        validarUnico(elementoRepository.findByDisciplina_CodigoOrderByNombreAsc(disciplina.getCodigo()),
+                ElementoEntity::getId, ElementoEntity::getNombre, nombre, id, "el elemento", disciplina);
+        boolean enUso = elementoRepository.enUso(id);
+        if (!elemento.getDisciplina().getId().equals(disciplina.getId()) && enUso) {
+            throw conflicto("No se puede cambiar la disciplina: el elemento ya está registrado en visitas");
+        }
+
+        elemento.setNombre(nombre);
+        elemento.setDisciplina(disciplina);
+        // Revisado por el administrador: deja de ser provisional.
+        elemento.setProvisional(false);
+        ElementoEntity guardado = elementoRepository.save(elemento);
+
+        saveActionUseCase.save("El usuario " + usuario.username() + " ha editado el elemento " + nombre
+                + " (" + disciplina.getCodigo() + ")");
+        return ItemCatalogoResponse.fromEntity(guardado, enUso);
+    }
+
+    @Override
+    @Transactional
+    public ItemCatalogoResponse cambiarEstadoElemento(Long id, boolean activa, UserPrincipal usuario) {
+        ElementoEntity elemento = elementoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Elemento no encontrado: " + id));
+        elemento.setStatus(activa);
+        ElementoEntity guardado = elementoRepository.save(elemento);
+
+        saveActionUseCase.save("El usuario " + usuario.username() + " ha "
+                + (activa ? "reactivado" : "desactivado") + " el elemento " + elemento.getNombre());
+        return ItemCatalogoResponse.fromEntity(guardado, elementoRepository.enUso(id));
+    }
+
+    // ---------------------------------------------------------------------
     // Auxiliares
     // ---------------------------------------------------------------------
 
@@ -318,6 +482,21 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
                 .findFirst()
                 .ifPresent(a -> {
                     throw conflicto("Ya existe la actividad \"" + a.getNombre() + "\" en " + disciplina.getCodigo());
+                });
+    }
+
+    /**
+     * 409 si otro conjunto o elemento de la misma disciplina ya tiene ese nombre, ignorando
+     * mayúsculas y tildes. {@code articulo} va en el mensaje: "el conjunto", "el elemento".
+     */
+    private <T> void validarUnico(List<T> mismaDisciplina, Function<T, Long> id, Function<T, String> nombreDe,
+            String nombre, Long idPropio, String articulo, DisciplinaEntity disciplina) {
+        String clave = claveNombre(nombre);
+        mismaDisciplina.stream()
+                .filter(x -> !id.apply(x).equals(idPropio) && claveNombre(nombreDe.apply(x)).equals(clave))
+                .findFirst()
+                .ifPresent(x -> {
+                    throw conflicto("Ya existe " + articulo + " \"" + nombreDe.apply(x) + "\" en " + disciplina.getCodigo());
                 });
     }
 
