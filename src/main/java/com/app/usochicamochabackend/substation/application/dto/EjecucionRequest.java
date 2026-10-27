@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.substation.application.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public record EjecucionRequest(
@@ -20,8 +21,26 @@ public record EjecucionRequest(
         @Schema(description = "Observaciones de la actividad realizada") String observaciones,
         @Schema(description = "Descripción libre; requerida cuando actividadId es null") String descripcionLibre,
         @Schema(description = "UUID generado por el cliente para idempotencia offline") UUID uuidCliente,
-        @Schema(description = "Orden de trabajo que esta visita ejecuta; null en citas e imprevistos") Long ordenId
+        @Schema(description = "Orden de trabajo que esta visita ejecuta; null en citas e imprevistos") Long ordenId,
+        @Schema(description = "Eléctrico: IDs de los conjuntos intervenidos (opcional). Los que no son de la disciplina se ignoran.")
+        List<Long> conjuntoIds,
+        @Schema(description = "Eléctrico: IDs de los elementos inspeccionados o intervenidos (opcional)")
+        List<Long> elementoIds,
+        @Schema(description = "Eléctrico: texto de \"Otros\" en conjuntos (opcional, máx. 200)", example = "Tablero de bombas auxiliares")
+        String conjuntoOtro,
+        @Schema(description = "Eléctrico: texto de \"Otros\" en elementos (opcional, máx. 200)")
+        String elementoOtro
 ) {
+    /** Sin conjuntos ni elementos (Civil; versiones del móvil anteriores a Eléctrico). */
+    public EjecucionRequest(LocalDate fecha, Integer mesEjecucion, Integer semanaEjecucion, Long estacionId,
+            String disciplina, String tipoMantenimiento, String tipoActividad, Long actividadId, Long programacionId,
+            String motivoNoCatalogado, String resultado, String observaciones, String descripcionLibre,
+            UUID uuidCliente, Long ordenId) {
+        this(fecha, mesEjecucion, semanaEjecucion, estacionId, disciplina, tipoMantenimiento, tipoActividad,
+                actividadId, programacionId, motivoNoCatalogado, resultado, observaciones, descripcionLibre,
+                uuidCliente, ordenId, null, null, null, null);
+    }
+
     /** Sin orden de trabajo (citas del cronograma e imprevistos; versiones del móvil anteriores a las OT). */
     public EjecucionRequest(LocalDate fecha, Integer mesEjecucion, Integer semanaEjecucion, Long estacionId,
             String disciplina, String tipoMantenimiento, String tipoActividad, Long actividadId, Long programacionId,

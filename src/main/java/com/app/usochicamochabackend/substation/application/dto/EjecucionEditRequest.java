@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.substation.application.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Corrección de datos de una ejecución ya registrada. La estación, la disciplina,
@@ -21,6 +22,25 @@ public record EjecucionEditRequest(
         @Schema(description = "Observaciones de la actividad realizada") String observaciones,
         @Schema(description = "Descripción libre; requerida cuando actividadId es null") String descripcionLibre,
         @Schema(description = "Motivo de la edición, mínimo 15 caracteres. Queda en el historial del registro.")
-        String motivoEdicion
+        String motivoEdicion,
+        @Schema(description = "Eléctrico: conjuntos intervenidos. null = no se cambian; lista vacía = se quitan todos.")
+        List<Long> conjuntoIds,
+        @Schema(description = "Eléctrico: elementos intervenidos. null = no se cambian; lista vacía = se quitan todos.")
+        List<Long> elementoIds,
+        @Schema(description = "Eléctrico: \"Otros\" en conjuntos. null = no se cambia; vacío = se borra.")
+        String conjuntoOtro,
+        @Schema(description = "Eléctrico: \"Otros\" en elementos. null = no se cambia; vacío = se borra.")
+        String elementoOtro
 ) {
+    /**
+     * Sin tocar conjuntos ni elementos: Civil y las versiones del móvil anteriores a Eléctrico, cuyo
+     * "Editar registro" no los envía (null) y no debe borrarlos.
+     */
+    public EjecucionEditRequest(LocalDate fecha, Integer mesEjecucion, Integer semanaEjecucion,
+            String tipoMantenimiento, String tipoActividad, Long actividadId, String motivoNoCatalogado,
+            String resultado, String observaciones, String descripcionLibre, String motivoEdicion) {
+        this(fecha, mesEjecucion, semanaEjecucion, tipoMantenimiento, tipoActividad, actividadId,
+                motivoNoCatalogado, resultado, observaciones, descripcionLibre, motivoEdicion,
+                null, null, null, null);
+    }
 }

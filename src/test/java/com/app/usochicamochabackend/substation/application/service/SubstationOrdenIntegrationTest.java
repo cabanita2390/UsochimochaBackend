@@ -311,7 +311,7 @@ class SubstationOrdenIntegrationTest {
         OrdenResumenResponse orden = ordenUseCase.crear(pedido(visita("CON_HALLAZGOS").id()), supervisor);
 
         EjecucionResponse electricaHecha = ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
-                HOY, 10, 3, estacion.getId(), "ELECTRICO", "CORRECTIVO", "OTRO",
+                HOY, 10, 3, estacion.getId(), "ELECTRICO", "CORRECTIVO", "MANTENIMIENTO",
                 electrica.getId(), null, null, "CONFORME", "Termografía del tablero", null,
                 UUID.randomUUID(), orden.id()), operario);
 
