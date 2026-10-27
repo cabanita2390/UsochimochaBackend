@@ -1,0 +1,22 @@
+package com.app.usochicamochabackend.substation.infrastructure.repository;
+
+import com.app.usochicamochabackend.substation.infrastructure.entity.ElementoEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+
+public interface ElementoRepository extends JpaRepository<ElementoEntity, Long> {
+    List<ElementoEntity> findByDisciplina_CodigoAndStatusTrueOrderByNombreAsc(String disciplinaCodigo);
+
+    List<ElementoEntity> findByStatusTrueOrderByNombreAsc();
+
+    List<ElementoEntity> findByDisciplina_CodigoOrderByNombreAsc(String disciplinaCodigo);
+
+    List<ElementoEntity> findAllByOrderByNombreAsc();
+
+    /** Lo marcó alguna visita: el nombre se puede corregir, pero no cambia de disciplina. */
+    @Query("SELECT COUNT(e) > 0 FROM EjecucionEntity e JOIN e.elementos x WHERE x.id = :id")
+    boolean enUso(@Param("id") Long id);
+}

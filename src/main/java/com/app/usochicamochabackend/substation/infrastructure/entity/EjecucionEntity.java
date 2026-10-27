@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 @Data
@@ -84,4 +86,28 @@ public class EjecucionEntity {
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
     private OrdenTrabajoEntity orden;
+
+    @ManyToMany
+    @JoinTable(name = "mant_ejecucion_conjunto",
+            joinColumns = @JoinColumn(name = "ejecucion_id"),
+            inverseJoinColumns = @JoinColumn(name = "conjunto_id"))
+    @Builder.Default
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<ConjuntoEntity> conjuntos = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(name = "mant_ejecucion_elemento",
+            joinColumns = @JoinColumn(name = "ejecucion_id"),
+            inverseJoinColumns = @JoinColumn(name = "elemento_id"))
+    @Builder.Default
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    private Set<ElementoEntity> elementos = new HashSet<>();
+
+    @Column(name = "conjunto_otro", length = 200)
+    private String conjuntoOtro; // texto de "Otros"; null si no se usó
+
+    @Column(name = "elemento_otro", length = 200)
+    private String elementoOtro;
 }
