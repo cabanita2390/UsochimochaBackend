@@ -11,6 +11,8 @@ import java.util.List;
 
 @Repository
 public interface InspPreOperativaRepository extends JpaRepository<InspPreOperativaEntity, Long> {
+
+    Optional<InspPreOperativaEntity> findByUuidCliente(String uuidCliente);
     
     @Query("SELECT i FROM InspPreOperativaEntity i WHERE i.idVehiculo = :vehicleId ORDER BY i.fechaRegistro DESC LIMIT 1")
     Optional<InspPreOperativaEntity> findLatestByVehicleId(@Param("vehicleId") Integer vehicleId);

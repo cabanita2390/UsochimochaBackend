@@ -42,5 +42,15 @@ public record InspeccionMotoRequest(
 
         // Presión de llantas (opcional; según el perfil de llantas de la moto)
         @Schema(description = "Presión medida por llanta (PSI). No bloquea la inspección si está fuera de rango.")
-        List<LecturaPresionLlantaRequest> presionesLlantas) {
+        List<LecturaPresionLlantaRequest> presionesLlantas,
+
+        // Identificador de la inspección en el teléfono: un reintento con el mismo valor devuelve la ya
+        // registrada en vez de crear otra. Opcional (versiones viejas del móvil no lo envían).
+        @Schema(description = "UUID de la inspección en el móvil; reenviarla con el mismo valor no la duplica", example = "1b4e28ba-2fa1-11d2-883f-0016d3cca427")
+        String uuidCliente) {
+
+    /** Sin uuidCliente: clientes anteriores a V52. */
+    public InspeccionMotoRequest(Integer idVehiculo, Integer kilometrajeReportado, String estadoVehiculo, String observacionesFinales, String checkSoat, String checkTecno, String checkExtintor, String checkNivelAceite, String checkEstadoLlantas, String checkEstadoLuces, Integer idUbicacion, List<LecturaPresionLlantaRequest> presionesLlantas) {
+        this(idVehiculo, kilometrajeReportado, estadoVehiculo, observacionesFinales, checkSoat, checkTecno, checkExtintor, checkNivelAceite, checkEstadoLlantas, checkEstadoLuces, idUbicacion, presionesLlantas, null);
+    }
 }

@@ -73,6 +73,12 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     @Override
     @Transactional
     public VehiculoInspectionResponse create(VehiculoInspectionRequest req, UserPrincipal inspector) {
+        // Reintento del móvil (sin señal, respuesta perdida): la inspección ya está, no se crea otra.
+        String uuidCliente = uuidCliente(req.uuidCliente());
+        Optional<VehiculoInspectionResponse> yaRegistrada = buscarPorUuidCliente(uuidCliente);
+        if (yaRegistrada.isPresent()) {
+            return yaRegistrada.get();
+        }
 
         // ── Resolver idVehiculo a partir de la placa ─────────────────────────
         String placaNorm = InputTextNormalizer.normalizePlaca(req.placaVehiculo());
@@ -91,6 +97,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 .aprobadoRuta(req.aprobadoRuta())
                 .observacionesFinales(req.observacionesFinales())
                 .idUbicacion(resolveIdUbicacionForNewInspection(req, vehicle))
+                .uuidCliente(uuidCliente)
                 .build();
 
         InspPreOperativaEntity saved = inspPreOperativaRepository.save(cabecera);
@@ -752,4 +759,23 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
 
         return new PageImpl<>(pageContent, pageable, reportDTOs.size());
     }
+
+    /** La inspección (de vehículo o moto) que el móvil ya envió con este UUID, si existe. */
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<VehiculoInspectionResponse> buscarPorUuidCliente(String uuidCliente) {
+        return uuidCliente == null ? Optional.empty()
+                : inspPreOperativaRepository.findByUuidCliente(uuidCliente)
+                        .map(i -> new VehiculoInspectionResponse(i.getIdInspeccion(), "La inspección ya estaba registrada"));
+    }
+
+    /** UUID del móvil limpio; null si no viene o no cabe en la columna (se registra como antes, sin protección). */
+    public static String uuidCliente(String valor) {
+        if (valor == null || valor.isBlank()) {
+            return null;
+        }
+        String limpio = valor.trim();
+        return limpio.length() <= 36 ? limpio : null;
+    }
+
 }

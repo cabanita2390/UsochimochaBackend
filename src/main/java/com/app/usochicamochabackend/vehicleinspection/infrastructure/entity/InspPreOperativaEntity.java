@@ -55,4 +55,8 @@ public class InspPreOperativaEntity {
 
     @Column(name = "id_ubicacion")
     private Integer idUbicacion;
+
+    /** UUID de la inspección en el móvil (V52): un reintento con el mismo valor no la duplica. */
+    @Column(name = "uuid_cliente", length = 36, unique = true)
+    private String uuidCliente;
 }

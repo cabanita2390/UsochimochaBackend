@@ -22,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -57,7 +58,16 @@ public class VehiculoInspectionController {
                 // Extraer el inspector autenticado desde el JWT
                 UserPrincipal inspector = (UserPrincipal) authentication.getPrincipal();
 
-                VehiculoInspectionResponse saved = createVehiculoInspectionUseCase.create(request, inspector);
+                VehiculoInspectionResponse saved;
+                try {
+                        saved = createVehiculoInspectionUseCase.create(request, inspector);
+                } catch (DataIntegrityViolationException e) {
+                        // Dos envíos simultáneos de la misma inspección (reintento del móvil): el segundo choca
+                        // con el índice único de uuid_cliente. Se responde con la que quedó registrada.
+                        saved = createVehiculoInspectionUseCase
+                                        .buscarPorUuidCliente(VehiculoInspectionService.uuidCliente(request.uuidCliente()))
+                                        .orElseThrow(() -> e);
+                }
 
                 return ResponseEntity
                                 .created(new URI("/api/v1/vehicle-inspection/" + saved.idInspeccion()))

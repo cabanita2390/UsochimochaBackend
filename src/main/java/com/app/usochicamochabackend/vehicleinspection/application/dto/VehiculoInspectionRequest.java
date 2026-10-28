@@ -76,5 +76,15 @@ public record VehiculoInspectionRequest(
 
         // ── insp_presion_llanta (opcional; según el perfil de llantas del vehículo) ──
         @Schema(description = "Presión medida por llanta (PSI). No bloquea la inspección si está fuera de rango.")
-        List<LecturaPresionLlantaRequest> presionesLlantas) {
+        List<LecturaPresionLlantaRequest> presionesLlantas,
+
+        // Identificador de la inspección en el teléfono: un reintento con el mismo valor devuelve la ya
+        // registrada en vez de crear otra. Opcional (versiones viejas del móvil no lo envían).
+        @Schema(description = "UUID de la inspección en el móvil; reenviarla con el mismo valor no la duplica", example = "1b4e28ba-2fa1-11d2-883f-0016d3cca427")
+        String uuidCliente) {
+
+    /** Sin uuidCliente: clientes anteriores a V52. */
+    public VehiculoInspectionRequest(String placaVehiculo, Integer kilometrajeReportado, Boolean aprobadoRuta, String observacionesFinales, String nivelAceite, String nivelRefrigerante, String nivelFrenos, String estadoLlantas, String lucesGeneral, String estadoVisual, String limpiezaGeneral, String checkSoat, String checkTecno, String checkLicencia, String checkExtintor, String fechaVencSoat, String fechaVencTecno, String fechaVencLicencia, String vigenciaExtintor, String urlImagenSoat, String urlImagenTecno, String urlImagenLicencia, String urlImagenExtintor, Boolean tieneBotiquin, Boolean tieneSeñalizacion, Boolean tieneLineasEmergencia, Boolean tieneLlantaRepuesto, Boolean tieneGatoHidraulico, Boolean saludFisica, Boolean saludMental, Boolean sobrio, Boolean medicamentos, Boolean conscienteResponsabilidad, Boolean condicionParaConducir, Integer idUbicacion, List<LecturaPresionLlantaRequest> presionesLlantas) {
+        this(placaVehiculo, kilometrajeReportado, aprobadoRuta, observacionesFinales, nivelAceite, nivelRefrigerante, nivelFrenos, estadoLlantas, lucesGeneral, estadoVisual, limpiezaGeneral, checkSoat, checkTecno, checkLicencia, checkExtintor, fechaVencSoat, fechaVencTecno, fechaVencLicencia, vigenciaExtintor, urlImagenSoat, urlImagenTecno, urlImagenLicencia, urlImagenExtintor, tieneBotiquin, tieneSeñalizacion, tieneLineasEmergencia, tieneLlantaRepuesto, tieneGatoHidraulico, saludFisica, saludMental, sobrio, medicamentos, conscienteResponsabilidad, condicionParaConducir, idUbicacion, presionesLlantas, null);
+    }
 }
