@@ -39,6 +39,7 @@ import com.app.usochicamochabackend.substation.infrastructure.repository.Program
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
@@ -665,6 +666,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
@@ -677,22 +679,49 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         var spec = EjecucionSpecifications.filtrar(
                 estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad,
                 seguimiento, disciplina, conOrden, elementoId);
-        return ejecucionRepository.findAll(spec, pageable).map(this::toResponse);
+        Page<EjecucionEntity> pagina = ejecucionRepository.findAll(spec,
+                Paginas.estable(pageable, Sort.by(Sort.Direction.DESC, "fecha")));
+        Map<Long, EjecucionResponse> respuestas = toResponses(pagina.getContent());
+        return pagina.map(e -> respuestas.get(e.getId()));
     }
 
     private EjecucionResponse toResponse(EjecucionEntity entity) {
-        List<EvidenciaResponse> evidencias = evidenciaRepository.findByEjecucion_Id(entity.getId()).stream()
-                .map(EvidenciaResponse::fromEntity)
-                .toList();
-        List<EjecucionEdicionResponse> ediciones = ejecucionEdicionRepository
-                .findByEjecucion_IdOrderByEditadoEnAsc(entity.getId()).stream()
-                .map(EjecucionEdicionResponse::fromEntity)
-                .toList();
-        SeguimientoResponse seguimiento = hallazgoSeguimientoRepository.findByEjecucion_Id(entity.getId())
+        return toResponses(List.of(entity)).get(entity.getId());
+    }
+
+    /**
+     * Fotos, ediciones, seguimiento y orden vigente de varias ejecuciones con una consulta por tipo.
+     * Antes eran cuatro consultas por fila: listar 200 visitas tardaba más de 2 s.
+     */
+    private Map<Long, EjecucionResponse> toResponses(List<EjecucionEntity> entidades) {
+        List<Long> ids = entidades.stream().map(EjecucionEntity::getId).toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, List<EvidenciaResponse>> evidencias = evidenciaRepository.findByEjecucion_IdInOrderByIdAsc(ids).stream()
+                .collect(Collectors.groupingBy(e -> e.getEjecucion().getId(),
+                        Collectors.mapping(EvidenciaResponse::fromEntity, Collectors.toList())));
+        Map<Long, List<EjecucionEdicionResponse>> ediciones = ejecucionEdicionRepository
+                .findByEjecucion_IdInOrderByEditadoEnAsc(ids).stream()
+                .collect(Collectors.groupingBy(e -> e.getEjecucion().getId(),
+                        Collectors.mapping(EjecucionEdicionResponse::fromEntity, Collectors.toList())));
+        Map<Long, HallazgoSeguimientoEntity> seguimientos = hallazgoSeguimientoRepository.findByEjecucion_IdIn(ids).stream()
                 .filter(HallazgoSeguimientoEntity::getStatus)
-                .map(s -> SeguimientoResponse.fromEntity(s, ordenTrabajoRepository.vigenteDeHallazgo(entity.getId()).orElse(null)))
-                .orElse(null);
-        return EjecucionResponse.fromEntity(entity, evidencias, ediciones, seguimiento);
+                .collect(Collectors.toMap(s -> s.getEjecucion().getId(), Function.identity(), (a, b) -> a));
+        Map<Long, OrdenTrabajoEntity> ordenes = seguimientos.isEmpty() ? Map.of()
+                : ordenTrabajoRepository.vigentesDeHallazgos(List.copyOf(seguimientos.keySet())).stream()
+                        .collect(Collectors.toMap(o -> o.getEjecucionOrigen().getId(), Function.identity(), (a, b) -> a));
+
+        Map<Long, EjecucionResponse> respuestas = new HashMap<>();
+        for (EjecucionEntity entity : entidades) {
+            Long id = entity.getId();
+            HallazgoSeguimientoEntity s = seguimientos.get(id);
+            respuestas.put(id, EjecucionResponse.fromEntity(entity,
+                    evidencias.getOrDefault(id, List.of()),
+                    ediciones.getOrDefault(id, List.of()),
+                    s == null ? null : SeguimientoResponse.fromEntity(s, ordenes.get(id))));
+        }
+        return respuestas;
     }
 
     @Override
