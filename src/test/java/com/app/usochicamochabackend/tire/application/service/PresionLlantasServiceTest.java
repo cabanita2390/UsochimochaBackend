@@ -99,6 +99,54 @@ class PresionLlantasServiceTest {
     }
 
     @Test
+    void registrar_UnaPresionQueRedondeaACeroNoSeGuarda() {
+        when(assetConfigRepository.findByVehicleId(4)).thenReturn(Optional.of(configMoto));
+        when(lecturaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+
+        // Prueba exigente 2026-10-28: 0,04 PSI quedaba guardado como "0,0 PSI".
+        List<LecturaPresionLlantaResponse> r = service.registrarParaInspeccionVehiculo(4, 99L,
+                List.of(lectura("DEL", "0.04"), lectura("TRA", "300.04")));
+
+        assertEquals(1, r.size());
+        assertEquals(new BigDecimal("300.0"), r.get(0).psiMedido());
+    }
+
+    @Test
+    void registrar_DosCodigosLargosConElMismoInicioSonLaMismaLlanta() {
+        when(lecturaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+        String inicio = "C".repeat(30);
+
+        List<LecturaPresionLlantaResponse> r = service.registrarParaInspeccionVehiculo(4, 99L,
+                List.of(lectura(inicio + "AAA", "40"), lectura(inicio + "BBB", "41")));
+
+        assertEquals(1, r.size());
+        assertEquals(inicio, r.get(0).codigoPosicion());
+    }
+
+    @Test
+    void registrar_TopeDeLecturasPorInspeccion() {
+        when(lecturaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));
+        List<LecturaPresionLlantaRequest> muchas = new ArrayList<>();
+        for (int i = 0; i < 200; i++) {
+            muchas.add(lectura("P" + i, "40"));
+        }
+
+        assertEquals(PresionLlantasService.MAXIMO_LECTURAS, service.registrarParaInspeccionVehiculo(4, 99L, muchas).size());
+    }
+
+    @Test
+    void mismasLecturasMaquina_comparaLlantasYPsiConLasMismasReglas() {
+        when(lecturaRepository.findByIdInspeccionMaquinaInOrderByOrdenAsc(List.of(7L))).thenReturn(List.of(
+                InspPresionLlantaEntity.builder().codigoPosicion("DI").psiMedido(new BigDecimal("40.0")).build(),
+                InspPresionLlantaEntity.builder().codigoPosicion("TI").psiMedido(new BigDecimal("25.0")).build()));
+
+        assertTrue(service.mismasLecturasMaquina(7L, List.of(lectura(" di ", "40"), lectura("TI", "25.04"), lectura("TD", "-1"))));
+        assertFalse(service.mismasLecturasMaquina(7L, List.of(lectura("DI", "30"), lectura("TI", "15"))));
+        assertFalse(service.mismasLecturasMaquina(7L, List.of(lectura("DI", "40"))));
+        assertFalse(service.mismasLecturasMaquina(7L, null));
+    }
+
+    @Test
     void registrar_PosicionFueraDelPerfilUsaElRangoDelMovilOQuedaSinRango() {
         when(assetConfigRepository.findByVehicleId(4)).thenReturn(Optional.of(configMoto));
         when(lecturaRepository.saveAll(anyList())).thenAnswer(inv -> inv.getArgument(0));

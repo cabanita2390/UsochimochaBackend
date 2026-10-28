@@ -24,6 +24,13 @@ public interface PresionLlantasInspeccionUseCase {
 
     Map<Long, List<LecturaPresionLlantaResponse>> lecturasPorInspeccionMaquina(Collection<Long> idsInspeccion);
 
+    /**
+     * Si las lecturas que llegan son las mismas ya guardadas para esa inspección de máquina (mismas
+     * llantas y PSI, con las mismas reglas de limpieza que al registrar). Sirve para no confundir una
+     * segunda inspección del día con un reenvío de la primera.
+     */
+    boolean mismasLecturasMaquina(Long idInspeccion, List<LecturaPresionLlantaRequest> lecturas);
+
     /** OK | BAJA | ALTA | SIN_RANGO, o null si la inspección no tiene lecturas. */
     String resumen(List<LecturaPresionLlantaResponse> lecturas);
 }

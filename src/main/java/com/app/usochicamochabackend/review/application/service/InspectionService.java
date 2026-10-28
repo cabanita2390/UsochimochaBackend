@@ -21,6 +21,8 @@ import com.app.usochicamochabackend.review.infrastructure.repository.InspectionR
 import com.app.usochicamochabackend.review.application.dto.ExpirationNotificationDTO;
 import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaResponse;
 import com.app.usochicamochabackend.tire.application.port.PresionLlantasInspeccionUseCase;
+import org.springframework.dao.DataIntegrityViolationException;
+import com.app.usochicamochabackend.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -64,10 +66,22 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         InspectionEntity entity = InspectionMapper.toEntityWithoutOrdersAndImages(
                 request, userRepository, machineRepository);
 
+        // El userId viene en el cuerpo a propósito: en un teléfono compartido, las inspecciones
+        // pendientes de cada operario se envían a su nombre aunque la sesión sea de otro. Sin userId
+        // se usa el de la sesión; con uno distinto debe ser un usuario activo y queda en la auditoría
+        // quién la envió.
+        UserPrincipal sesion = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (entity.getUser() == null) {
+            entity.setUser(userRepository.findById(sesion.id())
+                    .orElseThrow(() -> new IllegalArgumentException("User not found")));
+        } else if (!Boolean.TRUE.equals(entity.getUser().getStatus())) {
+            throw new BadRequestException("El usuario de la inspección no está activo.");
+        }
+
         // First, check if an inspection with the same UUID already exists
         Optional<InspectionEntity> existingByUUID = inspectionRepository.findByUUID(entity.getUUID());
         if (existingByUUID.isPresent()) {
-            return InspectionMapper.toDto(existingByUUID.get());
+            return respuestaDe(existingByUUID.get());
         }
 
         // Check for identical inspection in the last 12 hours
@@ -76,12 +90,21 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
                 request.machineId(), request.userId(), twelveHoursAgo);
 
         for (InspectionEntity existing : recentInspections) {
-            if (isIdenticalInspection(entity, existing)) {
-                return InspectionMapper.toDto(existing);
+            // Las presiones cuentan: una segunda inspección del día con otras presiones es otra inspección.
+            if (isIdenticalInspection(entity, existing)
+                    && presionLlantasUseCase.mismasLecturasMaquina(existing.getId(), request.presionesLlantas())) {
+                return respuestaDe(existing);
             }
         }
 
-        InspectionEntity saved = inspectionRepository.save(entity);
+        InspectionEntity saved;
+        try {
+            saved = inspectionRepository.save(entity);
+        } catch (DataIntegrityViolationException e) {
+            // La misma inspección enviada dos veces a la vez: la segunda choca con el índice único de
+            // uuid (V52) y se responde con la que quedó registrada.
+            return inspectionRepository.findByUUID(entity.getUUID()).map(this::respuestaDe).orElseThrow(() -> e);
+        }
         // Solo reporte: una presión fuera de rango no genera orden ni notificación.
         List<LecturaPresionLlantaResponse> presiones = presionLlantasUseCase.registrarParaInspeccionMaquina(
                 saved.getMachine().getId(), saved.getId(), request.presionesLlantas());
@@ -112,8 +135,9 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
             notificationService.notifySoatRunt(runtNotification.toString());
         }
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " hizo una inspeccion a la maquina " + machine.getName());
+        String aNombreDe = saved.getUser().getId().equals(sesion.id()) ? ""
+                : " a nombre de " + saved.getUser().getUsername() + " (pendiente de ese usuario en el teléfono)";
+        saveActionUseCase.save("El usuario " + sesion.username() + " hizo una inspeccion a la maquina " + machine.getName() + aNombreDe);
 
         // Recalcular alertas de inmediato: el horómetro de esta inspección es la fuente
         // primaria que usa el cálculo de alertas de cambio de aceite de maquinaria.
@@ -136,6 +160,13 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         }
 
         return inspectionResponse;
+    }
+
+    /** La inspección ya registrada, con sus presiones (la respuesta de un reintento es igual a la original). */
+    private InspectionFormResponse respuestaDe(InspectionEntity inspeccion) {
+        List<LecturaPresionLlantaResponse> presiones = presionLlantasUseCase
+                .lecturasPorInspeccionMaquina(List.of(inspeccion.getId())).getOrDefault(inspeccion.getId(), List.of());
+        return InspectionMapper.toDto(inspeccion, presionLlantasUseCase.resumen(presiones), presiones);
     }
 
     private boolean isExpiringSoon(LocalDate date) {
