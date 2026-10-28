@@ -669,8 +669,11 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
             List<String> seguimiento, String disciplina, Boolean conOrden, Long elementoId, Pageable pageable) {
-        LocalDate desde = fechaInicio != null ? fechaInicio : LocalDate.of(2000, 1, 1);
-        LocalDate hasta = fechaFin != null ? fechaFin : LocalDate.now();
+        // Sin rango: todo lo que el registro acepta (ver validarPeriodo). Antes el tope era "hoy" en la
+        // zona del servidor, y una visita con fecha de mañana (teléfono en UTC de noche, que en Colombia
+        // todavía es hoy) no aparecía en la lista aunque ya estaba guardada.
+        LocalDate desde = fechaInicio != null ? fechaInicio : FECHA_MINIMA;
+        LocalDate hasta = fechaFin != null ? fechaFin : LocalDate.of(calendario.anioActual() + AÑOS_FUTUROS_PERMITIDOS, 12, 31);
         var spec = EjecucionSpecifications.filtrar(
                 estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad,
                 seguimiento, disciplina, conOrden, elementoId);

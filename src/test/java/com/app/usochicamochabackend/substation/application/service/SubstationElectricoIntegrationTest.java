@@ -363,4 +363,18 @@ class SubstationElectricoIntegrationTest {
         assertEquals(400, desconocido.getStatusCode().value());
         assertNull(catalogAdminUseCase.crearElemento(new ItemCatalogoRequest("Celda", "ELECTRICO", "GABINETE"), usuario).icono());
     }
+
+    @Test
+    void listarSinFechas_muestraTambienUnaVisitaConFechaDeManana() {
+        // El teléfono en UTC de noche guarda la fecha de mañana; igual debe aparecer en la lista.
+        EjecucionRequest manana = new EjecucionRequest(LocalDate.now().plusDays(1), LocalDate.now().plusDays(1).getMonthValue(), 1,
+                estacionUno.getId(), "ELECTRICO", "PREVENTIVO", "INSPECCION", inspeccionGeneral.getId(), null, null,
+                "CONFORME", "Sin novedades", null, UUID.randomUUID(), null);
+        EjecucionResponse creada = ejecucionUseCase.registrarEjecucion(manana, usuario);
+
+        var pagina = ejecucionUseCase.listarEjecuciones(null, null, null, null, null, null, null, null, null,
+                null, null, null, PageRequest.of(0, 20));
+
+        assertTrue(pagina.getContent().stream().anyMatch(e -> e.id().equals(creada.id())));
+    }
 }
