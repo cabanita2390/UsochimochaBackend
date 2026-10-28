@@ -37,6 +37,7 @@ import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenEv
 import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenTrabajoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ProgramacionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -44,6 +45,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.app.usochicamochabackend.substation.infrastructure.entity.CumplimientoView;
@@ -64,6 +67,7 @@ import java.util.Objects;
 import java.util.ArrayList;
 import java.util.Set;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class SubstationService implements SubstationCatalogUseCase, SubstationEjecucionUseCase, SubstationIndicadoresUseCase {
@@ -617,6 +621,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .orElseThrow(() -> new ResourceNotFoundException("Ejecución no encontrada: id=" + ejecucionId));
 
         var stored = evidenciaStorageService.store(file, ejecucionId);
+        borrarArchivoSiNoSeGuarda(stored.rutaRelativa());
 
         // Idempotente por (ejecucionId, hash): WorkManager reintenta la subida ante
         // cualquier fallo de red, incluido un timeout justo después de que el servidor
@@ -635,6 +640,36 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .build();
 
         return EvidenciaResponse.fromEntity(evidenciaRepository.save(entity));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public java.util.Optional<EvidenciaResponse> buscarEvidencia(Long ejecucionId, MultipartFile file) throws IOException {
+        return evidenciaRepository.findByEjecucion_IdAndHashSha256(ejecucionId, evidenciaStorageService.hash(file))
+                .map(EvidenciaResponse::fromEntity);
+    }
+
+    /**
+     * El archivo se escribe antes de insertar la fila: si la transacción no se confirma (dos subidas
+     * simultáneas de la misma foto chocan con el índice único de V39, o cualquier otro error), se borra.
+     * Sin esto quedaban fotos huérfanas en disco.
+     */
+    private void borrarArchivoSiNoSeGuarda(String rutaRelativa) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status != STATUS_COMMITTED) {
+                    try {
+                        evidenciaStorageService.delete(rutaRelativa);
+                    } catch (IOException e) {
+                        log.warn("No se pudo borrar la foto que no quedó guardada: {}", rutaRelativa, e);
+                    }
+                }
+            }
+        });
     }
 
     @Override

@@ -90,7 +90,14 @@ public class SubstationController {
     public ResponseEntity<EvidenciaResponse> agregarEvidencia(
             @PathVariable Long id,
             @RequestPart("file") MultipartFile file) throws IOException {
-        return ResponseEntity.ok(ejecucionUseCase.agregarEvidencia(id, file));
+        try {
+            return ResponseEntity.ok(ejecucionUseCase.agregarEvidencia(id, file));
+        } catch (DataIntegrityViolationException e) {
+            // La misma foto subida dos veces a la vez (reintento del móvil mientras la primera seguía en
+            // curso): la segunda choca con el índice único (ejecución, hash). Se responde con la que quedó;
+            // un 409 hacía que el móvil la marcara como fallida.
+            return ResponseEntity.ok(ejecucionUseCase.buscarEvidencia(id, file).orElseThrow(() -> e));
+        }
     }
 
     @GetMapping("/ejecuciones/{id}")

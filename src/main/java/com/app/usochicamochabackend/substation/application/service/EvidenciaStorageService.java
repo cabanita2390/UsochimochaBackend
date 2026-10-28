@@ -95,6 +95,11 @@ public class EvidenciaStorageService {
         Files.deleteIfExists(uploadsRoot.resolve(rutaFisica));
     }
 
+    /** SHA-256 del archivo, el mismo que guarda {@link #store}: para buscar si esa foto ya llegó. */
+    public String hash(MultipartFile file) throws IOException {
+        return sha256Hex(file.getBytes());
+    }
+
     private static String sha256Hex(byte[] bytes) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

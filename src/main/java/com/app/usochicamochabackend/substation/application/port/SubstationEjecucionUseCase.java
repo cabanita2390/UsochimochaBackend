@@ -27,6 +27,9 @@ public interface SubstationEjecucionUseCase {
 
     EvidenciaResponse agregarEvidencia(Long ejecucionId, MultipartFile file) throws IOException;
 
+    /** La evidencia ya guardada con este mismo archivo (mismo hash) para la ejecución, si existe. */
+    java.util.Optional<EvidenciaResponse> buscarEvidencia(Long ejecucionId, MultipartFile file) throws IOException;
+
     EjecucionResponse obtenerEjecucion(Long id);
 
     /** Para "ver detalle" desde una cita del cronograma ya cumplida. */
