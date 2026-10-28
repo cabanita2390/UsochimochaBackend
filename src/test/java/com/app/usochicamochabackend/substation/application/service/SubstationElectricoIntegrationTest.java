@@ -347,4 +347,20 @@ class SubstationElectricoIntegrationTest {
         assertTrue(Arrays.stream(catalogAdminUseCase.listarConjuntos("ELECTRICO", false).toArray(ItemCatalogoResponse[]::new))
                 .noneMatch(c -> c.id().equals(motores.getId())));
     }
+
+    @Test
+    void conjunto_guardaElIconoElegido_vacioEsGenerico_yUnoDesconocidoEsUn400() {
+        ItemCatalogoResponse creado = catalogAdminUseCase.crearConjunto(
+                new ItemCatalogoRequest("Tablero de bombas", "ELECTRICO", "GABINETE"), usuario);
+        assertEquals("GABINETE", creado.icono());
+
+        ItemCatalogoResponse sinIcono = catalogAdminUseCase.actualizarConjunto(creado.id(),
+                new ItemCatalogoRequest("Tablero de bombas", "ELECTRICO", " "), usuario);
+        assertNull(sinIcono.icono());
+
+        ResponseStatusException desconocido = assertThrows(ResponseStatusException.class, () ->
+                catalogAdminUseCase.actualizarConjunto(creado.id(), new ItemCatalogoRequest("Tablero de bombas", "ELECTRICO", "CALAVERA"), usuario));
+        assertEquals(400, desconocido.getStatusCode().value());
+        assertNull(catalogAdminUseCase.crearElemento(new ItemCatalogoRequest("Celda", "ELECTRICO", "GABINETE"), usuario).icono());
+    }
 }

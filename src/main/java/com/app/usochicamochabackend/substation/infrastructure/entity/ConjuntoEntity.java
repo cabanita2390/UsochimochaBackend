@@ -26,6 +26,10 @@ public class ConjuntoEntity {
     @JoinColumn(name = "disciplina_id", nullable = false)
     private DisciplinaEntity disciplina;
 
+    /** Código del ícono que muestra el móvil (ver ItemCatalogoRequest.ICONOS); null = genérico. */
+    @Column(length = 30)
+    private String icono;
+
     @Builder.Default
     private Boolean status = true;
 }

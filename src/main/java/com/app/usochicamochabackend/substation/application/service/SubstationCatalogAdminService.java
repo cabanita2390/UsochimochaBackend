@@ -243,6 +243,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
         ConjuntoEntity guardado = conjuntoRepository.save(ConjuntoEntity.builder()
                 .nombre(nombre)
                 .disciplina(disciplina)
+                .icono(validarIcono(request.icono()))
                 .build());
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha creado el conjunto " + nombre
@@ -267,6 +268,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
 
         conjunto.setNombre(nombre);
         conjunto.setDisciplina(disciplina);
+        conjunto.setIcono(validarIcono(request.icono()));
         ConjuntoEntity guardado = conjuntoRepository.save(conjunto);
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha editado el conjunto " + nombre
@@ -498,6 +500,17 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
                 .ifPresent(x -> {
                     throw conflicto("Ya existe " + articulo + " \"" + nombreDe.apply(x) + "\" en " + disciplina.getCodigo());
                 });
+    }
+
+    /** Vacío → null (genérico); un código que la web y el móvil no conocen → 400. */
+    private String validarIcono(String icono) {
+        if (icono == null || icono.isBlank()) {
+            return null;
+        }
+        if (!ItemCatalogoRequest.ICONOS.contains(icono)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ícono desconocido: " + icono);
+        }
+        return icono;
     }
 
     private ResponseStatusException conflicto(String mensaje) {
