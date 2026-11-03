@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.substation.application.port;
 
 import com.app.usochicamochabackend.substation.application.dto.CriticidadResponse;
 import com.app.usochicamochabackend.substation.application.dto.CumplimientoResponse;
+import com.app.usochicamochabackend.substation.application.dto.ElementoIntervenidoResponse;
 import com.app.usochicamochabackend.substation.application.dto.IndicadorEstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ResumenActividadResponse;
 
@@ -23,4 +24,7 @@ public interface SubstationIndicadoresUseCase {
 
     /** Actividades más intervenidas en una estación (histórico), de más a menos. */
     List<CriticidadResponse> criticidadPorEstacion(Long estacionId, String disciplina);
+
+    /** Elementos más intervenidos del año (todas las estaciones o una), de más a menos. */
+    List<ElementoIntervenidoResponse> elementosIntervenidos(Integer anio, String disciplina, Long estacionId);
 }

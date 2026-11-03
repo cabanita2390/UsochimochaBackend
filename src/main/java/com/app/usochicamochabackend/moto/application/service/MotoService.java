@@ -14,6 +14,7 @@ import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import com.app.usochicamochabackend.moto.application.port.MotoCRUDUseCase;
+import com.app.usochicamochabackend.tire.application.port.PresionLlantasInspeccionUseCase;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
@@ -26,6 +27,7 @@ import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspDetalleDocumentosRepository;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspDetalleMecanicoRepository;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspPreOperativaRepository;
+import com.app.usochicamochabackend.vehicleinspection.application.service.VehiculoInspectionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -55,6 +57,7 @@ public class MotoService implements MotoCRUDUseCase {
     private final DocumentacionYElementosRepository documentacionRepository;
     private final NotificationService notificationService;
     private final SaveActionUseCase saveActionUseCase;
+    private final PresionLlantasInspeccionUseCase presionLlantasUseCase;
     private final PreventiveAlertCalculationService preventiveAlertCalculationService;
 
         /** Retorna las motocicletas activas (tipo = MOTOCICLETA) con su ubicación base y marca */
@@ -158,6 +161,12 @@ public class MotoService implements MotoCRUDUseCase {
 
         @Transactional
         public Long saveInspeccion(InspeccionMotoRequest req) {
+                // Reintento del móvil (sin señal, respuesta perdida): la inspección ya está, no se crea otra.
+                String uuidCliente = VehiculoInspectionService.uuidCliente(req.uuidCliente());
+                Optional<Long> yaRegistrada = inspeccionYaRegistrada(uuidCliente);
+                if (yaRegistrada.isPresent()) {
+                        return yaRegistrada.get();
+                }
                 log.info("[MotoService.saveInspeccion] Iniciando guardado de inspección para vehículo ID: {}", req.idVehiculo());
                 log.debug("   - Placa esperada: (from request)");
                 log.debug("   - idUbicacion: {}", req.idUbicacion());
@@ -189,11 +198,13 @@ public class MotoService implements MotoCRUDUseCase {
                 InspPreOperativaEntity inspeccion = InspPreOperativaEntity.builder()
                                 .idVehiculo(vehiculo.getIdVehiculo())
                                 .fechaRegistro(LocalDateTime.now())
-                                .kilometrajeReportado(req.kilometrajeReportado())
+                                // Columna NOT NULL: sin kilometraje la inspección fallaba con 400 (vehículo ya usaba 0).
+                                .kilometrajeReportado(req.kilometrajeReportado() != null ? req.kilometrajeReportado() : 0)
                                 .estadoVehiculo(req.estadoVehiculo())
                                 .idUbicacion(req.idUbicacion())
                                 .observacionesFinales(req.observacionesFinales())
                                 .loginUser(responsable)
+                                .uuidCliente(uuidCliente)
                                 .build();
 
                 inspeccionRepository.save(inspeccion);
@@ -221,9 +232,20 @@ public class MotoService implements MotoCRUDUseCase {
                                 .build();
                 detalleDocumentosRepository.save(detalleDoc);
 
+                // ── 4: insp_presion_llanta (solo reporte: fuera de rango no bloquea) ──
+                presionLlantasUseCase.registrarParaInspeccionVehiculo(
+                                vehiculo.getIdVehiculo(), inspeccion.getIdInspeccion(), req.presionesLlantas());
+
                 notificationService.notifyDataUpdate("moto-inspections-updated");
 
                 return inspeccion.getIdInspeccion();
+        }
+
+        /** Id de la inspección de moto que el móvil ya envió con este UUID, si existe. */
+        @Transactional(readOnly = true)
+        public Optional<Long> inspeccionYaRegistrada(String uuidCliente) {
+                return uuidCliente == null ? Optional.empty()
+                                : inspeccionRepository.findByUuidCliente(uuidCliente).map(InspPreOperativaEntity::getIdInspeccion);
         }
 
         private String calcularEstado(java.time.LocalDate fechaVencimiento) {
@@ -275,8 +297,9 @@ public class MotoService implements MotoCRUDUseCase {
     public VehicleResponse createMoto(VehicleRequest request) {
         VehicleRequest req = request.normalized();
         String placa = req.placa();
-        if (placa.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La placa es obligatoria");
+        String errorPlaca = InputTextNormalizer.errorPlaca(placa);
+        if (errorPlaca != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorPlaca);
         }
 
         Optional<VehicleEntity> existingVehicle = vehicleRepository.findByPlaca(placa);
@@ -340,8 +363,9 @@ public class MotoService implements MotoCRUDUseCase {
         assertMotoTipo(entity);
 
         String placa = req.placa();
-        if (placa.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La placa es obligatoria");
+        String errorPlaca = InputTextNormalizer.errorPlaca(placa);
+        if (errorPlaca != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, errorPlaca);
         }
         if (!entity.getPlaca().equalsIgnoreCase(placa)
                 && vehicleRepository.findByPlaca(placa).isPresent()) {

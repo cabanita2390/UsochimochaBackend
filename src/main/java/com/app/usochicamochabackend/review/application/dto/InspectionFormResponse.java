@@ -1,9 +1,11 @@
 package com.app.usochicamochabackend.review.application.dto;
 
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
+import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaResponse;
 import com.app.usochicamochabackend.user.application.dto.UserResponse;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record InspectionFormResponse(
         Long id,
@@ -28,5 +30,8 @@ public record InspectionFormResponse(
         String greasingObservations,
         String observations,
         UserResponse user,
-        MachineResponse machine
+        MachineResponse machine,
+        /** OK | BAJA | ALTA | SIN_RANGO; null si la inspección no registró presiones. */
+        String presionLlantasEstado,
+        List<LecturaPresionLlantaResponse> presionesLlantas
 ) {}

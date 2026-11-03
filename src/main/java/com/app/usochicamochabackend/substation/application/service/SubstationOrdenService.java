@@ -34,7 +34,6 @@ import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenTr
 import com.app.usochicamochabackend.substation.infrastructure.repository.OrdenTrabajoSpecifications;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -147,9 +146,8 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
                 throw new BadRequestException("No se puede ordenar por " + o.getProperty() + ".");
             }
         });
-        // Sin orden pedido: las más recientes primero.
-        Pageable pagina = pageable.getSort().isSorted() ? pageable
-                : PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "creadoEn", "id"));
+        // Sin orden pedido: las más recientes primero. Con orden pedido, el id desempata (ver Paginas).
+        Pageable pagina = Paginas.estable(pageable, Sort.by(Sort.Direction.DESC, "creadoEn", "id"));
         LocalDate hoy = calendario.hoy();
         return ordenRepository.findAll(OrdenTrabajoSpecifications.conFiltros(estados, estacionId, prioridad, vencidas,
                         disciplina, null, hoy), pagina)

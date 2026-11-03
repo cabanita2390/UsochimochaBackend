@@ -545,6 +545,48 @@ class SubstationServiceIntegrationTest {
     }
 
     @Test
+    void listarEjecuciones_ordenadoPorUnaColumnaConEmpates_cadaRegistroSaleUnaSolaVezAlPaginar() {
+        // Prueba de punta a punta 2026-10-28: ordenando por Resultado (muchos empates) y pasando de
+        // página, unos registros salían repetidos y otros nunca (786 de 1117 visitas).
+        for (int i = 0; i < 25; i++) {
+            ejecucionUseCase.registrarEjecucion(libre(LocalDate.of(2030, 6, 3), 6, 1,
+                    i % 3 == 0 ? "CON_HALLAZGOS" : "CONFORME", "visita " + i), usuario);
+        }
+        java.util.Set<Long> vistos = new java.util.HashSet<>();
+        int filas = 0;
+        for (int pagina = 0; pagina < 3; pagina++) {
+            var p = ejecucionUseCase.listarEjecuciones(
+                    estacionUno.getId(), LocalDate.of(2030, 6, 1), LocalDate.of(2030, 6, 30), null,
+                    null, null, null, null, null, null, PageRequest.of(pagina, 10, org.springframework.data.domain.Sort.by("resultado")));
+            p.getContent().forEach(e -> vistos.add(e.id()));
+            filas += p.getNumberOfElements();
+        }
+        assertEquals(25, filas);
+        assertEquals(25, vistos.size());
+    }
+
+    @Test
+    void listarEjecuciones_tamanoDePaginaConTope_yConSusFotosEdicionesYSeguimiento() {
+        EjecucionResponse hallazgo = ejecucionUseCase.registrarEjecucion(
+                libre(LocalDate.of(2030, 7, 1), 7, 1, "CON_HALLAZGOS", "fisura en muro"), usuario);
+        ejecucionUseCase.editarEjecucion(hallazgo.id(), new EjecucionEditRequest(
+                hallazgo.fecha(), 7, 2, "PREVENTIVO", "MANTENIMIENTO", null, "NO_PROGRAMADO",
+                "CON_HALLAZGOS", "fisura en muro norte", "trabajo no catalogado",
+                "Se precisó dónde está la fisura."), usuario);
+
+        var p = ejecucionUseCase.listarEjecuciones(
+                estacionUno.getId(), LocalDate.of(2030, 7, 1), LocalDate.of(2030, 7, 31), null,
+                null, null, null, null, null, null, PageRequest.of(0, 100000));
+
+        assertEquals(500, p.getSize());
+        EjecucionResponse fila = p.getContent().get(0);
+        assertEquals(1, fila.ediciones().size());
+        assertNotNull(fila.seguimiento());
+        assertEquals("ABIERTO", fila.seguimiento().estado());
+        assertEquals(List.of(), fila.evidencias());
+    }
+
+    @Test
     void listarEjecuciones_filtraPorDisciplina_comoElRestoDeLasPestanas() {
         ejecucionUseCase.registrarEjecucion(new EjecucionRequest(
                 LocalDate.of(2030, 5, 1), 5, 1, estacionUno.getId(), "CIVIL",

@@ -60,7 +60,7 @@ class MotoServiceSoftDeleteTest {
             .orElseThrow();
 
         VehicleEntity active = vehicleRepository.save(VehicleEntity.builder()
-            .placa("MOTO-ACTIVA")
+            .placa("MOT-ACT1")
             .idMarca(1)
             .idTipoVehiculo(tipoMoto.getId())
             .tipoVehiculo(tipoMoto)
@@ -68,7 +68,7 @@ class MotoServiceSoftDeleteTest {
             .build());
 
         VehicleRequest request = new VehicleRequest(
-            "MOTO-ACTIVA",
+            "MOT-ACT1",
             1,
             tipoMoto.getId(),
             100,
@@ -88,7 +88,7 @@ class MotoServiceSoftDeleteTest {
             .orElseThrow();
 
         VehicleEntity deleted = vehicleRepository.save(VehicleEntity.builder()
-            .placa("MOTO-SOFT-DEL")
+            .placa("MOT-DEL1")
             .idMarca(1)
             .idTipoVehiculo(tipoMoto.getId())
             .tipoVehiculo(tipoMoto)
@@ -96,7 +96,7 @@ class MotoServiceSoftDeleteTest {
             .build());
 
         VehicleRequest request = new VehicleRequest(
-            "MOTO-SOFT-DEL",
+            "MOT-DEL1",
             1,
             tipoMoto.getId(),
             100,
@@ -111,7 +111,7 @@ class MotoServiceSoftDeleteTest {
             .satisfies(ex -> {
                 VehicleSoftDeletedConflictException conflict = (VehicleSoftDeletedConflictException) ex;
                 assertThat(conflict.getSoftDeletedVehicle()).isNotNull();
-                assertThat(conflict.getSoftDeletedVehicle().placa()).isEqualTo("MOTO-SOFT-DEL");
+                assertThat(conflict.getSoftDeletedVehicle().placa()).isEqualTo("MOT-DEL1");
                 assertThat(conflict.getSuggestedAction()).isEqualTo("restore_or_create_new");
             });
     }
@@ -122,7 +122,7 @@ class MotoServiceSoftDeleteTest {
             .orElseThrow();
 
         VehicleEntity deleted = vehicleRepository.save(VehicleEntity.builder()
-            .placa("MOTO-RESTORE-TEST")
+            .placa("MOT-RST1")
             .idMarca(1)
             .idTipoVehiculo(tipoMoto.getId())
             .tipoVehiculo(tipoMoto)
@@ -132,7 +132,7 @@ class MotoServiceSoftDeleteTest {
         VehicleResponse restored = motoService.restoreMoto(deleted.getIdVehiculo());
 
         assertThat(restored).isNotNull();
-        assertThat(restored.placa()).isEqualTo("MOTO-RESTORE-TEST");
+        assertThat(restored.placa()).isEqualTo("MOT-RST1");
         assertThat(restored.activo()).isTrue();
 
         Optional<VehicleEntity> found = vehicleRepository.findById(deleted.getIdVehiculo());
@@ -153,7 +153,7 @@ class MotoServiceSoftDeleteTest {
             .orElseThrow();
 
         VehicleEntity deleted = vehicleRepository.save(VehicleEntity.builder()
-            .placa("MOTO-OLD-PLACA")
+            .placa("MOT-OLD1")
             .idMarca(1)
             .idTipoVehiculo(tipoMoto.getId())
             .tipoVehiculo(tipoMoto)
@@ -161,7 +161,7 @@ class MotoServiceSoftDeleteTest {
             .build());
 
         VehicleRequest request = new VehicleRequest(
-            "MOTO-NEW-PLACA",
+            "MOT-NEW1",
             1,
             tipoMoto.getId(),
             100,
@@ -173,7 +173,7 @@ class MotoServiceSoftDeleteTest {
         VehicleResponse created = motoService.createMoto(request);
 
         assertThat(created).isNotNull();
-        assertThat(created.placa()).isEqualTo("MOTO-NEW-PLACA");
+        assertThat(created.placa()).isEqualTo("MOT-NEW1");
         assertThat(created.activo()).isTrue();
     }
 }

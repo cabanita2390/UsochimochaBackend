@@ -137,7 +137,7 @@ class MotoE2ETest {
                 "Bueno",
                 "Bueno",
                 "Bueno",
-                testUbicacionId);
+                testUbicacionId, null);
 
         mockMvc.perform(post("/api/v1/moto/inspeccion")
                         .contentType(MediaType.APPLICATION_JSON)
