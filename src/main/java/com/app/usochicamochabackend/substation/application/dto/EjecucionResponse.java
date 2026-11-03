@@ -4,6 +4,7 @@ import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEn
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,7 +32,12 @@ public record EjecucionResponse(
         Boolean evidenciaPendiente,
         @Schema(description = "Historial de ediciones, orden cronológico") List<EjecucionEdicionResponse> ediciones,
         @Schema(description = "Cita del cronograma que se ejecutó; null en registros libres") Long programacionId,
-        @Schema(description = "Seguimiento del hallazgo; null si el resultado es CONFORME") SeguimientoResponse seguimiento
+        @Schema(description = "Seguimiento del hallazgo; null si el resultado es CONFORME") SeguimientoResponse seguimiento,
+        @Schema(description = "Orden de trabajo que esta visita ejecutó; null en citas e imprevistos") OrdenRefResponse orden,
+        @Schema(description = "Eléctrico: conjuntos intervenidos, por nombre; vacío en Civil") List<ItemRefResponse> conjuntos,
+        @Schema(description = "Eléctrico: elementos inspeccionados o intervenidos, por nombre; vacío en Civil") List<ItemRefResponse> elementos,
+        @Schema(description = "Eléctrico: texto de \"Otros\" en conjuntos; null si no se usó") String conjuntoOtro,
+        @Schema(description = "Eléctrico: texto de \"Otros\" en elementos; null si no se usó") String elementoOtro
 ) {
     public static EjecucionResponse fromEntity(
             EjecucionEntity entity, List<EvidenciaResponse> evidencias, List<EjecucionEdicionResponse> ediciones,
@@ -60,6 +66,17 @@ public record EjecucionResponse(
                 evidenciaPendiente,
                 ediciones,
                 entity.getProgramacion() != null ? entity.getProgramacion().getId() : null,
-                seguimiento);
+                seguimiento,
+                OrdenRefResponse.fromEntity(entity.getOrden()),
+                entity.getConjuntos().stream()
+                        .map(c -> new ItemRefResponse(c.getId(), c.getNombre()))
+                        .sorted(Comparator.comparing(ItemRefResponse::nombre))
+                        .toList(),
+                entity.getElementos().stream()
+                        .map(e -> new ItemRefResponse(e.getId(), e.getNombre()))
+                        .sorted(Comparator.comparing(ItemRefResponse::nombre))
+                        .toList(),
+                entity.getConjuntoOtro(),
+                entity.getElementoOtro());
     }
 }

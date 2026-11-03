@@ -102,10 +102,12 @@ public class SecurityConfig {
                     // Lecturas del móvil (el OPERARIO solo usa la app; ver ApiService.kt del móvil).
                     http.requestMatchers(HttpMethod.GET,
                             "/api/v1/substation/estaciones", "/api/v1/substation/actividades",
+                            "/api/v1/substation/conjuntos", "/api/v1/substation/elementos",
                             "/api/v1/substation/observaciones/frecuentes", "/api/v1/substation/programacion",
                             "/api/v1/substation/indicadores/cumplimiento",
                             "/api/v1/substation/ejecuciones", "/api/v1/substation/ejecuciones/*",
-                            "/api/v1/substation/ejecuciones/por-programacion/*")
+                            "/api/v1/substation/ejecuciones/por-programacion/*",
+                            "/api/v1/substation/ordenes/asignadas")
                             .hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     // Lo demás (cronograma con borradores, dashboard, resumen, criticidad) es de la web.
                     http.requestMatchers(HttpMethod.GET, "/api/v1/substation/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
@@ -114,6 +116,9 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/ejecuciones/*").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     // Seguimiento de hallazgos (web).
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/hallazgos/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Órdenes de trabajo de estación: las crean, editan, verifican y anulan Supervisor y Admin.
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/substation/ordenes").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.PUT, "/api/v1/substation/ordenes/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     // Cualquier otra escritura (cronograma, publicación, catálogos): solo ADMIN.
                     http.requestMatchers("/api/v1/substation/**").hasRole("ADMIN");
 
@@ -180,6 +185,11 @@ public class SecurityConfig {
                     http.requestMatchers("/api/v1/fuel/config/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     // Catálogo de tipos y cualquier otra ruta de fuel no listada arriba: cualquier autenticado.
                     http.requestMatchers("/api/v1/fuel/**").authenticated();
+
+                    // Presión de llantas: el móvil descarga perfiles y asignaciones; la configuración
+                    // la administran ADMIN y SUPERVISOR_OPERATIVO (igual que la de combustible).
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/tire/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers("/api/v1/tire/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
 
                     // Cualquier otra petición: solo ADMIN
                     http.anyRequest().hasRole("ADMIN");

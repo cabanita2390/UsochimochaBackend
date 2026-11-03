@@ -1,8 +1,10 @@
 package com.app.usochicamochabackend.vehicleinspection.application.dto;
 
+import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Schema(
         name = "VehicleInspectionReportDTO",
@@ -54,5 +56,11 @@ public record VehicleInspectionReportDTO(
         // Detalle Mano de Obra
         @Schema(description = "Nombre del mecánico de planta que realizó el procedimiento") String mechanicName,
         @Schema(description = "Nombre del contratista que realizó el procedimiento") String contractorName,
-        @Schema(description = "Tiempo empleado en el procedimiento") String timeSpent
+        @Schema(description = "Tiempo empleado en el procedimiento") String timeSpent,
+
+        // Presión de llantas
+        @Schema(description = "OK | BAJA | ALTA | SIN_RANGO; null si la inspección no registró presiones")
+        String presionLlantasEstado,
+        @Schema(description = "Lecturas por llanta con el rango vigente al inspeccionar")
+        List<LecturaPresionLlantaResponse> presionesLlantas
 ) {}

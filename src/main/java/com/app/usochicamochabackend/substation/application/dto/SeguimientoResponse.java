@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.substation.application.dto;
 
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.HallazgoSeguimientoEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenTrabajoEntity;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.LocalDate;
@@ -17,9 +18,14 @@ public record SeguimientoResponse(
         @Schema(description = "Qué se hizo para resolverlo", example = "Se selló la fisura con mortero epóxico.") String observacionesCierre,
         @Schema(description = "Ejecución posterior de la misma estación en la que se resolvió") Long resueltoEnEjecucionId,
         LocalDate resueltoEnEjecucionFecha,
-        @Schema(description = "true si se resolvió en la misma visita en que se encontró") Boolean resueltoMismaVisita
+        @Schema(description = "true si se resolvió en la misma visita en que se encontró") Boolean resueltoMismaVisita,
+        @Schema(description = "Orden de trabajo vigente (no anulada) que corrige este hallazgo; null si no tiene") OrdenRefResponse orden
 ) {
     public static SeguimientoResponse fromEntity(HallazgoSeguimientoEntity entity) {
+        return fromEntity(entity, null);
+    }
+
+    public static SeguimientoResponse fromEntity(HallazgoSeguimientoEntity entity, OrdenTrabajoEntity orden) {
         return new SeguimientoResponse(
                 entity.getEstado(),
                 nombre(entity.getActualizadoPor()),
@@ -29,7 +35,8 @@ public record SeguimientoResponse(
                 entity.getObservacionesCierre(),
                 entity.getResueltoEnEjecucion() != null ? entity.getResueltoEnEjecucion().getId() : null,
                 entity.getResueltoEnEjecucion() != null ? entity.getResueltoEnEjecucion().getFecha() : null,
-                entity.getResueltoMismaVisita());
+                entity.getResueltoMismaVisita(),
+                OrdenRefResponse.fromEntity(orden));
     }
 
     /** Nombre completo; si el usuario no lo tiene, su username. */

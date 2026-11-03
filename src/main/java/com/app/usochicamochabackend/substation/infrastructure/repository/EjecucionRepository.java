@@ -32,7 +32,8 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
     List<Long> actividadesEjecutadas();
 
     /**
-     * Ejecuciones de la disciplina (null = todas) entre dos fechas, agrupadas por estación. Columnas:
+     * Ejecuciones de la disciplina (null = todas) entre dos fechas, agrupadas por estación, sin las
+     * visitas de órdenes de trabajo (van aparte: no son citas ni imprevistos). Columnas:
      * estacionId, total, programadas, noProgramadas, mantenimiento, inspeccion, conHallazgos.
      */
     @Query("""
@@ -44,6 +45,7 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
                SUM(CASE WHEN e.resultado <> 'CONFORME' THEN 1 ELSE 0 END)
         FROM EjecucionEntity e
         WHERE (:disciplina IS NULL OR e.disciplina.codigo = :disciplina) AND e.fecha BETWEEN :desde AND :hasta
+          AND e.orden IS NULL
         GROUP BY e.estacion.id
         """)
     List<Object[]> contarPorEstacion(@Param("disciplina") String disciplina,
@@ -58,6 +60,7 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
                SUM(CASE WHEN e.tipoActividad = 'INSPECCION' THEN 1 ELSE 0 END)
         FROM EjecucionEntity e
         WHERE e.actividad IS NOT NULL AND (:disciplina IS NULL OR e.disciplina.codigo = :disciplina) AND e.fecha BETWEEN :desde AND :hasta
+          AND e.orden IS NULL
         GROUP BY e.actividad.id
         """)
     List<Object[]> contarPorActividad(@Param("disciplina") String disciplina,
@@ -102,4 +105,20 @@ public interface EjecucionRepository extends JpaRepository<EjecucionEntity, Long
         ORDER BY COUNT(e) DESC, a.nombre
         """)
     List<Object[]> criticidadPorEstacion(@Param("estacionId") Long estacionId, @Param("disciplina") String disciplina);
+
+    /**
+     * Elementos marcados en las visitas del periodo. Columnas: elementoId, nombre, intervenciones,
+     * estaciones distintas. De más a menos. estacionId y disciplina opcionales.
+     */
+    @Query("""
+        SELECT el.id, el.nombre, COUNT(e), COUNT(DISTINCT e.estacion.id)
+        FROM EjecucionEntity e JOIN e.elementos el
+        WHERE (:disciplina IS NULL OR e.disciplina.codigo = :disciplina)
+          AND (:estacionId IS NULL OR e.estacion.id = :estacionId)
+          AND e.fecha BETWEEN :desde AND :hasta
+        GROUP BY el.id, el.nombre
+        ORDER BY COUNT(e) DESC, el.nombre
+        """)
+    List<Object[]> elementosIntervenidos(@Param("disciplina") String disciplina, @Param("estacionId") Long estacionId,
+            @Param("desde") LocalDate desde, @Param("hasta") LocalDate hasta);
 }

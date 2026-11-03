@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 
 import java.util.Optional;
@@ -12,6 +13,8 @@ import java.util.Optional;
 public interface HallazgoSeguimientoRepository extends JpaRepository<HallazgoSeguimientoEntity, Long> {
 
     Optional<HallazgoSeguimientoEntity> findByEjecucion_Id(Long ejecucionId);
+
+    List<HallazgoSeguimientoEntity> findByEjecucion_IdIn(Collection<Long> ejecucionIds);
 
     /** Hallazgos ABIERTO o EN_PROCESO por estación (todos los años). Columnas: estacionId, cantidad. */
     @Query("""

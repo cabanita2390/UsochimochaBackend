@@ -12,6 +12,7 @@ import com.app.usochicamochabackend.substation.application.port.SubstationHallaz
 import com.app.usochicamochabackend.substation.application.port.SubstationCronogramaUseCase;
 import com.app.usochicamochabackend.substation.application.service.CalendarioMantenimiento;
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
+import com.app.usochicamochabackend.substation.application.port.SubstationOrdenUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -39,7 +40,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
  * "denegado" que responde 403 antes de llegar al controller.
  */
 @WebMvcTest({SubstationController.class, SubstationCatalogAdminController.class, SubstationHallazgoController.class,
-        SubstationCronogramaController.class})
+        SubstationCronogramaController.class, SubstationOrdenController.class})
 @AutoConfigureMockMvc
 @Import({SecurityConfig.class, CalendarioMantenimiento.class})
 class SubstationSecurityTest {
@@ -64,6 +65,9 @@ class SubstationSecurityTest {
 
     @MockBean
     private SubstationIndicadoresUseCase indicadoresUseCase;
+
+    @MockBean
+    private SubstationOrdenUseCase ordenUseCase;
 
     @MockBean
     private JwtUtils jwtUtils;
@@ -107,6 +111,20 @@ class SubstationSecurityTest {
             "PUT,    /api/v1/substation/hallazgos/1/resolver,       SUPERVISOR_OPERATIVO, true",
             "PUT,    /api/v1/substation/hallazgos/1/en-proceso,     ADMIN,                true",
             "PUT,    /api/v1/substation/hallazgos/1/resolver,       OPERARIO,             false",
+            // Órdenes de trabajo: las gestionan Supervisor y Admin; el operario solo las ejecuta
+            "POST,   /api/v1/substation/ordenes,                    SUPERVISOR_OPERATIVO, true",
+            "POST,   /api/v1/substation/ordenes,                    ADMIN,                true",
+            "POST,   /api/v1/substation/ordenes,                    OPERARIO,             false",
+            "PUT,    /api/v1/substation/ordenes/1,                  SUPERVISOR_OPERATIVO, true",
+            "PUT,    /api/v1/substation/ordenes/1/anular,           SUPERVISOR_OPERATIVO, true",
+            "PUT,    /api/v1/substation/ordenes/1/anular,           OPERARIO,             false",
+            "GET,    /api/v1/substation/ordenes,                    SUPERVISOR_OPERATIVO, true",
+            "GET,    /api/v1/substation/ordenes/1,                  OPERARIO,             false",
+            "GET,    /api/v1/substation/ordenes/operarios,          OPERARIO,             false",
+            "GET,    /api/v1/substation/ordenes/asignadas,          OPERARIO,             true",
+            "PUT,    /api/v1/substation/ordenes/1/cerrar,           SUPERVISOR_OPERATIVO, true",
+            "PUT,    /api/v1/substation/ordenes/1/cerrar,           OPERARIO,             false",
+            "PUT,    /api/v1/substation/ordenes/1/devolver,         ADMIN,                true",
             // Cronograma: solo ADMIN
             "POST,   /api/v1/substation/cronograma/citas,           ADMIN,                true",
             "POST,   /api/v1/substation/cronograma/citas,           SUPERVISOR_OPERATIVO, false",

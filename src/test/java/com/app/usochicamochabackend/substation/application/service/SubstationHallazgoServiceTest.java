@@ -52,6 +52,9 @@ class SubstationHallazgoServiceTest {
     @Mock
     private SaveActionUseCase saveActionUseCase;
 
+    @Mock
+    private com.app.usochicamochabackend.substation.infrastructure.repository.OrdenTrabajoRepository ordenTrabajoRepository;
+
     @InjectMocks
     private SubstationHallazgoService service;
 
