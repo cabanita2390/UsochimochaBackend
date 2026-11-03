@@ -19,6 +19,10 @@ import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntit
 import com.app.usochicamochabackend.review.infrastructure.repository.ImageRepository;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.review.application.dto.ExpirationNotificationDTO;
+import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaResponse;
+import com.app.usochicamochabackend.tire.application.port.PresionLlantasInspeccionUseCase;
+import org.springframework.dao.DataIntegrityViolationException;
+import com.app.usochicamochabackend.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -55,16 +59,29 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     private final SaveActionUseCase saveActionUseCase;
     private final ApplicationEventPublisher eventPublisher;
     private final PreventiveAlertCalculationService preventiveAlertCalculationService;
+    private final PresionLlantasInspeccionUseCase presionLlantasUseCase;
 
     @Override
     public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
         InspectionEntity entity = InspectionMapper.toEntityWithoutOrdersAndImages(
                 request, userRepository, machineRepository);
 
+        // El userId viene en el cuerpo a propósito: en un teléfono compartido, las inspecciones
+        // pendientes de cada operario se envían a su nombre aunque la sesión sea de otro. Sin userId
+        // se usa el de la sesión; con uno distinto debe ser un usuario activo y queda en la auditoría
+        // quién la envió.
+        UserPrincipal sesion = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (entity.getUser() == null) {
+            entity.setUser(userRepository.findById(sesion.id())
+                    .orElseThrow(() -> new IllegalArgumentException("User not found")));
+        } else if (!Boolean.TRUE.equals(entity.getUser().getStatus())) {
+            throw new BadRequestException("El usuario de la inspección no está activo.");
+        }
+
         // First, check if an inspection with the same UUID already exists
         Optional<InspectionEntity> existingByUUID = inspectionRepository.findByUUID(entity.getUUID());
         if (existingByUUID.isPresent()) {
-            return InspectionMapper.toDto(existingByUUID.get());
+            return respuestaDe(existingByUUID.get());
         }
 
         // Check for identical inspection in the last 12 hours
@@ -73,13 +90,26 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
                 request.machineId(), request.userId(), twelveHoursAgo);
 
         for (InspectionEntity existing : recentInspections) {
-            if (isIdenticalInspection(entity, existing)) {
-                return InspectionMapper.toDto(existing);
+            // Las presiones cuentan: una segunda inspección del día con otras presiones es otra inspección.
+            if (isIdenticalInspection(entity, existing)
+                    && presionLlantasUseCase.mismasLecturasMaquina(existing.getId(), request.presionesLlantas())) {
+                return respuestaDe(existing);
             }
         }
 
-        InspectionEntity saved = inspectionRepository.save(entity);
-        InspectionFormResponse inspectionResponse = InspectionMapper.toDto(saved);
+        InspectionEntity saved;
+        try {
+            saved = inspectionRepository.save(entity);
+        } catch (DataIntegrityViolationException e) {
+            // La misma inspección enviada dos veces a la vez: la segunda choca con el índice único de
+            // uuid (V52) y se responde con la que quedó registrada.
+            return inspectionRepository.findByUUID(entity.getUUID()).map(this::respuestaDe).orElseThrow(() -> e);
+        }
+        // Solo reporte: una presión fuera de rango no genera orden ni notificación.
+        List<LecturaPresionLlantaResponse> presiones = presionLlantasUseCase.registrarParaInspeccionMaquina(
+                saved.getMachine().getId(), saved.getId(), request.presionesLlantas());
+        InspectionFormResponse inspectionResponse = InspectionMapper.toDto(
+                saved, presionLlantasUseCase.resumen(presiones), presiones);
 
         if (Boolean.TRUE.equals(saved.getUnexpected())) {
             notificationService.notifyInspection(inspectionResponse.toString());
@@ -105,8 +135,9 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
             notificationService.notifySoatRunt(runtNotification.toString());
         }
 
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " hizo una inspeccion a la maquina " + machine.getName());
+        String aNombreDe = saved.getUser().getId().equals(sesion.id()) ? ""
+                : " a nombre de " + saved.getUser().getUsername() + " (pendiente de ese usuario en el teléfono)";
+        saveActionUseCase.save("El usuario " + sesion.username() + " hizo una inspeccion a la maquina " + machine.getName() + aNombreDe);
 
         // Recalcular alertas de inmediato: el horómetro de esta inspección es la fuente
         // primaria que usa el cálculo de alertas de cambio de aceite de maquinaria.
@@ -129,6 +160,13 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         }
 
         return inspectionResponse;
+    }
+
+    /** La inspección ya registrada, con sus presiones (la respuesta de un reintento es igual a la original). */
+    private InspectionFormResponse respuestaDe(InspectionEntity inspeccion) {
+        List<LecturaPresionLlantaResponse> presiones = presionLlantasUseCase
+                .lecturasPorInspeccionMaquina(List.of(inspeccion.getId())).getOrDefault(inspeccion.getId(), List.of());
+        return InspectionMapper.toDto(inspeccion, presionLlantasUseCase.resumen(presiones), presiones);
     }
 
     private boolean isExpiringSoon(LocalDate date) {
@@ -248,7 +286,9 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado una inspeccion realizada a la maquina " + inspection.getMachine().getName() + " realizada el dia " + inspection.getDateStamp().toLocalDate());
 
 
-        return InspectionMapper.toDtoWithImagesAndOrders(inspection);
+        List<LecturaPresionLlantaResponse> presiones = presionLlantasUseCase
+                .lecturasPorInspeccionMaquina(List.of(inspectionId)).getOrDefault(inspectionId, List.of());
+        return InspectionMapper.toDtoWithImagesAndOrders(inspection, presionLlantasUseCase.resumen(presiones), presiones);
     }
 
     private String getFileExtension(MultipartFile file) {
@@ -281,7 +321,12 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     @Override
     public Page<InspectionFormResponse> getAllInspectionsWithoutImages(Pageable pageable) {
         Page<InspectionEntity> inspectionsPage = inspectionRepository.findAll(pageable);
-        Page<InspectionFormResponse> result = inspectionsPage.map(InspectionMapper::toDto);
+        Map<Long, List<LecturaPresionLlantaResponse>> presiones = presionLlantasUseCase.lecturasPorInspeccionMaquina(
+                inspectionsPage.getContent().stream().map(InspectionEntity::getId).toList());
+        Page<InspectionFormResponse> result = inspectionsPage.map(e -> {
+            List<LecturaPresionLlantaResponse> lecturas = presiones.getOrDefault(e.getId(), List.of());
+            return InspectionMapper.toDto(e, presionLlantasUseCase.resumen(lecturas), lecturas);
+        });
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado todas las inspecciones el dia " + LocalDateTime.now());

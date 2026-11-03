@@ -16,6 +16,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.dao.DataIntegrityViolationException;
+import com.app.usochicamochabackend.vehicleinspection.application.service.VehiculoInspectionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -88,7 +90,14 @@ public class MotoController {
                     @ApiResponse(responseCode = "404", description = "Vehículo no encontrado")
     })
     public ResponseEntity<Long> saveInspeccion(@RequestBody InspeccionMotoRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(motoService.saveInspeccion(req));
+        Long id;
+        try {
+            id = motoService.saveInspeccion(req);
+        } catch (DataIntegrityViolationException e) {
+            // Dos envíos simultáneos de la misma inspección: el segundo choca con el índice único de uuid_cliente.
+            id = motoService.inspeccionYaRegistrada(VehiculoInspectionService.uuidCliente(req.uuidCliente())).orElseThrow(() -> e);
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(id);
     }
 
     @GetMapping("/monitoring/consolidated")

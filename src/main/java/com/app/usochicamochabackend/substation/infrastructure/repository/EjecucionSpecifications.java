@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.substation.infrastructure.repository;
 
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.HallazgoSeguimientoEntity;
+import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
@@ -31,14 +32,23 @@ public final class EjecucionSpecifications {
                 seguimiento, disciplina, null);
     }
 
-    /**
-     * @param conOrden true = solo visitas de órdenes de trabajo; false = sin ellas; null = todas. Con
-     *                 esProgramada=false (imprevistos) las visitas de órdenes nunca entran: van aparte.
-     */
     public static Specification<EjecucionEntity> filtrar(
             Long estacionId, LocalDate desde, LocalDate hasta, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
             List<String> seguimiento, String disciplina, Boolean conOrden) {
+        return filtrar(estacionId, desde, hasta, esProgramada, resultado, actividadId, tipoMantenimiento, tipoActividad,
+                seguimiento, disciplina, conOrden, null);
+    }
+
+    /**
+     * @param conOrden   true = solo visitas de órdenes de trabajo; false = sin ellas; null = todas. Con
+     *                   esProgramada=false (imprevistos) las visitas de órdenes nunca entran: van aparte.
+     * @param elementoId solo las visitas que marcaron ese elemento (Eléctrico); null = todas.
+     */
+    public static Specification<EjecucionEntity> filtrar(
+            Long estacionId, LocalDate desde, LocalDate hasta, Boolean esProgramada,
+            List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
+            List<String> seguimiento, String disciplina, Boolean conOrden, Long elementoId) {
         return (root, query, cb) -> {
             List<Predicate> predicados = new ArrayList<>();
             predicados.add(cb.between(root.get("fecha"), desde, hasta));
@@ -68,6 +78,13 @@ public final class EjecucionSpecifications {
             }
             if (tipoActividad != null) {
                 predicados.add(cb.equal(root.get("tipoActividad"), tipoActividad));
+            }
+            if (elementoId != null) {
+                // EXISTS en vez de JOIN: un JOIN a la colección repetiría filas y descuadraría la paginación.
+                Subquery<Long> sq = query.subquery(Long.class);
+                Join<EjecucionEntity, ?> elementos = sq.correlate(root).join("elementos");
+                sq.select(elementos.get("id")).where(cb.equal(elementos.get("id"), elementoId));
+                predicados.add(cb.exists(sq));
             }
             if (seguimiento != null && !seguimiento.isEmpty()) {
                 // EjecucionEntity no conoce su seguimiento (la FK está del lado del seguimiento):

@@ -6,6 +6,8 @@ import com.app.usochicamochabackend.substation.application.dto.ActividadResponse
 import com.app.usochicamochabackend.substation.application.dto.CambioEstadoRequest;
 import com.app.usochicamochabackend.substation.application.dto.EstacionRequest;
 import com.app.usochicamochabackend.substation.application.dto.EstacionResponse;
+import com.app.usochicamochabackend.substation.application.dto.ItemCatalogoRequest;
+import com.app.usochicamochabackend.substation.application.dto.ItemCatalogoResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogAdminUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,7 +31,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/substation")
 @RequiredArgsConstructor
-@Tag(name = "Subestaciones - Catálogo", description = "Estaciones y actividades: consulta y administración (alta, edición, activar/desactivar).")
+@Tag(name = "Subestaciones - Catálogo", description = "Estaciones, actividades, conjuntos y elementos: consulta y administración (alta, edición, activar/desactivar).")
 public class SubstationCatalogAdminController {
 
     private final SubstationCatalogAdminUseCase catalogAdminUseCase;
@@ -93,6 +95,70 @@ public class SubstationCatalogAdminController {
     public ResponseEntity<ActividadResponse> cambiarEstadoActividad(
             @PathVariable Long id, @RequestBody @Valid CambioEstadoRequest request, Authentication authentication) {
         return ResponseEntity.ok(catalogAdminUseCase.cambiarEstadoActividad(id, request.activa(), usuario(authentication)));
+    }
+
+    @GetMapping("/conjuntos")
+    @Operation(summary = "Listar conjuntos",
+            description = "\"Tipo de conjunto intervenido\" del formulario eléctrico. Por defecto solo activos (lo que usa "
+                    + "el móvil); incluirInactivas=true para Configuración. Sin disciplina: todas las disciplinas.")
+    public ResponseEntity<List<ItemCatalogoResponse>> listarConjuntos(
+            @RequestParam(required = false) String disciplina,
+            @RequestParam(defaultValue = "false") boolean incluirInactivas) {
+        return ResponseEntity.ok(catalogAdminUseCase.listarConjuntos(disciplina, incluirInactivas));
+    }
+
+    @PostMapping("/conjuntos")
+    @Operation(summary = "Crear conjunto", description = "409 si ya existe con ese nombre en la misma disciplina; 400 si la disciplina no existe.")
+    public ResponseEntity<ItemCatalogoResponse> crearConjunto(
+            @RequestBody @Valid ItemCatalogoRequest request, Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(catalogAdminUseCase.crearConjunto(request, usuario(authentication)));
+    }
+
+    @PutMapping("/conjuntos/{id}")
+    @Operation(summary = "Editar conjunto", description = "409 si el nombre ya lo usa otro conjunto de la disciplina, o si se cambia la disciplina de uno ya registrado en visitas.")
+    public ResponseEntity<ItemCatalogoResponse> actualizarConjunto(
+            @PathVariable Long id, @RequestBody @Valid ItemCatalogoRequest request, Authentication authentication) {
+        return ResponseEntity.ok(catalogAdminUseCase.actualizarConjunto(id, request, usuario(authentication)));
+    }
+
+    @PatchMapping("/conjuntos/{id}/estado")
+    @Operation(summary = "Activar o desactivar conjunto", description = "Soft-delete: el móvil deja de ofrecerlo; las visitas que ya lo marcaron lo conservan.")
+    public ResponseEntity<ItemCatalogoResponse> cambiarEstadoConjunto(
+            @PathVariable Long id, @RequestBody @Valid CambioEstadoRequest request, Authentication authentication) {
+        return ResponseEntity.ok(catalogAdminUseCase.cambiarEstadoConjunto(id, request.activa(), usuario(authentication)));
+    }
+
+    @GetMapping("/elementos")
+    @Operation(summary = "Listar elementos",
+            description = "\"Elementos inspeccionados o intervenidos\" del formulario eléctrico. Por defecto solo activos (lo "
+                    + "que usa el móvil); incluirInactivas=true para Configuración. Sin disciplina: todas las disciplinas.")
+    public ResponseEntity<List<ItemCatalogoResponse>> listarElementos(
+            @RequestParam(required = false) String disciplina,
+            @RequestParam(defaultValue = "false") boolean incluirInactivas) {
+        return ResponseEntity.ok(catalogAdminUseCase.listarElementos(disciplina, incluirInactivas));
+    }
+
+    @PostMapping("/elementos")
+    @Operation(summary = "Crear elemento", description = "409 si ya existe con ese nombre en la misma disciplina; 400 si la disciplina no existe.")
+    public ResponseEntity<ItemCatalogoResponse> crearElemento(
+            @RequestBody @Valid ItemCatalogoRequest request, Authentication authentication) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(catalogAdminUseCase.crearElemento(request, usuario(authentication)));
+    }
+
+    @PutMapping("/elementos/{id}")
+    @Operation(summary = "Editar elemento", description = "409 si el nombre ya lo usa otro elemento de la disciplina, o si se cambia la disciplina de uno ya registrado en visitas.")
+    public ResponseEntity<ItemCatalogoResponse> actualizarElemento(
+            @PathVariable Long id, @RequestBody @Valid ItemCatalogoRequest request, Authentication authentication) {
+        return ResponseEntity.ok(catalogAdminUseCase.actualizarElemento(id, request, usuario(authentication)));
+    }
+
+    @PatchMapping("/elementos/{id}/estado")
+    @Operation(summary = "Activar o desactivar elemento", description = "Soft-delete: el móvil deja de ofrecerlo; las visitas que ya lo marcaron lo conservan.")
+    public ResponseEntity<ItemCatalogoResponse> cambiarEstadoElemento(
+            @PathVariable Long id, @RequestBody @Valid CambioEstadoRequest request, Authentication authentication) {
+        return ResponseEntity.ok(catalogAdminUseCase.cambiarEstadoElemento(id, request.activa(), usuario(authentication)));
     }
 
     private UserPrincipal usuario(Authentication authentication) {

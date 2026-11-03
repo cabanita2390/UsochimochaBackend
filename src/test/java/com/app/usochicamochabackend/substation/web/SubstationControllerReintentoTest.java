@@ -54,6 +54,19 @@ class SubstationControllerReintentoTest {
     }
 
     @Test
+    void laMismaFotoSubidaDosVecesALaVez_respondeConLaYaGuardada() throws Exception {
+        var foto = new org.springframework.mock.web.MockMultipartFile("file", "a.jpg", "image/jpeg", new byte[]{1, 2, 3});
+        var guardada = mock(com.app.usochicamochabackend.substation.application.dto.EvidenciaResponse.class);
+        when(ejecucionUseCase.agregarEvidencia(7L, foto)).thenThrow(new DataIntegrityViolationException("ejecucion_hash"));
+        when(ejecucionUseCase.buscarEvidencia(7L, foto)).thenReturn(Optional.of(guardada));
+
+        var r = controller.agregarEvidencia(7L, foto);
+
+        assertEquals(200, r.getStatusCode().value());
+        assertSame(guardada, r.getBody());
+    }
+
+    @Test
     void otraViolacionDeDatos_sigueFallando() {
         when(ejecucionUseCase.registrarEjecucion(any(), any())).thenThrow(new DataIntegrityViolationException("otra"));
         when(ejecucionUseCase.buscarPorUuidCliente(uuid)).thenReturn(Optional.empty());

@@ -7,4 +7,7 @@ import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoIn
 public interface CreateVehiculoInspectionUseCase {
 
     VehiculoInspectionResponse create(VehiculoInspectionRequest request, UserPrincipal inspector);
+
+    /** La inspección ya registrada con ese UUID del móvil (vehículo o moto), si existe. */
+    java.util.Optional<VehiculoInspectionResponse> buscarPorUuidCliente(String uuidCliente);
 }

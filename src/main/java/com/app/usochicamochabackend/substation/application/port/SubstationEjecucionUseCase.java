@@ -27,6 +27,9 @@ public interface SubstationEjecucionUseCase {
 
     EvidenciaResponse agregarEvidencia(Long ejecucionId, MultipartFile file) throws IOException;
 
+    /** La evidencia ya guardada con este mismo archivo (mismo hash) para la ejecución, si existe. */
+    java.util.Optional<EvidenciaResponse> buscarEvidencia(Long ejecucionId, MultipartFile file) throws IOException;
+
     EjecucionResponse obtenerEjecucion(Long id);
 
     /** Para "ver detalle" desde una cita del cronograma ya cumplida. */
@@ -60,8 +63,17 @@ public interface SubstationEjecucionUseCase {
     }
 
     /** conOrden: true = solo visitas de órdenes de trabajo, false = sin ellas, null = todas. */
+    default Page<EjecucionResponse> listarEjecuciones(
+            Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
+            List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
+            List<String> seguimiento, String disciplina, Boolean conOrden, Pageable pageable) {
+        return listarEjecuciones(estacionId, fechaInicio, fechaFin, esProgramada, resultado, actividadId,
+                tipoMantenimiento, tipoActividad, seguimiento, disciplina, conOrden, null, pageable);
+    }
+
+    /** elementoId: solo las visitas que marcaron ese elemento (Eléctrico); null = todas. */
     Page<EjecucionResponse> listarEjecuciones(
             Long estacionId, LocalDate fechaInicio, LocalDate fechaFin, Boolean esProgramada,
             List<String> resultado, Long actividadId, String tipoMantenimiento, String tipoActividad,
-            List<String> seguimiento, String disciplina, Boolean conOrden, Pageable pageable);
+            List<String> seguimiento, String disciplina, Boolean conOrden, Long elementoId, Pageable pageable);
 }
