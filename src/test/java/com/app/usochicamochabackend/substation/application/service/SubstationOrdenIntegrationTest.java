@@ -253,6 +253,23 @@ class SubstationOrdenIntegrationTest {
     }
 
     @Test
+    void listar_ordenaPorEstacionYAsignado_sinPerderLasDeCualquierOperario() {
+        OrdenResumenResponse asignada = ordenUseCase.crear(pedido(visita("CON_HALLAZGOS").id()), supervisor);
+        OrdenResumenResponse cualquiera = ordenUseCase.crear(new CrearOrdenRequest(visita("REQUIERE_INTERVENCION").id(), "ALTA",
+                HOY, null, true, correccion.getId(), "Cualquiera"), supervisor);
+        var asc = org.springframework.data.domain.Sort.Direction.ASC;
+
+        // Sin asignado: sigue en la lista (LEFT JOIN). Dónde queda el vacío depende de la base (H2 lo pone
+        // primero, Postgres al final), así que solo se exige que estén las dos.
+        assertThat(ordenUseCase.listar(null, null, null, null, null,
+                PageRequest.of(0, 20, org.springframework.data.domain.Sort.by(asc, "asignadoA.fullName"))).getContent())
+                .extracting("id").containsExactlyInAnyOrder(asignada.id(), cualquiera.id());
+        assertThat(ordenUseCase.listar(null, null, null, null, null,
+                PageRequest.of(0, 20, org.springframework.data.domain.Sort.by(asc, "estacion.nombre"))).getContent())
+                .hasSize(2);
+    }
+
+    @Test
     void operarios_soloLosOperariosActivosOrdenadosPorNombre() {
         assertThat(ordenUseCase.operarios()).extracting("nombre").containsSubsequence("Ana Operaria", "Técnico OT")
                 .doesNotContain("Operario Inactivo", "Carlos Rivas");

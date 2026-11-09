@@ -57,8 +57,10 @@ public class SubstationOrdenService implements SubstationOrdenUseCase {
     /** Código del consecutivo en order_counters: OT-EB-00001 (EB = estaciones de bombeo). */
     static final String MODULO = "EB";
     private static final Set<String> PRIORIDADES = Set.of("ALTA", "MEDIA");
-    private static final Set<String> CAMPOS_ORDENABLES =
-            Set.of("id", "consecutivo", "creadoEn", "actualizadoEn", "fechaLimite", "prioridad", "estado");
+    // Las columnas de la tabla de la web: también estación y asignado (las relaciones opcionales se
+    // ordenan con LEFT JOIN, así que las órdenes "para cualquier operario" no se pierden).
+    private static final Set<String> CAMPOS_ORDENABLES = Set.of("id", "consecutivo", "creadoEn", "actualizadoEn",
+            "fechaLimite", "prioridad", "estado", "estacion.nombre", "asignadoA.fullName");
     private static final int MAX_TEXTO = 2000;
     private static final int MAX_DIAS_PLAZO = 365;
     private static final DateTimeFormatter DD_MM = DateTimeFormatter.ofPattern("dd/MM/yyyy");
