@@ -13,6 +13,7 @@ import com.app.usochicamochabackend.mapper.VehicleMapper;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
+import com.app.usochicamochabackend.notifications.application.RecalculoAlertasPreventivas;
 import com.app.usochicamochabackend.moto.application.port.MotoCRUDUseCase;
 import com.app.usochicamochabackend.tire.application.port.PresionLlantasInspeccionUseCase;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
@@ -59,6 +60,7 @@ public class MotoService implements MotoCRUDUseCase {
     private final SaveActionUseCase saveActionUseCase;
     private final PresionLlantasInspeccionUseCase presionLlantasUseCase;
     private final PreventiveAlertCalculationService preventiveAlertCalculationService;
+    private final RecalculoAlertasPreventivas recalculoAlertas;
 
         /** Retorna las motocicletas activas (tipo = MOTOCICLETA) con su ubicación base y marca */
         public List<MotoPlacaResponse> getMotocicletas() {
@@ -209,9 +211,9 @@ public class MotoService implements MotoCRUDUseCase {
 
                 inspeccionRepository.save(inspeccion);
 
-                // Recalcular alertas de inmediato: el kilometraje reportado pudo haber cruzado
-                // el umbral de cambio de aceite.
-                preventiveAlertCalculationService.calculateAndEmitAlerts();
+                // El kilometraje reportado pudo cruzar el umbral de cambio de aceite: las alertas se
+                // recalculan en segundo plano después de guardar, sin demorar la respuesta al móvil.
+                recalculoAlertas.solicitar();
 
                 // ── 2: insp_detalle_mecanico (Estado Visual + Campos nuevos) ─────────
                 detalleMecanicoRepository.save(

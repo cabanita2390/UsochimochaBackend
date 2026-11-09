@@ -11,6 +11,7 @@ import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
+import com.app.usochicamochabackend.notifications.application.RecalculoAlertasPreventivas;
 import com.app.usochicamochabackend.shared.event.InspectionCompletedEvent;
 import com.app.usochicamochabackend.review.application.dto.*;
 import com.app.usochicamochabackend.review.application.port.*;
@@ -58,6 +59,7 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     private final SaveActionUseCase saveActionUseCase;
     private final ApplicationEventPublisher eventPublisher;
     private final PreventiveAlertCalculationService preventiveAlertCalculationService;
+    private final RecalculoAlertasPreventivas recalculoAlertas;
     private final PresionLlantasInspeccionUseCase presionLlantasUseCase;
 
     @Override
@@ -135,9 +137,9 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
 
         saveActionUseCase.save("El usuario " + sesion.username() + " hizo una inspeccion a la maquina " + machine.getName());
 
-        // Recalcular alertas de inmediato: el horómetro de esta inspección es la fuente
-        // primaria que usa el cálculo de alertas de cambio de aceite de maquinaria.
-        preventiveAlertCalculationService.calculateAndEmitAlerts();
+        // El horómetro de esta inspección es la fuente principal de las alertas de cambio de aceite
+        // de maquinaria: se recalculan en segundo plano, sin demorar la respuesta al móvil.
+        recalculoAlertas.solicitar();
 
         try {
             Long kmOHoras = saved.getHourMeter() != null ? saved.getHourMeter().longValue() : 0L;

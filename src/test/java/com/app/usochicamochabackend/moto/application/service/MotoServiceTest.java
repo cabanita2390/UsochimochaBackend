@@ -8,6 +8,7 @@ import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionR
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
+import com.app.usochicamochabackend.notifications.application.RecalculoAlertasPreventivas;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.moto.application.dto.DocumentoExistenteResponse;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleProjection;
@@ -58,6 +59,8 @@ class MotoServiceTest {
     private SaveActionUseCase saveActionUseCase;
     @Mock
     private PreventiveAlertCalculationService preventiveAlertCalculationService;
+    @Mock
+    private RecalculoAlertasPreventivas recalculoAlertas;
 
     @InjectMocks
     private MotoService motoService;

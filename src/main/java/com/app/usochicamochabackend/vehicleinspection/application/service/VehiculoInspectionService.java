@@ -9,6 +9,7 @@ import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRep
 import com.app.usochicamochabackend.vehicleinspection.application.dto.*;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
+import com.app.usochicamochabackend.notifications.application.RecalculoAlertasPreventivas;
 import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaResponse;
 import com.app.usochicamochabackend.tire.application.port.PresionLlantasInspeccionUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.port.CreateVehiculoInspectionUseCase;
@@ -63,6 +64,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     private final VehicleDocumentStorageService vehicleDocumentStorageService;
     private final NotificationService notificationService;
     private final PreventiveAlertCalculationService preventiveAlertCalculationService;
+    private final RecalculoAlertasPreventivas recalculoAlertas;
     private final SaveActionUseCase saveActionUseCase;
     private final PresionLlantasInspeccionUseCase presionLlantasUseCase;
 
@@ -177,9 +179,9 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         }
         String updateEvent = tipoNombre.contains("MOTO") ? "moto-inspections-updated" : "vehicle-inspections-updated";
 
-        // Recalcular alertas de inmediato: el kilometraje reportado pudo haber cruzado
-        // el umbral de cambio de aceite.
-        preventiveAlertCalculationService.calculateAndEmitAlerts();
+        // El kilometraje reportado pudo cruzar el umbral de cambio de aceite: las alertas se
+        // recalculan en segundo plano después de guardar, sin demorar la respuesta al móvil.
+        recalculoAlertas.solicitar();
         notificationService.notifyDataUpdate(updateEvent);
 
         saveActionUseCase.save("El usuario " + inspector.username() + " ha registrado una inspección para el vehículo " + placaNorm);
