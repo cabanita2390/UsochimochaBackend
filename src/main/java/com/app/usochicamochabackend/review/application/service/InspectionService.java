@@ -22,7 +22,6 @@ import com.app.usochicamochabackend.review.application.dto.ExpirationNotificatio
 import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaResponse;
 import com.app.usochicamochabackend.tire.application.port.PresionLlantasInspeccionUseCase;
 import org.springframework.dao.DataIntegrityViolationException;
-import com.app.usochicamochabackend.exception.BadRequestException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -64,19 +63,18 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     @Override
     public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
         InspectionEntity entity = InspectionMapper.toEntityWithoutOrdersAndImages(
-                request, userRepository, machineRepository);
+                request, machineRepository);
 
-        // El userId viene en el cuerpo a propósito: en un teléfono compartido, las inspecciones
-        // pendientes de cada operario se envían a su nombre aunque la sesión sea de otro. Sin userId
-        // se usa el de la sesión; con uno distinto debe ser un usuario activo y queda en la auditoría
-        // quién la envió.
+        // La inspección queda siempre a nombre de la sesión. La cola del móvil solo envía lo del
+        // usuario en sesión (PropietarioColas): el userId del cuerpo sobraba y dejaba registrar a
+        // nombre de otro operario.
         UserPrincipal sesion = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (entity.getUser() == null) {
-            entity.setUser(userRepository.findById(sesion.id())
-                    .orElseThrow(() -> new IllegalArgumentException("User not found")));
-        } else if (!Boolean.TRUE.equals(entity.getUser().getStatus())) {
-            throw new BadRequestException("El usuario de la inspección no está activo.");
+        if (request.userId() != null && !request.userId().equals(sesion.id())) {
+            log.warn("[Inspección] userId {} distinto de la sesión ({}): se registra a nombre de la sesión",
+                    request.userId(), sesion.username());
         }
+        entity.setUser(userRepository.findById(sesion.id())
+                .orElseThrow(() -> new IllegalArgumentException("User not found")));
 
         // First, check if an inspection with the same UUID already exists
         Optional<InspectionEntity> existingByUUID = inspectionRepository.findByUUID(entity.getUUID());
@@ -135,9 +133,7 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
             notificationService.notifySoatRunt(runtNotification.toString());
         }
 
-        String aNombreDe = saved.getUser().getId().equals(sesion.id()) ? ""
-                : " a nombre de " + saved.getUser().getUsername() + " (pendiente de ese usuario en el teléfono)";
-        saveActionUseCase.save("El usuario " + sesion.username() + " hizo una inspeccion a la maquina " + machine.getName() + aNombreDe);
+        saveActionUseCase.save("El usuario " + sesion.username() + " hizo una inspeccion a la maquina " + machine.getName());
 
         // Recalcular alertas de inmediato: el horómetro de esta inspección es la fuente
         // primaria que usa el cálculo de alertas de cambio de aceite de maquinaria.

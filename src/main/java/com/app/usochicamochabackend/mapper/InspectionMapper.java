@@ -1,7 +1,6 @@
 package com.app.usochicamochabackend.mapper;
 
 import com.app.usochicamochabackend.tire.application.dto.LecturaPresionLlantaResponse;
-import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
@@ -18,7 +17,6 @@ public class InspectionMapper {
 
     public static InspectionEntity toEntityWithoutOrdersAndImages(
             InspectionFormRequest request,
-            UserRepositoryJpa userRepository,
             MachineRepository machineRepository
     )
     {
@@ -45,10 +43,7 @@ public class InspectionMapper {
         entity.setGreasingObservations(request.greasingObservations());
         entity.setObservations(request.observations());
 
-        if (request.userId() != null) {
-            entity.setUser(userRepository.findById(request.userId())
-                    .orElseThrow(() -> new IllegalArgumentException("User not found")));
-        }
+        // El usuario lo pone InspectionService desde la sesión (el userId del cuerpo se ignora).
 
         if (request.machineId() != null) {
             entity.setMachine(machineRepository.findById(request.machineId())
