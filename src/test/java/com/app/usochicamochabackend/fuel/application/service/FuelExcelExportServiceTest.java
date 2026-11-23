@@ -66,9 +66,11 @@ class FuelExcelExportServiceTest {
         byte[] excel = fuelExcelExportService.exportarExcel("VEHICULO", null, null, null);
 
         Workbook workbook = leer(excel);
-        assertEquals(2, workbook.getNumberOfSheets());
+        // Portada "Resumen" (estilo común) + las dos hojas de datos.
+        assertEquals(3, workbook.getNumberOfSheets());
+        assertNotNull(workbook.getSheet("Resumen"));
         assertNotNull(workbook.getSheet("Tanqueos"));
-        assertNotNull(workbook.getSheet("Proyección Presupuestal"));
+        assertNotNull(workbook.getSheet("Proyección presupuestal"));
     }
 
     @Test
@@ -80,8 +82,10 @@ class FuelExcelExportServiceTest {
         byte[] excel = fuelExcelExportService.exportarExcel("VEHICULO", null, null, null);
 
         Sheet sheet = leer(excel).getSheet("Tanqueos");
-        // fila 0 = encabezado, filas 1..3 = datos -> última fila con datos es índice 3
-        assertEquals(3, sheet.getLastRowNum());
+        // filas 0-1 = título y periodo, 3 = encabezado, 4..6 = datos, 7 = totales
+        assertEquals("Fecha", sheet.getRow(3).getCell(0).getStringCellValue());
+        assertEquals("Total", sheet.getRow(7).getCell(0).getStringCellValue());
+        assertEquals(7, sheet.getLastRowNum());
     }
 
     @Test
@@ -93,8 +97,8 @@ class FuelExcelExportServiceTest {
         byte[] excel = fuelExcelExportService.exportarExcel("VEHICULO", null, null, null);
 
         Sheet sheet = leer(excel).getSheet("Tanqueos");
-        Row filaConDiscrepancia = sheet.getRow(1);
-        Row filaConCapacidadExcedida = sheet.getRow(2);
+        Row filaConDiscrepancia = sheet.getRow(4);
+        Row filaConCapacidadExcedida = sheet.getRow(5);
 
         assertEquals("Sí", filaConDiscrepancia.getCell(9).getStringCellValue());
         assertEquals("No", filaConDiscrepancia.getCell(10).getStringCellValue());
@@ -116,15 +120,15 @@ class FuelExcelExportServiceTest {
 
         byte[] excel = fuelExcelExportService.exportarExcel("VEHICULO", null, null, null);
 
-        Sheet sheet = leer(excel).getSheet("Proyección Presupuestal");
-        Row historica = sheet.getRow(1);
-        Row proyectada = sheet.getRow(2);
+        Sheet sheet = leer(excel).getSheet("Proyección presupuestal");
+        Row historica = sheet.getRow(4);
+        Row proyectada = sheet.getRow(5);
 
-        assertEquals("2026-07", historica.getCell(0).getStringCellValue());
+        assertEquals("Julio 2026", historica.getCell(0).getStringCellValue());
         assertEquals(200000.0, historica.getCell(1).getNumericCellValue(), 0.01);
         assertEquals("Histórico", historica.getCell(2).getStringCellValue());
 
-        assertEquals("2026-09", proyectada.getCell(0).getStringCellValue());
+        assertEquals("Septiembre 2026", proyectada.getCell(0).getStringCellValue());
         assertEquals(300000.0, proyectada.getCell(1).getNumericCellValue(), 0.01);
         assertEquals("Proyectado", proyectada.getCell(2).getStringCellValue());
     }

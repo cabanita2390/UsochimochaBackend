@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.order.web;
 
+import com.app.usochicamochabackend.common.excel.Periodo;
+import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.*;
@@ -117,20 +119,23 @@ public class OrderController {
 
     @Operation(summary = "Exportar órdenes de maquinaria a Excel")
     @GetMapping("/export")
-    public ResponseEntity<byte[]> exportMachineOrders() throws IOException {
+    public ResponseEntity<byte[]> exportMachineOrders(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
+        Periodo periodo = new Periodo(desde, hasta);
         List<OrderWithMachineDTO> orders = getAllOrdersUseCase.getAllOrders(Pageable.unpaged()).getContent();
-        byte[] excelData = excelGenerationService.generateMachineOrdersExcel(orders);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", "ordenes_maquinaria.xlsx");
-        return ResponseEntity.ok().headers(headers).body(excelData);
+        byte[] excelData = excelGenerationService.generateMachineOrdersExcel(orders, RespuestaExcel.usuarioActual(), periodo);
+        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("ordenes_maquinaria", periodo));
     }
 
     @Operation(summary = "Exportar órdenes de vehículos y motos a Excel",
             description = "Por defecto exporta ambos. Con `soloMotos=true` exporta únicamente las órdenes cuyo tipo de vehículo es MOTOCICLETA.")
     @GetMapping("/vehicle/export")
     public ResponseEntity<byte[]> exportVehicleOrders(
-            @RequestParam(defaultValue = "false") boolean soloMotos) throws IOException {
+            @RequestParam(defaultValue = "false") boolean soloMotos,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
+        Periodo periodo = new Periodo(desde, hasta);
         List<OrderWithVehicleDTO> orders = getAllVehicleOrdersUseCase.getAllVehicleOrders(Pageable.unpaged()).getContent();
 
         if (soloMotos) {
@@ -140,10 +145,8 @@ public class OrderController {
                     .toList();
         }
 
-        byte[] excelData = excelGenerationService.generateVehicleOrdersExcel(orders);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", soloMotos ? "ordenes_motos.xlsx" : "ordenes_vehiculos_motos.xlsx");
-        return ResponseEntity.ok().headers(headers).body(excelData);
+        byte[] excelData = excelGenerationService.generateVehicleOrdersExcel(orders, RespuestaExcel.usuarioActual(), periodo,
+                soloMotos ? "Motos" : "Vehículos y motos");
+        return RespuestaExcel.de(excelData, RespuestaExcel.nombre(soloMotos ? "ordenes_motos" : "ordenes_vehiculos_motos", periodo));
     }
 }

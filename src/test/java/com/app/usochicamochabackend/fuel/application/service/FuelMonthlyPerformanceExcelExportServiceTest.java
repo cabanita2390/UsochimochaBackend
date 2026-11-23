@@ -71,7 +71,7 @@ class FuelMonthlyPerformanceExcelExportServiceTest {
         byte[] excel = service.exportarMensual(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 9, 15));
 
         Workbook workbook = leer(excel);
-        assertEquals(3, workbook.getNumberOfSheets());
+        assertEquals(4, workbook.getNumberOfSheets()); // portada + 3 meses
         assertNotNull(workbook.getSheet("2026-07"));
         assertNotNull(workbook.getSheet("2026-08"));
         assertNotNull(workbook.getSheet("2026-09"));
@@ -93,7 +93,7 @@ class FuelMonthlyPerformanceExcelExportServiceTest {
         byte[] excel = service.exportarMensual(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
         Sheet sheet = leer(excel).getSheet("2026-07");
-        Row fila = sheet.getRow(2);
+        Row fila = sheet.getRow(4);
         assertEquals("Retro Cat 02", fila.getCell(0).getStringCellValue());
         assertEquals("1,50 H/Gl", fila.getCell(1).getStringCellValue());
         assertEquals(100.0, fila.getCell(2).getNumericCellValue(), 0.01); // primero
@@ -118,11 +118,11 @@ class FuelMonthlyPerformanceExcelExportServiceTest {
         byte[] excel = service.exportarMensual(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
         Sheet sheet = leer(excel).getSheet("2026-07");
-        Row fila = sheet.getRow(2);
-        assertEquals("-", fila.getCell(2).getStringCellValue());
-        assertEquals("-", fila.getCell(3).getStringCellValue());
+        Row fila = sheet.getRow(4);
+        assertEquals("", fila.getCell(2).toString()); // sin lectura: celda vacía
+        assertEquals("", fila.getCell(3).toString()); // sin lectura: celda vacía
         assertEquals(6.0, fila.getCell(4).getNumericCellValue(), 0.01);
-        assertEquals("-", fila.getCell(5).getStringCellValue());
+        assertEquals("", fila.getCell(5).toString()); // sin lectura: celda vacía
         assertEquals(0.0, fila.getCell(6).getNumericCellValue(), 0.01);
     }
 
@@ -140,10 +140,10 @@ class FuelMonthlyPerformanceExcelExportServiceTest {
         Sheet sheet = leer(excel).getSheet("2026-07");
         // Sin tanqueos ese mes, el activo configurado igual aparece — con "-" en las
         // columnas de rendimiento en vez de desaparecer de la tabla.
-        Row fila = sheet.getRow(2);
+        Row fila = sheet.getRow(4);
         assertEquals("Camión Hino", fila.getCell(0).getStringCellValue());
         assertEquals("15,00 Km/Gl", fila.getCell(1).getStringCellValue());
-        assertEquals("-", fila.getCell(2).getStringCellValue());
+        assertEquals("", fila.getCell(2).toString()); // sin lectura: celda vacía
         assertEquals(0.0, fila.getCell(4).getNumericCellValue(), 0.01);
     }
 
@@ -155,6 +155,6 @@ class FuelMonthlyPerformanceExcelExportServiceTest {
         byte[] excel = service.exportarMensual(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
         Sheet sheet = leer(excel).getSheet("2026-07");
-        assertEquals("JULIO 2026", sheet.getRow(0).getCell(0).getStringCellValue());
+        assertEquals("Rendimiento de Julio 2026", sheet.getRow(0).getCell(0).getStringCellValue());
     }
 }

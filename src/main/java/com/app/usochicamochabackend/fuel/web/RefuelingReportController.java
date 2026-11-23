@@ -49,9 +49,8 @@ public class RefuelingReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
         byte[] excelData = exportRefuelingReportUseCase.exportarExcel(tipo, area, fechaInicio, fechaFin);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", "tanqueos_export.xlsx");
-        return ResponseEntity.ok().headers(headers).body(excelData);
+        return com.app.usochicamochabackend.common.excel.RespuestaExcel.de(excelData,
+                com.app.usochicamochabackend.common.excel.RespuestaExcel.nombre("tanqueos",
+                        new com.app.usochicamochabackend.common.excel.Periodo(fechaInicio, fechaFin)));
     }
 }

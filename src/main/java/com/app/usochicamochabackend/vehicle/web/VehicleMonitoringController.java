@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.vehicle.web;
 
+import com.app.usochicamochabackend.common.excel.Periodo;
+import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleMonitoringDTO;
 import com.app.usochicamochabackend.vehicle.application.port.VehicleMonitoringUseCase;
@@ -42,11 +44,8 @@ public class VehicleMonitoringController {
     @Operation(summary = "Exportar consolidado de vehículos a Excel")
     public ResponseEntity<byte[]> exportConsolidated() throws IOException {
         byte[] excelData = excelGenerationService.generateVehicleConsolidatedExcel(
-                vehicleMonitoringUseCase.getConsolidatedMonitoring());
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", "consolidado_vehiculos.xlsx");
-        return ResponseEntity.ok().headers(headers).body(excelData);
+                vehicleMonitoringUseCase.getConsolidatedMonitoring(), RespuestaExcel.usuarioActual());
+        return RespuestaExcel.de(excelData, "consolidado_vehiculos_" + java.time.LocalDate.now() + ".xlsx");
     }
 
     @GetMapping("/alerts/yellow")

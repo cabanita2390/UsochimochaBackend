@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.update.web;
 
+import com.app.usochicamochabackend.common.excel.Periodo;
+import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -51,19 +53,8 @@ public class OilChangeController {
         List<ConsolidateHydraulicAndMotorOilDTO> consolidatedData =
             getConsolidateHydraulicAndMotorOilAllMachines.getConsolidateHydraulicAndMotorOilAllMachines();
 
-        byte[] excelBytes = excelGenerationService.generateConsolidatedMachinesExcel(consolidatedData);
-
-        String filename = "consolidado-maquinas-" +
-            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm-ss")) + ".xlsx";
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDispositionFormData("attachment", filename);
-        headers.setContentLength(excelBytes.length);
-
-        return ResponseEntity.ok()
-            .headers(headers)
-            .body(excelBytes);
+        byte[] excelBytes = excelGenerationService.generateConsolidatedMachinesExcel(consolidatedData, RespuestaExcel.usuarioActual());
+        return RespuestaExcel.de(excelBytes, "consolidado_aceites_maquinaria_" + java.time.LocalDate.now() + ".xlsx");
     }
 
     @PostMapping("/motor")

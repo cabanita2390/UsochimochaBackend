@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.moto.web;
 
+import com.app.usochicamochabackend.common.excel.Periodo;
+import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.moto.application.port.MotoMonitoringUseCase;
 import com.app.usochicamochabackend.moto.application.service.MotoService;
@@ -110,11 +112,8 @@ public class MotoController {
     @Operation(summary = "Exportar consolidado de motos a Excel")
     public ResponseEntity<byte[]> exportConsolidatedMonitoring() throws IOException {
         byte[] excelData = excelGenerationService.generateMotoConsolidatedExcel(
-                monitoringUseCase.getConsolidatedMonitoring());
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", "consolidado_motos.xlsx");
-        return ResponseEntity.ok().headers(headers).body(excelData);
+                monitoringUseCase.getConsolidatedMonitoring(), RespuestaExcel.usuarioActual());
+        return RespuestaExcel.de(excelData, "consolidado_motos_" + java.time.LocalDate.now() + ".xlsx");
     }
 
     @GetMapping("/monitoring/alerts/yellow")
@@ -155,13 +154,13 @@ public class MotoController {
                     @ApiResponse(responseCode = "200", description = "Archivo Excel generado"),
                     @ApiResponse(responseCode = "401", description = "No autorizado")
     })
-    public ResponseEntity<byte[]> exportMotoInspections() throws IOException {
+    public ResponseEntity<byte[]> exportMotoInspections(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
+        Periodo periodo = new Periodo(desde, hasta);
         List<VehicleInspectionReportDTO> inspections = getInspectionsUseCase.getMotoInspectionsHistory();
-        byte[] excelData = excelGenerationService.generateVehicleInspectionsExcel(inspections);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", "inspecciones_motos.xlsx");
-        return ResponseEntity.ok().headers(headers).body(excelData);
+        byte[] excelData = excelGenerationService.generateVehicleInspectionsExcel(inspections, RespuestaExcel.usuarioActual(), periodo, "Motos");
+        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("inspecciones_motos", periodo));
     }
 
     @GetMapping("/inspections/reports/history")

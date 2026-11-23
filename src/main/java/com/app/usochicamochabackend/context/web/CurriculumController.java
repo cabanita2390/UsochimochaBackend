@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.context.web;
 
+import com.app.usochicamochabackend.common.excel.Periodo;
+import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.context.application.dto.MachineCurriculumDTO;
 import com.app.usochicamochabackend.context.application.dto.VehicleCurriculumDTO;
 import com.app.usochicamochabackend.context.application.port.GetMachineCurriculumUseCase;
@@ -74,7 +76,10 @@ public class CurriculumController {
                     content = @Content)
     })
     @GetMapping("/export")
-    public ResponseEntity<byte[]> exportMachineCurricula() throws IOException {
+    public ResponseEntity<byte[]> exportMachineCurricula(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
+        Periodo periodo = new Periodo(desde, hasta);
         List<MachineCurriculumDTO> curricula = findAllMachinesUseCase.findAllMachines().stream()
                 .filter(machine -> {
                     try {
@@ -87,20 +92,16 @@ public class CurriculumController {
                 .map(machine -> getMachineCurriculumUseCase.getMachineCurriculum(machine.id()))
                 .toList();
 
-        byte[] excelData = excelGenerationService.generateMachineCurriculumExcel(curricula);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", "machine_curricula.xlsx");
-
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(excelData);
+        byte[] excelData = excelGenerationService.generateMachineCurriculumExcel(curricula, RespuestaExcel.usuarioActual(), periodo);
+        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("hojas_de_vida_maquinaria", periodo));
     }
 
     @Operation(summary = "Export vehicle curricula to Excel", description = "Exports the curriculum of all cars (non-moto) to an Excel file with one sheet per vehicle")
     @GetMapping("/export/vehicles")
-    public ResponseEntity<byte[]> exportVehicleCurricula() throws IOException {
+    public ResponseEntity<byte[]> exportVehicleCurricula(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
+        Periodo periodo = new Periodo(desde, hasta);
         List<VehicleCurriculumDTO> curricula = vehicleUseCase.findAllVehicles().stream()
                 .filter(v -> !String.valueOf(v.tipoVehiculo()).toLowerCase(Locale.ROOT).contains("moto"))
                 .filter(v -> {
@@ -114,18 +115,16 @@ public class CurriculumController {
                 .map(v -> getVehicleCurriculumUseCase.getVehicleCurriculum(v.id()))
                 .toList();
 
-        byte[] excelData = excelGenerationService.generateVehicleCurriculumExcel(curricula);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", "vehiculos_curriculum.xlsx");
-
-        return ResponseEntity.ok().headers(headers).body(excelData);
+        byte[] excelData = excelGenerationService.generateVehicleCurriculumExcel(curricula, RespuestaExcel.usuarioActual(), periodo, "Vehículos");
+        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("hojas_de_vida_vehiculos", periodo));
     }
 
     @Operation(summary = "Export moto curricula to Excel", description = "Exports the curriculum of all motorcycles to an Excel file with one sheet per moto")
     @GetMapping("/export/motos")
-    public ResponseEntity<byte[]> exportMotoCurricula() throws IOException {
+    public ResponseEntity<byte[]> exportMotoCurricula(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
+        Periodo periodo = new Periodo(desde, hasta);
         List<VehicleCurriculumDTO> curricula = motoCRUDUseCase.findAllMotos().stream()
                 .filter(v -> {
                     try {
@@ -138,13 +137,8 @@ public class CurriculumController {
                 .map(v -> getVehicleCurriculumUseCase.getVehicleCurriculum(v.id()))
                 .toList();
 
-        byte[] excelData = excelGenerationService.generateVehicleCurriculumExcel(curricula);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", "motos_curriculum.xlsx");
-
-        return ResponseEntity.ok().headers(headers).body(excelData);
+        byte[] excelData = excelGenerationService.generateVehicleCurriculumExcel(curricula, RespuestaExcel.usuarioActual(), periodo, "Motos");
+        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("hojas_de_vida_motos", periodo));
     }
 
 }

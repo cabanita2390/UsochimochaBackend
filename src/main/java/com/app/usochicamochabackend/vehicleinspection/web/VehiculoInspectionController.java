@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.vehicleinspection.web;
 
+import com.app.usochicamochabackend.common.excel.Periodo;
+import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.DocumentoVehiculoResponse;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.DocumentoVehiculoVersionDTO;
@@ -162,13 +164,13 @@ public class VehiculoInspectionController {
                         @ApiResponse(responseCode = "200", description = "Archivo Excel generado"),
                         @ApiResponse(responseCode = "401", description = "No autorizado")
         })
-        public ResponseEntity<byte[]> exportVehicleInspections() throws IOException {
+        public ResponseEntity<byte[]> exportVehicleInspections(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
+                Periodo periodo = new Periodo(desde, hasta);
                 List<VehicleInspectionReportDTO> inspections = getVehicleInspectionsUseCase.getAllVehicleInspections();
-                byte[] excelData = excelGenerationService.generateVehicleInspectionsExcel(inspections);
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-                headers.setContentDispositionFormData("attachment", "inspecciones_vehiculos.xlsx");
-                return ResponseEntity.ok().headers(headers).body(excelData);
+                byte[] excelData = excelGenerationService.generateVehicleInspectionsExcel(inspections, RespuestaExcel.usuarioActual(), periodo, "Vehículos");
+                return RespuestaExcel.de(excelData, RespuestaExcel.nombre("inspecciones_vehiculos", periodo));
         }
 
         @GetMapping("/reports/{typeId}")

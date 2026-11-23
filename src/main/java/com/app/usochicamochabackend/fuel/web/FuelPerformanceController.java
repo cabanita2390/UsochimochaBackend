@@ -43,12 +43,13 @@ public class FuelPerformanceController {
     @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
     public ResponseEntity<byte[]> exportarHistorial(
             @RequestParam String tipo,
-            @RequestParam Long activoId) {
-        byte[] excelData = exportFuelPerformanceHistoryUseCase.exportarHistorialActivo(tipo, activoId);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", "rendimiento_historial.xlsx");
-        return ResponseEntity.ok().headers(headers).body(excelData);
+            @RequestParam Long activoId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
+        byte[] excelData = exportFuelPerformanceHistoryUseCase.exportarHistorialActivo(tipo, activoId, desde, hasta);
+        return com.app.usochicamochabackend.common.excel.RespuestaExcel.de(excelData,
+                com.app.usochicamochabackend.common.excel.RespuestaExcel.nombre("rendimiento_historial",
+                        new com.app.usochicamochabackend.common.excel.Periodo(desde, hasta)));
     }
 
     // Rendimiento mensual de TODOS los activos configurados, una hoja por mes con la
@@ -62,9 +63,8 @@ public class FuelPerformanceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
         byte[] excelData = exportFuelMonthlyPerformanceUseCase.exportarMensual(fechaInicio, fechaFin);
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", "rendimiento_mensual.xlsx");
-        return ResponseEntity.ok().headers(headers).body(excelData);
+        return com.app.usochicamochabackend.common.excel.RespuestaExcel.de(excelData,
+                com.app.usochicamochabackend.common.excel.RespuestaExcel.nombre("rendimiento_mensual",
+                        new com.app.usochicamochabackend.common.excel.Periodo(fechaInicio, fechaFin)));
     }
 }

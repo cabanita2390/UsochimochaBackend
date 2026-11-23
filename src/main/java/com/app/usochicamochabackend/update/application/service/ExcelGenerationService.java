@@ -1,941 +1,490 @@
 package com.app.usochicamochabackend.update.application.service;
 
+import com.app.usochicamochabackend.common.excel.ColumnaExcel;
+import com.app.usochicamochabackend.common.excel.ColumnaExcel.Estado;
+import com.app.usochicamochabackend.common.excel.LibroExcel;
+import com.app.usochicamochabackend.common.excel.Periodo;
 import com.app.usochicamochabackend.context.application.dto.MachineCurriculumDTO;
 import com.app.usochicamochabackend.context.application.dto.VehicleCurriculumDTO;
 import com.app.usochicamochabackend.moto.application.dto.MotoMonitoringDTO;
 import com.app.usochicamochabackend.order.application.dto.OrderWithMachineDTO;
 import com.app.usochicamochabackend.order.application.dto.OrderWithVehicleDTO;
+import com.app.usochicamochabackend.order.application.dto.OrderWithoutInspectionResponse;
+import com.app.usochicamochabackend.performance.application.dto.ResultDTO;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.update.application.dto.ConsolidateHydraulicAndMotorOilDTO;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleMonitoringDTO;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.time.Month;
-import java.time.format.DateTimeFormatter;
+import java.math.BigDecimal;
+import java.text.Normalizer;
+import java.time.LocalDate;
 import java.time.format.TextStyle;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
 
-@Service
+/**
+ * Descargas a Excel de flota y maquinaria (consolidados, hojas de vida, inspecciones y órdenes),
+ * todas con el estilo común de {@link LibroExcel}: portada con periodo, filtros, cifras e índice,
+ * y hojas con título, encabezado de color, filtros, totales y formato de impresión.
+ *
+ * <p>Los listados con fecha (inspecciones, órdenes, historial de las hojas de vida) se recortan al
+ * {@link Periodo} pedido; los consolidados son una foto del estado actual ("corte" de hoy).
+ */
 @Slf4j
+@Service
 public class ExcelGenerationService {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private static final Locale ES = Locale.forLanguageTag("es-CO");
 
-    private static String formatExecutionTime(Object orderResponse) {
-        if (orderResponse == null) return "—";
-        try {
-            try {
-                String ts = (String) orderResponse.getClass().getMethod("timeSpent").invoke(orderResponse);
-                if (ts != null && !ts.isBlank()) return ts;
-            } catch (NoSuchMethodException ignored) {}
+    // ---------------------------------------------------------------------
+    // Consolidado de aceites de maquinaria
+    // ---------------------------------------------------------------------
 
-            Integer hours = (Integer) orderResponse.getClass().getMethod("hoursSpent").invoke(orderResponse);
-            Integer minutes = (Integer) orderResponse.getClass().getMethod("minutesSpent").invoke(orderResponse);
+    public byte[] generateConsolidatedMachinesExcel(List<ConsolidateHydraulicAndMotorOilDTO> datos, String usuario)
+            throws IOException {
+        log.info("Excel consolidado de maquinaria: {} máquinas", datos.size());
+        List<ColumnaExcel<ConsolidateHydraulicAndMotorOilDTO>> cols = new ArrayList<>(List.of(
+                ColumnaExcel.texto("Pertenece a", d -> d.machine().belongsTo()),
+                ColumnaExcel.texto("Máquina", d -> d.machine().name()),
+                ColumnaExcel.decimal("Horómetro actual", d -> d.currentData() != null ? d.currentData().currentHourMeter() : null),
+                ColumnaExcel.fechaHora("Último reporte", d -> d.currentData() != null ? d.currentData().lastUpdate() : null)));
+        cols.addAll(columnasAceite("Motor", d -> d.consolidateMotorOil() == null ? null : new Aceite(
+                d.consolidateMotorOil().brand() != null ? d.consolidateMotorOil().brand().getName() : null,
+                d.consolidateMotorOil().quantity(), d.consolidateMotorOil().averageChangeHours(),
+                d.consolidateMotorOil().dateLastUpdate(), d.consolidateMotorOil().hourMeterLastUpdate(),
+                d.consolidateMotorOil().hourMeterNextUpdate(), d.consolidateMotorOil().timeLastUpdateMouths(),
+                d.consolidateMotorOil().remainingHoursNextUpdateMouths(), d.consolidateMotorOil().status())));
+        cols.addAll(columnasAceite("Hidráulico", d -> d.consolidateHydraulicOil() == null ? null : new Aceite(
+                d.consolidateHydraulicOil().brand() != null ? d.consolidateHydraulicOil().brand().getName() : null,
+                d.consolidateHydraulicOil().quantity(), d.consolidateHydraulicOil().averageChangeHours(),
+                d.consolidateHydraulicOil().dateLastUpdate(), d.consolidateHydraulicOil().hourMeterLastUpdate(),
+                d.consolidateHydraulicOil().hourMeterNextUpdate(), d.consolidateHydraulicOil().timeLastUpdateMouths(),
+                d.consolidateHydraulicOil().remainingHoursNextUpdateMouths(), d.consolidateHydraulicOil().status())));
 
-            if (hours == null && minutes == null) return "—";
-            hours = hours != null ? hours : 0;
-            minutes = minutes != null ? minutes : 0;
-
-            if (hours == 0 && minutes == 0) return "—";
-            if (hours == 0) return String.format("%dm", minutes);
-            if (minutes == 0) return String.format("%dh", hours);
-            return String.format("%dh %dm", hours, minutes);
-        } catch (Exception e) {
-            return "—";
+        try (LibroExcel libro = new LibroExcel("Consolidado de aceites · Maquinaria", usuario, Periodo.todo())) {
+            libro.filtro("Corte", LocalDate.now()).cifra("Máquinas", datos.size())
+                    .cifra("Cambios de aceite de motor vencidos", contar(datos, d -> d.consolidateMotorOil() != null ? d.consolidateMotorOil().status() : null, Estado.MAL))
+                    .cifra("Cambios de aceite hidráulico vencidos", contar(datos, d -> d.consolidateHydraulicOil() != null ? d.consolidateHydraulicOil().status() : null, Estado.MAL))
+                    .nota("Foto del estado actual: no depende de un periodo.");
+            libro.tabla("Consolidado", "Estado de los aceites por máquina", cols, datos);
+            return libro.bytes();
         }
     }
 
-    public byte[] generateConsolidatedMachinesExcel(List<ConsolidateHydraulicAndMotorOilDTO> consolidatedData) throws IOException {
-        log.info("Generando archivo Excel para {} máquinas", consolidatedData.size());
+    /** Lo común del aceite de motor e hidráulico en el consolidado de maquinaria. */
+    private record Aceite(String marca, Double cantidad, Integer promedioHoras, LocalDate fechaUltimo,
+            Double horometroUltimo, Double horometroProximo, Double mesesDesdeUltimo, Double horasRestantes, String estado) {
+    }
 
-        try (Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Consolidado de Máquinas");
+    private static <T> List<ColumnaExcel<T>> columnasAceite(String cual, Function<T, Aceite> a) {
+        Function<Function<Aceite, Object>, Function<T, Object>> de = f -> t -> {
+            Aceite x = a.apply(t);
+            return x == null ? null : f.apply(x);
+        };
+        return List.of(
+                ColumnaExcel.texto(cual + " · tipo / marca", de.apply(Aceite::marca)),
+                ColumnaExcel.decimal(cual + " · cantidad (gl)", de.apply(Aceite::cantidad)),
+                ColumnaExcel.numero(cual + " · promedio cambio (h)", de.apply(Aceite::promedioHoras)),
+                ColumnaExcel.fecha(cual + " · último cambio", de.apply(Aceite::fechaUltimo)),
+                ColumnaExcel.decimal(cual + " · horómetro último", de.apply(Aceite::horometroUltimo)),
+                ColumnaExcel.decimal(cual + " · horómetro próximo", de.apply(Aceite::horometroProximo)),
+                ColumnaExcel.decimal(cual + " · meses desde el cambio", de.apply(Aceite::mesesDesdeUltimo)),
+                ColumnaExcel.decimal(cual + " · horas restantes", de.apply(Aceite::horasRestantes)),
+                ColumnaExcel.texto(cual + " · estado", de.apply(Aceite::estado))
+                        .conEstado(t -> estadoDe(a.apply(t) == null ? null : a.apply(t).estado())));
+    }
 
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
-            headerStyle.setBorderBottom(BorderStyle.THIN);
-            headerStyle.setBorderTop(BorderStyle.THIN);
-            headerStyle.setBorderRight(BorderStyle.THIN);
-            headerStyle.setBorderLeft(BorderStyle.THIN);
+    // ---------------------------------------------------------------------
+    // Consolidados de vehículos y motos
+    // ---------------------------------------------------------------------
 
-            Row headerRow = sheet.createRow(0);
-            String[] headers = {
-                "Pertenece", "Maquina", "Horometro Actual", "Último Reporte",
-                // Motor Oil
-                "Tipo / Marca", "Cantidad (GI)", "Promedio Cambio (Horas)", "Fecha Ultimo Cambio",
-                "Horómetro Último Cambio", "Horómetro Próximo Cambio", "Tiempo Último Cambio (Mes)",
-                "Restante Cambio (Horas)", "Estado Actual",
-                // Hydraulic Oil
-                "Tipo / Marca", "Cantidad (GI)", "Promedio Cambio (Horas)", "Fecha Ultimo Cambio",
-                "Horómetro Último Cambio", "Horómetro Próximo Cambio", "Tiempo Último Cambio (Mes)",
-                "Restante Cambio (Horas)", "Estado Actual"
-            };
+    public byte[] generateVehicleConsolidatedExcel(List<VehicleMonitoringDTO> datos, String usuario) throws IOException {
+        log.info("Excel consolidado de vehículos: {} registros", datos.size());
+        List<ColumnaExcel<VehicleMonitoringDTO>> cols = new ArrayList<>(List.of(
+                ColumnaExcel.texto("Pertenece a", VehicleMonitoringDTO::area),
+                ColumnaExcel.texto("Placa", VehicleMonitoringDTO::placa),
+                ColumnaExcel.numero("Km actual", VehicleMonitoringDTO::kmActual),
+                ColumnaExcel.numero("Días sin reporte", (VehicleMonitoringDTO d) -> d.diasUltimoReporte())
+                        .conEstado(d -> diasSinReporte(d.diasUltimoReporte())),
+                ColumnaExcel.fechaHora("Último reporte", VehicleMonitoringDTO::fechaUltimoReporte)));
+        cols.addAll(columnasAceiteKm(d -> d.maintenance() == null ? null : new AceiteKm(d.maintenance().brandName(),
+                d.maintenance().quantity(), d.maintenance().intervalKm(), d.maintenance().fechaUltimoCambio(),
+                d.maintenance().kmCambio(), d.maintenance().kmProximoCambio(), d.maintenance().diasDesdeUltimoCambio(),
+                d.maintenance().kmParaProximo(), d.maintenance().filtroAire(), d.maintenance().estado())));
+        return consolidado("Consolidado de vehículos", "Vehículos", usuario, cols, datos,
+                d -> d.maintenance() != null ? d.maintenance().estado() : null);
+    }
 
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
-            }
+    public byte[] generateMotoConsolidatedExcel(List<MotoMonitoringDTO> datos, String usuario) throws IOException {
+        log.info("Excel consolidado de motos: {} registros", datos.size());
+        List<ColumnaExcel<MotoMonitoringDTO>> cols = new ArrayList<>(List.of(
+                ColumnaExcel.texto("Pertenece a", MotoMonitoringDTO::departamento),
+                ColumnaExcel.texto("Placa", MotoMonitoringDTO::placa),
+                ColumnaExcel.numero("Km actual", MotoMonitoringDTO::kmActual),
+                ColumnaExcel.numero("Días sin reporte", (MotoMonitoringDTO d) -> d.diasUltimoReporte())
+                        .conEstado(d -> diasSinReporte(d.diasUltimoReporte())),
+                ColumnaExcel.fechaHora("Último reporte", MotoMonitoringDTO::fechaUltimoReporte)));
+        cols.addAll(columnasAceiteKm(d -> d.oil() == null ? null : new AceiteKm(d.oil().brandName(), d.oil().quantity(),
+                d.oil().intervalKm(), d.oil().fechaUltimoCambio(), d.oil().kmCambio(), d.oil().kmProximoCambio(),
+                d.oil().diasDesdeUltimoCambio(), d.oil().kmParaProximo(), d.oil().filtroAire(), d.oil().estado())));
+        return consolidado("Consolidado de motos", "Motos", usuario, cols, datos, d -> d.oil() != null ? d.oil().estado() : null);
+    }
 
-            CellStyle dataStyle = workbook.createCellStyle();
-            dataStyle.setBorderBottom(BorderStyle.THIN);
-            dataStyle.setBorderTop(BorderStyle.THIN);
-            dataStyle.setBorderRight(BorderStyle.THIN);
-            dataStyle.setBorderLeft(BorderStyle.THIN);
+    private record AceiteKm(String marca, Object cantidad, Object intervalo, LocalDate fechaUltimo, Object kmCambio,
+            Object kmProximo, Object diasDesde, Object kmRestantes, Boolean filtroAire, String estado) {
+    }
 
-            int rowNum = 1;
-            for (ConsolidateHydraulicAndMotorOilDTO data : consolidatedData) {
-                Row row = sheet.createRow(rowNum++);
+    private static <T> List<ColumnaExcel<T>> columnasAceiteKm(Function<T, AceiteKm> a) {
+        Function<Function<AceiteKm, Object>, Function<T, Object>> de = f -> t -> {
+            AceiteKm x = a.apply(t);
+            return x == null ? null : f.apply(x);
+        };
+        return List.of(
+                ColumnaExcel.texto("Aceite · marca", de.apply(AceiteKm::marca)),
+                ColumnaExcel.decimal("Cantidad", de.apply(AceiteKm::cantidad)),
+                ColumnaExcel.numero("Intervalo (km)", de.apply(AceiteKm::intervalo)),
+                ColumnaExcel.fecha("Último cambio", de.apply(AceiteKm::fechaUltimo)),
+                ColumnaExcel.numero("Km último cambio", de.apply(AceiteKm::kmCambio)),
+                ColumnaExcel.numero("Próximo cambio (km)", de.apply(AceiteKm::kmProximo)),
+                ColumnaExcel.numero("Días desde el cambio", de.apply(AceiteKm::diasDesde)),
+                ColumnaExcel.numero("Km restantes", de.apply(AceiteKm::kmRestantes)),
+                ColumnaExcel.texto("Filtro de aire", de.apply(x -> siNo(x.filtroAire()))),
+                ColumnaExcel.texto("Estado", de.apply(AceiteKm::estado))
+                        .conEstado(t -> estadoDe(a.apply(t) == null ? null : a.apply(t).estado())));
+    }
 
-                int colNum = 0;
-
-                row.createCell(colNum++).setCellValue(data.machine().belongsTo());
-                row.createCell(colNum++).setCellValue(data.machine().name());
-
-                if (data.currentData() != null) {
-                    row.createCell(colNum++).setCellValue(data.currentData().currentHourMeter());
-                    row.createCell(colNum++).setCellValue(data.currentData().lastUpdate() != null ?
-                        data.currentData().lastUpdate().format(DATETIME_FORMATTER) : "");
-                } else {
-                    row.createCell(colNum++).setCellValue("");
-                    row.createCell(colNum++).setCellValue("");
-                }
-
-                if (data.consolidateMotorOil() != null) {
-                    row.createCell(colNum++).setCellValue(data.consolidateMotorOil().brand() != null ?
-                        data.consolidateMotorOil().brand().getName() : "");
-                    row.createCell(colNum++).setCellValue(data.consolidateMotorOil().quantity());
-                    row.createCell(colNum++).setCellValue(data.consolidateMotorOil().averageChangeHours());
-                    row.createCell(colNum++).setCellValue(data.consolidateMotorOil().dateLastUpdate() != null ?
-                        data.consolidateMotorOil().dateLastUpdate().format(DATE_FORMATTER) : "");
-                    row.createCell(colNum++).setCellValue(data.consolidateMotorOil().hourMeterLastUpdate());
-                    row.createCell(colNum++).setCellValue(data.consolidateMotorOil().hourMeterNextUpdate());
-                    row.createCell(colNum++).setCellValue(data.consolidateMotorOil().timeLastUpdateMouths());
-                    row.createCell(colNum++).setCellValue(data.consolidateMotorOil().remainingHoursNextUpdateMouths());
-                    row.createCell(colNum++).setCellValue(data.consolidateMotorOil().status());
-                } else {
-                    for (int i = 0; i < 9; i++) {
-                        row.createCell(colNum++).setCellValue("");
-                    }
-                }
-
-                if (data.consolidateHydraulicOil() != null) {
-                    row.createCell(colNum++).setCellValue(data.consolidateHydraulicOil().brand() != null ?
-                        data.consolidateHydraulicOil().brand().getName() : "");
-                    row.createCell(colNum++).setCellValue(data.consolidateHydraulicOil().quantity());
-                    row.createCell(colNum++).setCellValue(data.consolidateHydraulicOil().averageChangeHours());
-                    row.createCell(colNum++).setCellValue(data.consolidateHydraulicOil().dateLastUpdate() != null ?
-                        data.consolidateHydraulicOil().dateLastUpdate().format(DATE_FORMATTER) : "");
-                    row.createCell(colNum++).setCellValue(data.consolidateHydraulicOil().hourMeterLastUpdate());
-                    row.createCell(colNum++).setCellValue(data.consolidateHydraulicOil().hourMeterNextUpdate());
-                    row.createCell(colNum++).setCellValue(data.consolidateHydraulicOil().timeLastUpdateMouths());
-                    row.createCell(colNum++).setCellValue(data.consolidateHydraulicOil().remainingHoursNextUpdateMouths());
-                    row.createCell(colNum++).setCellValue(data.consolidateHydraulicOil().status());
-                } else {
-                    for (int i = 0; i < 9; i++) {
-                        row.createCell(colNum++).setCellValue("");
-                    }
-                }
-
-                for (int i = 0; i < headers.length; i++) {
-                    row.getCell(i).setCellStyle(dataStyle);
-                }
-            }
-
-            for (int i = 0; i < headers.length; i++) {
-                sheet.autoSizeColumn(i);
-                // Establecer un mínimo ancho para evitar columnas muy estrechas
-                if (sheet.getColumnWidth(i) < 3000) {
-                    sheet.setColumnWidth(i, 3000);
-                }
-                // Máximo ancho para evitar columnas excesivamente anchas
-                if (sheet.getColumnWidth(i) > 8000) {
-                    sheet.setColumnWidth(i, 8000);
-                }
-            }
-
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            workbook.write(outputStream);
-            workbook.close();
-
-            log.info("Archivo Excel generado exitosamente con {} filas de datos", consolidatedData.size());
-            return outputStream.toByteArray();
+    private <T> byte[] consolidado(String titulo, String que, String usuario, List<ColumnaExcel<T>> cols, List<T> datos,
+            Function<T, String> estado) throws IOException {
+        try (LibroExcel libro = new LibroExcel(titulo, usuario, Periodo.todo())) {
+            libro.filtro("Corte", LocalDate.now()).cifra(que, datos.size())
+                    .cifra("Cambio de aceite vencido", contar(datos, estado, Estado.MAL))
+                    .cifra("Cambio de aceite próximo", contar(datos, estado, Estado.ALERTA))
+                    .nota("Foto del estado actual: no depende de un periodo.");
+            libro.tabla("Consolidado", "Estado del aceite por " + que.toLowerCase(ES), cols, datos);
+            return libro.bytes();
         }
     }
 
-    public byte[] generateMachineCurriculumExcel(List<MachineCurriculumDTO> curriculumData) throws IOException {
-        log.info("Generando archivo Excel para curriculum de {} máquinas", curriculumData.size());
+    // ---------------------------------------------------------------------
+    // Hojas de vida (una hoja por máquina o vehículo)
+    // ---------------------------------------------------------------------
 
-        try (Workbook workbook = new XSSFWorkbook()) {
-            for (MachineCurriculumDTO curriculum : curriculumData) {
-                Sheet sheet = workbook.createSheet(curriculum.machine().name());
-
-                // Styles
-                CellStyle headerStyle = workbook.createCellStyle();
-                Font headerFont = workbook.createFont();
-                headerFont.setBold(true);
-                headerFont.setColor(IndexedColors.WHITE.getIndex());
-                headerStyle.setFont(headerFont);
-                headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
-                headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-                headerStyle.setAlignment(HorizontalAlignment.CENTER);
-                headerStyle.setBorderBottom(BorderStyle.THIN);
-                headerStyle.setBorderTop(BorderStyle.THIN);
-                headerStyle.setBorderRight(BorderStyle.THIN);
-                headerStyle.setBorderLeft(BorderStyle.THIN);
-
-                CellStyle dataStyle = workbook.createCellStyle();
-                dataStyle.setBorderBottom(BorderStyle.THIN);
-                dataStyle.setBorderTop(BorderStyle.THIN);
-                dataStyle.setBorderRight(BorderStyle.THIN);
-                dataStyle.setBorderLeft(BorderStyle.THIN);
-
-                // First table: Machine info
-                int rowNum = 0;
-                Row machineHeaderRow = sheet.createRow(rowNum++);
-                String[] machineHeaders = {"Equipo", "N Interno de identificacion", "Modelo", "Numero de Motor", "Vigencia soat", "Vigencia runt"};
-                for (int i = 0; i < machineHeaders.length; i++) {
-                    Cell cell = machineHeaderRow.createCell(i);
-                    cell.setCellValue(machineHeaders[i]);
-                    cell.setCellStyle(headerStyle);
-                }
-
-                Row machineDataRow = sheet.createRow(rowNum++);
-                machineDataRow.createCell(0).setCellValue(curriculum.machine().name());
-                machineDataRow.createCell(1).setCellValue(curriculum.machine().numInterIdentification());
-                machineDataRow.createCell(2).setCellValue(curriculum.machine().model());
-                machineDataRow.createCell(3).setCellValue(curriculum.machine().numEngine());
-                machineDataRow.createCell(4).setCellValue(curriculum.machine().soat() != null ? curriculum.machine().soat().format(DATE_FORMATTER) : "");
-                machineDataRow.createCell(5).setCellValue(curriculum.machine().runt() != null ? curriculum.machine().runt().format(DATE_FORMATTER) : "");
-
-                for (int i = 0; i < machineHeaders.length; i++) {
-                    machineDataRow.getCell(i).setCellStyle(dataStyle);
-                }
-
-                // Skip two rows
-                rowNum += 2;
-
-                // Second table: Results
-                Row resultsHeaderRow = sheet.createRow(rowNum++);
-                String[] resultsHeaders = {"Fecha", "Horometro", "Descripcion", "REF", "Nombre", "Cantidad", "Valor", "Mecanico de planta", "Contratista", "Tiempo empleado", "Valor", "Valor total", "Descripcion mano de obre"};
-                for (int i = 0; i < resultsHeaders.length; i++) {
-                    Cell cell = resultsHeaderRow.createCell(i);
-                    cell.setCellValue(resultsHeaders[i]);
-                    cell.setCellStyle(headerStyle);
-                }
-
-                for (var inspection : curriculum.inspections()) {
-                    for (var result : inspection.results()) {
-                        Row row = sheet.createRow(rowNum++);
-                        int colNum = 0;
-
-                        // Fecha
-                        Cell cell0 = row.createCell(colNum++);
-                        cell0.setCellValue(inspection.dateStamp() != null ? inspection.dateStamp().format(DATETIME_FORMATTER) : "");
-
-                        row.createCell(colNum++).setCellValue(inspection.hourMeter());
-
-                    // Descripcion
-                    row.createCell(colNum++).setCellValue(result.description());
-
-                    // REF
-                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().ref() : "");
-
-                    // Nombre
-                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().name() : "");
-
-                    // Cantidad
-                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().quantity() : "");
-
-                    // Valor (spare part)
-                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().price().toString() : "");
-
-                    // Mecanico de planta
-                    row.createCell(colNum++).setCellValue(result.labor() != null && result.labor().user() != null ? result.labor().user().getFullName() : "");
-
-                    // Contratista
-                    row.createCell(colNum++).setCellValue(result.labor() != null ? result.labor().contractor() : "");
-
-                    // Tiempo empleado
-                    row.createCell(colNum++).setCellValue(result.timeSpent());
-
-                    // Valor (labor)
-                    row.createCell(colNum++).setCellValue(result.labor() != null ? result.labor().price().toString() : "");
-
-                    // Valor total
-                    row.createCell(colNum++).setCellValue(result.totalPrice().toString());
-
-                    row.createCell(colNum++).setCellValue(result.labor() != null ? result.labor().observations() : "");
-
-                        for (int i = 0; i < resultsHeaders.length; i++) {
-                            row.getCell(i).setCellStyle(dataStyle);
-                        }
-                    }
-                }
-
-                // Auto-size columns
-                for (int i = 0; i < resultsHeaders.length; i++) {
-                    sheet.autoSizeColumn(i);
-                    if (sheet.getColumnWidth(i) < 3000) {
-                        sheet.setColumnWidth(i, 3000);
-                    }
-                    if (sheet.getColumnWidth(i) > 8000) {
-                        sheet.setColumnWidth(i, 8000);
-                    }
-                }
+    public byte[] generateMachineCurriculumExcel(List<MachineCurriculumDTO> hojas, String usuario, Periodo periodo)
+            throws IOException {
+        log.info("Excel de hojas de vida de {} máquinas", hojas.size());
+        try (LibroExcel libro = new LibroExcel("Hojas de vida · Maquinaria", usuario, periodo)) {
+            int trabajos = 0;
+            BigDecimal valor = BigDecimal.ZERO;
+            for (MachineCurriculumDTO h : hojas) {
+                List<FilaHistorial> filas = h.inspections().stream()
+                        .filter(i -> periodo.contiene(i.dateStamp()))
+                        .flatMap(i -> i.results().stream().map(r -> new FilaHistorial(i.dateStamp() != null ? i.dateStamp() : r.date(),
+                                i.hourMeter(), r)))
+                        .toList();
+                LibroExcel.Hoja hoja = libro.hoja(h.machine().name(), "Hoja de vida · " + h.machine().name(),
+                        "Ficha y trabajos realizados");
+                hoja.ficha("Datos de la máquina", List.of(
+                        Map.entry("Equipo", texto(h.machine().name())),
+                        Map.entry("N.º interno", texto(h.machine().numInterIdentification())),
+                        Map.entry("Modelo", texto(h.machine().model())),
+                        Map.entry("N.º de motor", texto(h.machine().numEngine())),
+                        Map.entry("Vigencia SOAT", h.machine().soat()),
+                        Map.entry("Vigencia RUNT", h.machine().runt()),
+                        Map.entry("Trabajos en el periodo", filas.size()),
+                        Map.entry("Valor total en el periodo", pesos(sumar(filas)))));
+                hoja.tabla("Trabajos realizados", columnasHistorial("Horómetro"), filas);
+                hoja.terminar(13);
+                trabajos += filas.size();
+                valor = valor.add(sumar(filas));
             }
-
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            workbook.write(outputStream);
-            workbook.close();
-
-            log.info("Archivo Excel de curriculum generado exitosamente con {} máquinas", curriculumData.size());
-            return outputStream.toByteArray();
+            libro.cifra("Máquinas", hojas.size()).cifra("Trabajos realizados", trabajos).cifra("Valor total", pesos(valor));
+            return libro.bytes();
         }
     }
 
-    public byte[] generateInspectionsExcel(List<InspectionEntity> inspections) throws IOException {
-        log.info("Generando archivo Excel para {} inspecciones", inspections.size());
-
-        try (Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Inspecciones");
-
-            // Styles
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
-            headerStyle.setBorderBottom(BorderStyle.THIN);
-            headerStyle.setBorderTop(BorderStyle.THIN);
-            headerStyle.setBorderRight(BorderStyle.THIN);
-            headerStyle.setBorderLeft(BorderStyle.THIN);
-
-            CellStyle dataStyle = workbook.createCellStyle();
-            dataStyle.setBorderBottom(BorderStyle.THIN);
-            dataStyle.setBorderTop(BorderStyle.THIN);
-            dataStyle.setBorderRight(BorderStyle.THIN);
-            dataStyle.setBorderLeft(BorderStyle.THIN);
-
-            // Headers
-            Row headerRow = sheet.createRow(0);
-            String[] headers = {
-                "Mes", "Marca Temporal", "Maquina", "Horometro", "Fugas en el Sistema",
-                "Sistema de Frenos", "Estado de Correas y Poleas", "Estado de Llantas y/o Carriles",
-                "Sistema de Encendido", "Sistema Eléctrico", "Sistema Mecánico", "Nivel de Temperatura",
-                "Nivel de Aceite", "Nivel de Hidraulico", "Nivel de Refrigerante", "Estado Estructural en General",
-                "Vigencia EXTINTOR", "Observaciones", "Engrasado", "Observaciones Engrasado", "Responsable Inspección"
-            };
-
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
+    public byte[] generateVehicleCurriculumExcel(List<VehicleCurriculumDTO> hojas, String usuario, Periodo periodo,
+            String que) throws IOException {
+        log.info("Excel de hojas de vida de {} {}", hojas.size(), que);
+        try (LibroExcel libro = new LibroExcel("Hojas de vida · " + que, usuario, periodo)) {
+            int trabajos = 0;
+            BigDecimal valor = BigDecimal.ZERO;
+            for (VehicleCurriculumDTO h : hojas) {
+                List<FilaHistorial> filas = h.results().stream()
+                        .filter(r -> periodo.contiene(r.date()))
+                        .map(r -> new FilaHistorial(r.date(), r.hourMeter(), r))
+                        .toList();
+                String placa = h.vehicle().placa() != null ? h.vehicle().placa() : "Sin placa";
+                LibroExcel.Hoja hoja = libro.hoja(placa, "Hoja de vida · " + placa, "Ficha y trabajos realizados");
+                hoja.ficha("Datos del vehículo", List.of(
+                        Map.entry("Placa", placa),
+                        Map.entry("Marca", texto(h.vehicle().marca())),
+                        Map.entry("Tipo", texto(h.vehicle().tipoVehiculo())),
+                        Map.entry("Km actual", h.vehicle().kilometrajeActual() == null ? "—"
+                                : String.format(ES, "%,d", h.vehicle().kilometrajeActual().longValue())),
+                        Map.entry("Área", texto(h.vehicle().belongsTo())),
+                        Map.entry("Ubicación", texto(h.vehicle().ubicacionBase())),
+                        Map.entry("Trabajos en el periodo", filas.size()),
+                        Map.entry("Valor total en el periodo", pesos(sumar(filas)))));
+                hoja.tabla("Trabajos realizados", columnasHistorial("Kilómetro"), filas);
+                hoja.terminar(13);
+                trabajos += filas.size();
+                valor = valor.add(sumar(filas));
             }
-
-            // Data rows
-            int rowNum = 1;
-            for (InspectionEntity inspection : inspections) {
-                Row row = sheet.createRow(rowNum++);
-                int colNum = 0;
-
-                // Mes
-                String month = inspection.getDateStamp().getMonth().getDisplayName(TextStyle.FULL, Locale.getDefault());
-                row.createCell(colNum++).setCellValue(month);
-
-                // Marca Temporal
-                row.createCell(colNum++).setCellValue(inspection.getDateStamp().format(DATETIME_FORMATTER));
-
-                // Maquina
-                row.createCell(colNum++).setCellValue(inspection.getMachine() != null ? inspection.getMachine().getName() : "");
-
-                // Horometro
-                row.createCell(colNum++).setCellValue(inspection.getHourMeter() != null ? inspection.getHourMeter().toString() : "");
-
-                // Status fields
-                row.createCell(colNum++).setCellValue(inspection.getLeakStatus() != null ? inspection.getLeakStatus() : "");
-                row.createCell(colNum++).setCellValue(inspection.getBrakeStatus() != null ? inspection.getBrakeStatus() : "");
-                row.createCell(colNum++).setCellValue(inspection.getBeltsPulleysStatus() != null ? inspection.getBeltsPulleysStatus() : "");
-                row.createCell(colNum++).setCellValue(inspection.getTireLanesStatus() != null ? inspection.getTireLanesStatus() : "");
-                row.createCell(colNum++).setCellValue(inspection.getCarIgnitionStatus() != null ? inspection.getCarIgnitionStatus() : "");
-                row.createCell(colNum++).setCellValue(inspection.getElectricalStatus() != null ? inspection.getElectricalStatus() : "");
-                row.createCell(colNum++).setCellValue(inspection.getMechanicalStatus() != null ? inspection.getMechanicalStatus() : "");
-                row.createCell(colNum++).setCellValue(inspection.getTemperatureStatus() != null ? inspection.getTemperatureStatus() : "");
-                row.createCell(colNum++).setCellValue(inspection.getOilStatus() != null ? inspection.getOilStatus() : "");
-                row.createCell(colNum++).setCellValue(inspection.getHydraulicStatus() != null ? inspection.getHydraulicStatus() : "");
-                row.createCell(colNum++).setCellValue(inspection.getCoolantStatus() != null ? inspection.getCoolantStatus() : "");
-                row.createCell(colNum++).setCellValue(inspection.getStructuralStatus() != null ? inspection.getStructuralStatus() : "");
-
-                // Vigencia EXTINTOR
-                row.createCell(colNum++).setCellValue(inspection.getExpirationDateFireExtinguisher() != null ? inspection.getExpirationDateFireExtinguisher() : "");
-
-                // Observaciones
-                row.createCell(colNum++).setCellValue(inspection.getObservations() != null ? inspection.getObservations() : "");
-
-                // Engrasado
-                row.createCell(colNum++).setCellValue(inspection.getGreasingAction() != null ? inspection.getGreasingAction() : "");
-
-                // Observaciones Engrasado
-                row.createCell(colNum++).setCellValue(inspection.getGreasingObservations() != null ? inspection.getGreasingObservations() : "");
-
-                // Responsable Inspección
-                row.createCell(colNum++).setCellValue(inspection.getUser() != null ? inspection.getUser().getFullName() : "");
-
-                // Apply style to all cells in the row
-                for (int i = 0; i < headers.length; i++) {
-                    row.getCell(i).setCellStyle(dataStyle);
-                }
-            }
-
-            // Auto-size columns
-            for (int i = 0; i < headers.length; i++) {
-                sheet.autoSizeColumn(i);
-                if (sheet.getColumnWidth(i) < 3000) {
-                    sheet.setColumnWidth(i, 3000);
-                }
-                if (sheet.getColumnWidth(i) > 8000) {
-                    sheet.setColumnWidth(i, 8000);
-                }
-            }
-
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            workbook.write(outputStream);
-            workbook.close();
-
-            log.info("Archivo Excel de inspecciones generado exitosamente con {} filas de datos", inspections.size());
-            return outputStream.toByteArray();
+            libro.cifra(que, hojas.size()).cifra("Trabajos realizados", trabajos).cifra("Valor total", pesos(valor));
+            return libro.bytes();
         }
     }
 
-    public byte[] generateVehicleConsolidatedExcel(List<VehicleMonitoringDTO> data) throws IOException {
-        log.info("Generando Excel consolidado vehículos: {} registros", data.size());
+    /** Un trabajo de la hoja de vida: el resultado de una orden, con la fecha y el horómetro/km. */
+    private record FilaHistorial(java.time.LocalDateTime fecha, Double medida, ResultDTO r) {
+    }
 
-        try (Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Consolidado Vehículos");
+    private static List<ColumnaExcel<FilaHistorial>> columnasHistorial(String medida) {
+        return List.of(
+                ColumnaExcel.fechaHora("Fecha", FilaHistorial::fecha),
+                ColumnaExcel.decimal(medida, FilaHistorial::medida),
+                ColumnaExcel.texto("Descripción", f -> f.r().description()),
+                ColumnaExcel.texto("REF", f -> f.r().sparePart() != null ? f.r().sparePart().ref() : null),
+                ColumnaExcel.texto("Repuesto", f -> f.r().sparePart() != null ? f.r().sparePart().name() : null),
+                ColumnaExcel.texto("Cantidad", f -> f.r().sparePart() != null ? f.r().sparePart().quantity() : null),
+                ColumnaExcel.moneda("Valor repuesto", (FilaHistorial f) -> f.r().sparePart() != null ? f.r().sparePart().price() : null).conTotal(),
+                ColumnaExcel.texto("Mecánico de planta", f -> f.r().labor() != null && f.r().labor().user() != null
+                        ? f.r().labor().user().getFullName() : null),
+                ColumnaExcel.texto("Contratista", f -> f.r().labor() != null ? f.r().labor().contractor() : null),
+                ColumnaExcel.texto("Tiempo empleado", f -> f.r().timeSpent()),
+                ColumnaExcel.moneda("Valor mano de obra", (FilaHistorial f) -> f.r().labor() != null ? f.r().labor().price() : null).conTotal(),
+                ColumnaExcel.moneda("Valor total", (FilaHistorial f) -> f.r().totalPrice()).conTotal(),
+                ColumnaExcel.texto("Descripción mano de obra", f -> f.r().labor() != null ? f.r().labor().observations() : null));
+    }
 
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
-            headerStyle.setBorderBottom(BorderStyle.THIN);
-            headerStyle.setBorderTop(BorderStyle.THIN);
-            headerStyle.setBorderRight(BorderStyle.THIN);
-            headerStyle.setBorderLeft(BorderStyle.THIN);
+    private static BigDecimal sumar(List<FilaHistorial> filas) {
+        return filas.stream().map(f -> f.r().totalPrice()).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
 
-            CellStyle dataStyle = workbook.createCellStyle();
-            dataStyle.setBorderBottom(BorderStyle.THIN);
-            dataStyle.setBorderTop(BorderStyle.THIN);
-            dataStyle.setBorderRight(BorderStyle.THIN);
-            dataStyle.setBorderLeft(BorderStyle.THIN);
+    // ---------------------------------------------------------------------
+    // Inspecciones
+    // ---------------------------------------------------------------------
 
-            String[] headers = {
-                "Pertenece a", "Placa", "Km Actual", "Días sin Reporte", "Fecha Último Reporte",
-                // Aceite Motor (igual al consolidado en pantalla)
-                "Marca", "Cant.", "Intervalo", "Fecha Últ. Cambio", "Km Últ. Cambio",
-                "Próximo Cambio", "Días desde Cambio", "Km Restantes", "Filtro Aire", "Estado"
-            };
-
-            Row headerRow = sheet.createRow(0);
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
-            }
-
-            int rowNum = 1;
-            for (VehicleMonitoringDTO dto : data) {
-                Row row = sheet.createRow(rowNum++);
-                int c = 0;
-
-                row.createCell(c++).setCellValue(dto.area() != null ? dto.area() : "");
-                row.createCell(c++).setCellValue(dto.placa() != null ? dto.placa() : "");
-                row.createCell(c++).setCellValue(dto.kmActual() != null ? dto.kmActual() : 0);
-                row.createCell(c++).setCellValue(dto.diasUltimoReporte() != null ? dto.diasUltimoReporte() : 0);
-                row.createCell(c++).setCellValue(dto.fechaUltimoReporte() != null ? dto.fechaUltimoReporte().format(DATETIME_FORMATTER) : "");
-
-                VehicleMonitoringDTO.OilStatus oil = dto.maintenance();
-                row.createCell(c++).setCellValue(oil != null && oil.brandName() != null ? oil.brandName() : "");
-                row.createCell(c++).setCellValue(oil != null && oil.quantity() != null ? oil.quantity() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.intervalKm() != null ? oil.intervalKm() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.fechaUltimoCambio() != null ? oil.fechaUltimoCambio().format(DATE_FORMATTER) : "");
-                row.createCell(c++).setCellValue(oil != null && oil.kmCambio() != null ? oil.kmCambio() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.kmProximoCambio() != null ? oil.kmProximoCambio() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.diasDesdeUltimoCambio() != null ? oil.diasDesdeUltimoCambio() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.kmParaProximo() != null ? oil.kmParaProximo() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.filtroAire() != null ? (oil.filtroAire() ? "Sí" : "No") : "");
-                row.createCell(c++).setCellValue(oil != null && oil.estado() != null ? oil.estado() : "");
-
-                for (int i = 0; i < headers.length; i++) {
-                    row.getCell(i).setCellStyle(dataStyle);
-                }
-            }
-
-            for (int i = 0; i < headers.length; i++) {
-                sheet.autoSizeColumn(i);
-                if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
-                if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
-            }
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            workbook.write(out);
-            return out.toByteArray();
+    public byte[] generateInspectionsExcel(List<InspectionEntity> todas, String usuario, Periodo periodo) throws IOException {
+        List<InspectionEntity> inspecciones = todas.stream().filter(i -> periodo.contiene(i.getDateStamp())).toList();
+        log.info("Excel de inspecciones de maquinaria: {} de {}", inspecciones.size(), todas.size());
+        List<ColumnaExcel<InspectionEntity>> cols = List.of(
+                ColumnaExcel.texto("Mes", i -> i.getDateStamp() == null ? null
+                        : capitalizar(i.getDateStamp().getMonth().getDisplayName(TextStyle.FULL, ES))),
+                ColumnaExcel.fechaHora("Fecha y hora", InspectionEntity::getDateStamp),
+                ColumnaExcel.texto("Máquina", i -> i.getMachine() != null ? i.getMachine().getName() : null),
+                ColumnaExcel.decimal("Horómetro", InspectionEntity::getHourMeter),
+                revision("Fugas en el sistema", InspectionEntity::getLeakStatus),
+                revision("Sistema de frenos", InspectionEntity::getBrakeStatus),
+                revision("Correas y poleas", InspectionEntity::getBeltsPulleysStatus),
+                revision("Llantas y/o carriles", InspectionEntity::getTireLanesStatus),
+                revision("Sistema de encendido", InspectionEntity::getCarIgnitionStatus),
+                revision("Sistema eléctrico", InspectionEntity::getElectricalStatus),
+                revision("Sistema mecánico", InspectionEntity::getMechanicalStatus),
+                revision("Nivel de temperatura", InspectionEntity::getTemperatureStatus),
+                revision("Nivel de aceite", InspectionEntity::getOilStatus),
+                revision("Nivel de hidráulico", InspectionEntity::getHydraulicStatus),
+                revision("Nivel de refrigerante", InspectionEntity::getCoolantStatus),
+                revision("Estado estructural", InspectionEntity::getStructuralStatus),
+                ColumnaExcel.texto("Vigencia extintor", InspectionEntity::getExpirationDateFireExtinguisher),
+                ColumnaExcel.texto("Observaciones", InspectionEntity::getObservations),
+                ColumnaExcel.texto("Engrasado", InspectionEntity::getGreasingAction),
+                ColumnaExcel.texto("Observaciones engrasado", InspectionEntity::getGreasingObservations),
+                ColumnaExcel.texto("Responsable", i -> i.getUser() != null ? i.getUser().getFullName() : null));
+        try (LibroExcel libro = new LibroExcel("Inspecciones pre-operativas · Maquinaria", usuario, periodo)) {
+            libro.cifra("Inspecciones", inspecciones.size())
+                    .cifra("Máquinas inspeccionadas", inspecciones.stream().map(i -> i.getMachine() != null ? i.getMachine().getId() : null)
+                            .filter(Objects::nonNull).distinct().count())
+                    .nota("Las revisiones con novedad salen en amarillo o rojo.");
+            libro.tabla("Inspecciones", "Inspecciones pre-operativas de maquinaria", cols, inspecciones);
+            return libro.bytes();
         }
     }
 
-    public byte[] generateMotoConsolidatedExcel(List<MotoMonitoringDTO> data) throws IOException {
-        log.info("Generando Excel consolidado motos: {} registros", data.size());
-
-        try (Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Consolidado Motos");
-
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
-            headerStyle.setBorderBottom(BorderStyle.THIN);
-            headerStyle.setBorderTop(BorderStyle.THIN);
-            headerStyle.setBorderRight(BorderStyle.THIN);
-            headerStyle.setBorderLeft(BorderStyle.THIN);
-
-            CellStyle dataStyle = workbook.createCellStyle();
-            dataStyle.setBorderBottom(BorderStyle.THIN);
-            dataStyle.setBorderTop(BorderStyle.THIN);
-            dataStyle.setBorderRight(BorderStyle.THIN);
-            dataStyle.setBorderLeft(BorderStyle.THIN);
-
-            String[] headers = {
-                "Pertenece a", "Placa", "Km Actual", "Días sin Reporte", "Fecha Último Reporte",
-                // Aceite Motor (igual al consolidado en pantalla)
-                "Marca", "Cant.", "Intervalo", "Fecha Últ. Cambio", "Km Últ. Cambio",
-                "Próximo Cambio", "Días desde Cambio", "Km Restantes", "Filtro Aire", "Estado"
-            };
-
-            Row headerRow = sheet.createRow(0);
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
-            }
-
-            int rowNum = 1;
-            for (MotoMonitoringDTO dto : data) {
-                Row row = sheet.createRow(rowNum++);
-                int c = 0;
-
-                row.createCell(c++).setCellValue(dto.departamento() != null ? dto.departamento() : "");
-                row.createCell(c++).setCellValue(dto.placa() != null ? dto.placa() : "");
-                row.createCell(c++).setCellValue(dto.kmActual() != null ? dto.kmActual() : 0);
-                row.createCell(c++).setCellValue(dto.diasUltimoReporte() != null ? dto.diasUltimoReporte() : 0);
-                row.createCell(c++).setCellValue(dto.fechaUltimoReporte() != null ? dto.fechaUltimoReporte().format(DATETIME_FORMATTER) : "");
-
-                MotoMonitoringDTO.OilStatus oil = dto.oil();
-                row.createCell(c++).setCellValue(oil != null && oil.brandName() != null ? oil.brandName() : "");
-                row.createCell(c++).setCellValue(oil != null && oil.quantity() != null ? oil.quantity() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.intervalKm() != null ? oil.intervalKm() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.fechaUltimoCambio() != null ? oil.fechaUltimoCambio().format(DATE_FORMATTER) : "");
-                row.createCell(c++).setCellValue(oil != null && oil.kmCambio() != null ? oil.kmCambio() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.kmProximoCambio() != null ? oil.kmProximoCambio() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.diasDesdeUltimoCambio() != null ? oil.diasDesdeUltimoCambio() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.kmParaProximo() != null ? oil.kmParaProximo() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.filtroAire() != null ? (oil.filtroAire() ? "Sí" : "No") : "");
-                row.createCell(c++).setCellValue(oil != null && oil.estado() != null ? oil.estado() : "");
-
-                for (int i = 0; i < headers.length; i++) {
-                    row.getCell(i).setCellStyle(dataStyle);
-                }
-            }
-
-            for (int i = 0; i < headers.length; i++) {
-                sheet.autoSizeColumn(i);
-                if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
-                if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
-            }
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            workbook.write(out);
-            return out.toByteArray();
+    public byte[] generateVehicleInspectionsExcel(List<VehicleInspectionReportDTO> todas, String usuario, Periodo periodo,
+            String que) throws IOException {
+        List<VehicleInspectionReportDTO> inspecciones = todas.stream().filter(i -> periodo.contiene(i.fechaRegistro())).toList();
+        log.info("Excel de inspecciones de {}: {} de {}", que, inspecciones.size(), todas.size());
+        List<ColumnaExcel<VehicleInspectionReportDTO>> cols = List.of(
+                ColumnaExcel.fechaHora("Fecha y hora", VehicleInspectionReportDTO::fechaRegistro),
+                ColumnaExcel.texto("Placa", VehicleInspectionReportDTO::placa),
+                ColumnaExcel.texto("Marca", VehicleInspectionReportDTO::marca),
+                ColumnaExcel.texto("Tipo", VehicleInspectionReportDTO::tipoVehiculo),
+                ColumnaExcel.texto("Área", VehicleInspectionReportDTO::areaOrganizacional),
+                ColumnaExcel.texto("Ubicación", VehicleInspectionReportDTO::ubicacion),
+                ColumnaExcel.texto("Responsable", VehicleInspectionReportDTO::responsable),
+                ColumnaExcel.numero("Kilometraje", VehicleInspectionReportDTO::kilometraje),
+                ColumnaExcel.texto("Aprobado para ruta", (VehicleInspectionReportDTO d) -> siNo(d.aprobadoRuta()))
+                        .conEstado(d -> d.aprobadoRuta() == null ? null : d.aprobadoRuta() ? Estado.OK : Estado.MAL),
+                revision("Nivel de aceite", VehicleInspectionReportDTO::nivelAceite),
+                revision("Nivel de refrigerante", VehicleInspectionReportDTO::nivelRefrigerante),
+                revision("Nivel de frenos", VehicleInspectionReportDTO::nivelFrenos),
+                revision("Estado de llantas", VehicleInspectionReportDTO::estadoLlantas),
+                revision("Luces", VehicleInspectionReportDTO::lucesGeneral),
+                revision("Estado visual", VehicleInspectionReportDTO::estadoVisual),
+                revision("Limpieza", VehicleInspectionReportDTO::limpiezaGeneral),
+                revision("SOAT", VehicleInspectionReportDTO::checkSoat),
+                revision("Tecnomecánica", VehicleInspectionReportDTO::checkTecno),
+                revision("Extintor", VehicleInspectionReportDTO::checkExtintor),
+                siNoCol("Botiquín", VehicleInspectionReportDTO::tieneBotiquin),
+                siNoCol("Señalización", VehicleInspectionReportDTO::tieneSeñalizacion),
+                siNoCol("Líneas de emergencia", VehicleInspectionReportDTO::tieneLineasEmergencia),
+                ColumnaExcel.texto("Llanta de repuesto", VehicleInspectionReportDTO::tieneLlantaRepuesto),
+                ColumnaExcel.texto("Gato hidráulico", VehicleInspectionReportDTO::tieneGatoHidraulico),
+                siNoCol("Salud física", VehicleInspectionReportDTO::saludFisica),
+                siNoCol("Salud mental", VehicleInspectionReportDTO::saludMental),
+                siNoCol("Sobriedad", VehicleInspectionReportDTO::sobrio),
+                ColumnaExcel.texto("Medicamentos", d -> siNo(d.medicamentos())),
+                siNoCol("Condición para conducir", VehicleInspectionReportDTO::condicionParaConducir),
+                siNoCol("Consciente de su responsabilidad", VehicleInspectionReportDTO::conscienteResponsabilidad),
+                ColumnaExcel.texto("Mecánico de planta", VehicleInspectionReportDTO::mechanicName),
+                ColumnaExcel.texto("Contratista", VehicleInspectionReportDTO::contractorName),
+                ColumnaExcel.texto("Tiempo empleado", VehicleInspectionReportDTO::timeSpent),
+                ColumnaExcel.texto("Observaciones", VehicleInspectionReportDTO::observacionesFinales));
+        try (LibroExcel libro = new LibroExcel("Inspecciones pre-operativas · " + que, usuario, periodo)) {
+            libro.cifra("Inspecciones", inspecciones.size())
+                    .cifra("No aprobadas para ruta", inspecciones.stream().filter(i -> Boolean.FALSE.equals(i.aprobadoRuta())).count())
+                    .cifra(que + " inspeccionados", inspecciones.stream().map(VehicleInspectionReportDTO::placa)
+                            .filter(Objects::nonNull).distinct().count());
+            libro.tabla("Inspecciones", "Inspecciones pre-operativas de " + que.toLowerCase(ES), cols, inspecciones);
+            return libro.bytes();
         }
     }
 
-    public byte[] generateMachineOrdersExcel(List<OrderWithMachineDTO> orders) throws IOException {
-        log.info("Generando Excel órdenes maquinaria: {} registros", orders.size());
+    // ---------------------------------------------------------------------
+    // Órdenes de trabajo
+    // ---------------------------------------------------------------------
 
-        try (Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Órdenes Maquinaria");
+    public byte[] generateMachineOrdersExcel(List<OrderWithMachineDTO> todas, String usuario, Periodo periodo) throws IOException {
+        List<OrderWithMachineDTO> ordenes = todas.stream().filter(o -> o.order() != null && periodo.contiene(o.order().date())).toList();
+        log.info("Excel de órdenes de maquinaria: {} de {}", ordenes.size(), todas.size());
+        List<ColumnaExcel<OrderWithMachineDTO>> cols = new ArrayList<>(columnasOrden(OrderWithMachineDTO::order));
+        cols.add(4, ColumnaExcel.texto("Máquina", o -> o.machine() != null ? o.machine().name() : null));
+        cols.add(5, ColumnaExcel.texto("Área", o -> o.machine() != null ? o.machine().belongsTo() : null));
+        return ordenes("Órdenes de trabajo · Maquinaria", usuario, periodo, cols, ordenes, OrderWithMachineDTO::order);
+    }
 
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
-            headerStyle.setBorderBottom(BorderStyle.THIN);
-            headerStyle.setBorderTop(BorderStyle.THIN);
-            headerStyle.setBorderRight(BorderStyle.THIN);
-            headerStyle.setBorderLeft(BorderStyle.THIN);
+    public byte[] generateVehicleOrdersExcel(List<OrderWithVehicleDTO> todas, String usuario, Periodo periodo, String que)
+            throws IOException {
+        List<OrderWithVehicleDTO> ordenes = todas.stream().filter(o -> o.order() != null && periodo.contiene(o.order().date())).toList();
+        log.info("Excel de órdenes de {}: {} de {}", que, ordenes.size(), todas.size());
+        List<ColumnaExcel<OrderWithVehicleDTO>> cols = new ArrayList<>(columnasOrden(OrderWithVehicleDTO::order));
+        cols.add(4, ColumnaExcel.texto("Placa", o -> o.vehicle() != null ? o.vehicle().placa() : null));
+        cols.add(5, ColumnaExcel.texto("Marca", o -> o.vehicle() != null ? o.vehicle().marca() : null));
+        cols.add(6, ColumnaExcel.texto("Tipo de vehículo", o -> o.vehicle() != null ? o.vehicle().tipoVehiculo() : null));
+        cols.add(7, ColumnaExcel.fechaHora("Fecha de la inspección", o -> o.vehicle() != null ? o.vehicle().fechaInspeccion() : null));
+        return ordenes("Órdenes de trabajo · " + que, usuario, periodo, cols, ordenes, OrderWithVehicleDTO::order);
+    }
 
-            CellStyle dataStyle = workbook.createCellStyle();
-            dataStyle.setBorderBottom(BorderStyle.THIN);
-            dataStyle.setBorderTop(BorderStyle.THIN);
-            dataStyle.setBorderRight(BorderStyle.THIN);
-            dataStyle.setBorderLeft(BorderStyle.THIN);
+    private static <T> List<ColumnaExcel<T>> columnasOrden(Function<T, OrderWithoutInspectionResponse> o) {
+        return List.of(
+                ColumnaExcel.texto("Consecutivo", t -> o.apply(t).consecutive()),
+                ColumnaExcel.fechaHora("Fecha", t -> o.apply(t).date()),
+                ColumnaExcel.texto("Estado", (T t) -> o.apply(t).status()).conEstado(t -> estadoDe(o.apply(t).status())),
+                ColumnaExcel.texto("Descripción", t -> o.apply(t).description()),
+                ColumnaExcel.texto("Asignada por", t -> o.apply(t).assignerUser() != null ? o.apply(t).assignerUser().fullName() : null),
+                ColumnaExcel.texto("Proveedor de repuestos", t -> o.apply(t).suppliers()),
+                ColumnaExcel.texto("Tiempo de ejecución", t -> tiempoEjecucion(o.apply(t))));
+    }
 
-            String[] headers = {
-                "Consecutivo", "Fecha", "Estado", "Descripción",
-                "Asignado por", "Máquina", "Área", "Proveedor Repuesto", "Tiempo"
-            };
-
-            Row headerRow = sheet.createRow(0);
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
-            }
-
-            int rowNum = 1;
-            for (OrderWithMachineDTO dto : orders) {
-                Row row = sheet.createRow(rowNum++);
-                int c = 0;
-                var order = dto.order();
-                var machine = dto.machine();
-                row.createCell(c++).setCellValue(order != null && order.consecutive() != null ? order.consecutive() : "");
-                row.createCell(c++).setCellValue(order != null && order.date() != null ? order.date().format(DATETIME_FORMATTER) : "");
-                row.createCell(c++).setCellValue(order != null && order.status() != null ? order.status() : "");
-                row.createCell(c++).setCellValue(order != null && order.description() != null ? order.description() : "");
-                row.createCell(c++).setCellValue(order != null && order.assignerUser() != null ? order.assignerUser().fullName() : "");
-                row.createCell(c++).setCellValue(machine != null && machine.name() != null ? machine.name() : "");
-                row.createCell(c++).setCellValue(machine != null && machine.belongsTo() != null ? machine.belongsTo() : "");
-                row.createCell(c++).setCellValue(order != null && order.suppliers() != null ? order.suppliers() : "");
-                row.createCell(c++).setCellValue(formatExecutionTime(order));
-
-                for (int i = 0; i < headers.length; i++) {
-                    row.getCell(i).setCellStyle(dataStyle);
-                }
-            }
-
-            for (int i = 0; i < headers.length; i++) {
-                sheet.autoSizeColumn(i);
-                if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
-                if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
-            }
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            workbook.write(out);
-            return out.toByteArray();
+    private <T> byte[] ordenes(String titulo, String usuario, Periodo periodo, List<ColumnaExcel<T>> cols, List<T> ordenes,
+            Function<T, OrderWithoutInspectionResponse> o) throws IOException {
+        try (LibroExcel libro = new LibroExcel(titulo, usuario, periodo)) {
+            libro.cifra("Órdenes", ordenes.size())
+                    .cifra("Cerradas", ordenes.stream().filter(t -> estadoDe(o.apply(t).status()) == Estado.OK).count())
+                    .cifra("Abiertas o en curso", ordenes.stream().filter(t -> estadoDe(o.apply(t).status()) != Estado.OK).count());
+            libro.tabla("Órdenes", titulo, cols, ordenes);
+            return libro.bytes();
         }
     }
 
-    public byte[] generateVehicleOrdersExcel(List<OrderWithVehicleDTO> orders) throws IOException {
-        log.info("Generando Excel órdenes vehículos/motos: {} registros", orders.size());
+    // ---------------------------------------------------------------------
+    // Auxiliares
+    // ---------------------------------------------------------------------
 
-        try (Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Órdenes Vehículos");
-
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
-            headerStyle.setBorderBottom(BorderStyle.THIN);
-            headerStyle.setBorderTop(BorderStyle.THIN);
-            headerStyle.setBorderRight(BorderStyle.THIN);
-            headerStyle.setBorderLeft(BorderStyle.THIN);
-
-            CellStyle dataStyle = workbook.createCellStyle();
-            dataStyle.setBorderBottom(BorderStyle.THIN);
-            dataStyle.setBorderTop(BorderStyle.THIN);
-            dataStyle.setBorderRight(BorderStyle.THIN);
-            dataStyle.setBorderLeft(BorderStyle.THIN);
-
-            String[] headers = {
-                "Consecutivo", "Fecha", "Estado", "Descripción",
-                "Asignado por", "Placa", "Marca", "Tipo Vehículo", "Fecha Inspección", "Proveedor Repuesto", "Tiempo"
-            };
-
-            Row headerRow = sheet.createRow(0);
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
-            }
-
-            int rowNum = 1;
-            for (OrderWithVehicleDTO dto : orders) {
-                Row row = sheet.createRow(rowNum++);
-                int c = 0;
-                var order = dto.order();
-                var vehicle = dto.vehicle();
-                row.createCell(c++).setCellValue(order != null && order.consecutive() != null ? order.consecutive() : "");
-                row.createCell(c++).setCellValue(order != null && order.date() != null ? order.date().format(DATETIME_FORMATTER) : "");
-                row.createCell(c++).setCellValue(order != null && order.status() != null ? order.status() : "");
-                row.createCell(c++).setCellValue(order != null && order.description() != null ? order.description() : "");
-                row.createCell(c++).setCellValue(order != null && order.assignerUser() != null ? order.assignerUser().fullName() : "");
-                row.createCell(c++).setCellValue(vehicle != null && vehicle.placa() != null ? vehicle.placa() : "");
-                row.createCell(c++).setCellValue(vehicle != null && vehicle.marca() != null ? vehicle.marca() : "");
-                row.createCell(c++).setCellValue(vehicle != null && vehicle.tipoVehiculo() != null ? vehicle.tipoVehiculo() : "");
-                row.createCell(c++).setCellValue(vehicle != null && vehicle.fechaInspeccion() != null ? vehicle.fechaInspeccion().format(DATETIME_FORMATTER) : "");
-                row.createCell(c++).setCellValue(order != null && order.suppliers() != null ? order.suppliers() : "");
-                row.createCell(c++).setCellValue(formatExecutionTime(order));
-
-                for (int i = 0; i < headers.length; i++) {
-                    row.getCell(i).setCellStyle(dataStyle);
-                }
-            }
-
-            for (int i = 0; i < headers.length; i++) {
-                sheet.autoSizeColumn(i);
-                if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
-                if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
-            }
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            workbook.write(out);
-            return out.toByteArray();
+    /** "2 h 30 min" desde las horas y minutos de la orden, o el texto que ya traiga. */
+    static String tiempoEjecucion(OrderWithoutInspectionResponse o) {
+        if (o == null) {
+            return null;
         }
+        if (o.timeSpent() != null && !o.timeSpent().isBlank()) {
+            return o.timeSpent();
+        }
+        if (o.hoursSpent() == null && o.minutesSpent() == null) {
+            return null;
+        }
+        int h = o.hoursSpent() != null ? o.hoursSpent() : 0;
+        int m = o.minutesSpent() != null ? o.minutesSpent() : 0;
+        return h > 0 ? (m > 0 ? h + " h " + m + " min" : h + " h") : m + " min";
     }
 
-    public byte[] generateVehicleInspectionsExcel(List<VehicleInspectionReportDTO> inspections) throws IOException {
-        log.info("Generando Excel de inspecciones de vehículos/motos: {} registros", inspections.size());
-
-        try (Workbook workbook = new XSSFWorkbook()) {
-            Sheet sheet = workbook.createSheet("Inspecciones");
-
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            headerStyle.setAlignment(HorizontalAlignment.CENTER);
-            headerStyle.setBorderBottom(BorderStyle.THIN);
-            headerStyle.setBorderTop(BorderStyle.THIN);
-            headerStyle.setBorderRight(BorderStyle.THIN);
-            headerStyle.setBorderLeft(BorderStyle.THIN);
-
-            CellStyle dataStyle = workbook.createCellStyle();
-            dataStyle.setBorderBottom(BorderStyle.THIN);
-            dataStyle.setBorderTop(BorderStyle.THIN);
-            dataStyle.setBorderRight(BorderStyle.THIN);
-            dataStyle.setBorderLeft(BorderStyle.THIN);
-
-            String[] headers = {
-                "Fecha Registro", "Placa", "Marca", "Tipo Vehículo", "Área", "Ubicación",
-                "Responsable", "Kilometraje", "Aprobado Ruta",
-                // Mecánico
-                "Nivel Aceite", "Nivel Refrigerante", "Nivel Frenos", "Estado Llantas",
-                "Luces", "Estado Visual", "Limpieza",
-                // Documentos
-                "Check SOAT", "Check Tecnomecánica", "Check Extintor",
-                // Elementos
-                "Botiquín", "Señalización", "Líneas Emergencia", "Llanta Repuesto", "Gato Hidráulico",
-                // Salud
-                "Salud Física", "Salud Mental", "Sobriedad", "Medicamentos",
-                "Condición para Conducir", "Consciente Responsabilidad",
-                // Mano de Obra
-                "Mecánico de Planta", "Contratista", "Tiempo Empleado",
-                // Observaciones
-                "Observaciones"
-            };
-
-            Row headerRow = sheet.createRow(0);
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = headerRow.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(headerStyle);
-            }
-
-            int rowNum = 1;
-            for (VehicleInspectionReportDTO dto : inspections) {
-                Row row = sheet.createRow(rowNum++);
-                int c = 0;
-
-                row.createCell(c++).setCellValue(dto.fechaRegistro() != null ? dto.fechaRegistro().format(DATETIME_FORMATTER) : "");
-                row.createCell(c++).setCellValue(dto.placa() != null ? dto.placa() : "");
-                row.createCell(c++).setCellValue(dto.marca() != null ? dto.marca() : "");
-                row.createCell(c++).setCellValue(dto.tipoVehiculo() != null ? dto.tipoVehiculo() : "");
-                row.createCell(c++).setCellValue(dto.areaOrganizacional() != null ? dto.areaOrganizacional() : "");
-                row.createCell(c++).setCellValue(dto.ubicacion() != null ? dto.ubicacion() : "");
-                row.createCell(c++).setCellValue(dto.responsable() != null ? dto.responsable() : "");
-                row.createCell(c++).setCellValue(dto.kilometraje() != null ? dto.kilometraje() : 0);
-                row.createCell(c++).setCellValue(dto.aprobadoRuta() != null ? (dto.aprobadoRuta() ? "Sí" : "No") : "");
-
-                row.createCell(c++).setCellValue(dto.nivelAceite() != null ? dto.nivelAceite() : "");
-                row.createCell(c++).setCellValue(dto.nivelRefrigerante() != null ? dto.nivelRefrigerante() : "");
-                row.createCell(c++).setCellValue(dto.nivelFrenos() != null ? dto.nivelFrenos() : "");
-                row.createCell(c++).setCellValue(dto.estadoLlantas() != null ? dto.estadoLlantas() : "");
-                row.createCell(c++).setCellValue(dto.lucesGeneral() != null ? dto.lucesGeneral() : "");
-                row.createCell(c++).setCellValue(dto.estadoVisual() != null ? dto.estadoVisual() : "");
-                row.createCell(c++).setCellValue(dto.limpiezaGeneral() != null ? dto.limpiezaGeneral() : "");
-
-                row.createCell(c++).setCellValue(dto.checkSoat() != null ? dto.checkSoat() : "");
-                row.createCell(c++).setCellValue(dto.checkTecno() != null ? dto.checkTecno() : "");
-                row.createCell(c++).setCellValue(dto.checkExtintor() != null ? dto.checkExtintor() : "");
-
-                row.createCell(c++).setCellValue(dto.tieneBotiquin() != null ? (dto.tieneBotiquin() ? "Sí" : "No") : "");
-                row.createCell(c++).setCellValue(dto.tieneSeñalizacion() != null ? (dto.tieneSeñalizacion() ? "Sí" : "No") : "");
-                row.createCell(c++).setCellValue(dto.tieneLineasEmergencia() != null ? (dto.tieneLineasEmergencia() ? "Sí" : "No") : "");
-                row.createCell(c++).setCellValue(dto.tieneLlantaRepuesto() != null ? dto.tieneLlantaRepuesto() : "");
-                row.createCell(c++).setCellValue(dto.tieneGatoHidraulico() != null ? dto.tieneGatoHidraulico() : "");
-
-                row.createCell(c++).setCellValue(dto.saludFisica() != null ? (dto.saludFisica() ? "Sí" : "No") : "");
-                row.createCell(c++).setCellValue(dto.saludMental() != null ? (dto.saludMental() ? "Sí" : "No") : "");
-                row.createCell(c++).setCellValue(dto.sobrio() != null ? (dto.sobrio() ? "Sí" : "No") : "");
-                row.createCell(c++).setCellValue(dto.medicamentos() != null ? (dto.medicamentos() ? "Sí" : "No") : "");
-                row.createCell(c++).setCellValue(dto.condicionParaConducir() != null ? (dto.condicionParaConducir() ? "Sí" : "No") : "");
-                row.createCell(c++).setCellValue(dto.conscienteResponsabilidad() != null ? (dto.conscienteResponsabilidad() ? "Sí" : "No") : "");
-
-                // Mano de Obra
-                row.createCell(c++).setCellValue(dto.mechanicName() != null ? dto.mechanicName() : "");
-                row.createCell(c++).setCellValue(dto.contractorName() != null ? dto.contractorName() : "");
-                row.createCell(c++).setCellValue(dto.timeSpent() != null ? dto.timeSpent() : "");
-
-                // Observaciones
-                row.createCell(c++).setCellValue(dto.observacionesFinales() != null ? dto.observacionesFinales() : "");
-
-                for (int i = 0; i < headers.length; i++) {
-                    row.getCell(i).setCellStyle(dataStyle);
-                }
-            }
-
-            for (int i = 0; i < headers.length; i++) {
-                sheet.autoSizeColumn(i);
-                if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
-                if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
-            }
-
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            workbook.write(out);
-            return out.toByteArray();
-        }
+    /** Una revisión de la inspección, con color según lo que diga (bueno / regular / malo). */
+    private static <T> ColumnaExcel<T> revision(String titulo, Function<T, String> valor) {
+        return ColumnaExcel.texto(titulo, (T t) -> valor.apply(t)).conEstado(t -> estadoDe(valor.apply(t)));
     }
 
-    public byte[] generateVehicleCurriculumExcel(List<VehicleCurriculumDTO> curriculumData) throws IOException {
-        log.info("Generando archivo Excel para curriculum de {} vehículos", curriculumData.size());
+    private static <T> ColumnaExcel<T> siNoCol(String titulo, Function<T, Boolean> valor) {
+        return ColumnaExcel.texto(titulo, (T t) -> siNo(valor.apply(t)))
+                .conEstado(t -> valor.apply(t) == null ? null : valor.apply(t) ? null : Estado.MAL);
+    }
 
-        try (Workbook workbook = new XSSFWorkbook()) {
-            for (VehicleCurriculumDTO curriculum : curriculumData) {
-                String sheetName = curriculum.vehicle().placa() != null ? curriculum.vehicle().placa() : "SIN_PLACA";
-                if (sheetName.length() > 31) sheetName = sheetName.substring(0, 31);
-                Sheet sheet = workbook.createSheet(sheetName);
-
-                CellStyle headerStyle = workbook.createCellStyle();
-                Font headerFont = workbook.createFont();
-                headerFont.setBold(true);
-                headerFont.setColor(IndexedColors.WHITE.getIndex());
-                headerStyle.setFont(headerFont);
-                headerStyle.setFillForegroundColor(IndexedColors.BLUE.getIndex());
-                headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-                headerStyle.setAlignment(HorizontalAlignment.CENTER);
-                headerStyle.setBorderBottom(BorderStyle.THIN);
-                headerStyle.setBorderTop(BorderStyle.THIN);
-                headerStyle.setBorderRight(BorderStyle.THIN);
-                headerStyle.setBorderLeft(BorderStyle.THIN);
-
-                CellStyle dataStyle = workbook.createCellStyle();
-                dataStyle.setBorderBottom(BorderStyle.THIN);
-                dataStyle.setBorderTop(BorderStyle.THIN);
-                dataStyle.setBorderRight(BorderStyle.THIN);
-                dataStyle.setBorderLeft(BorderStyle.THIN);
-
-                int rowNum = 0;
-
-                // Vehicle info header
-                Row vHeaderRow = sheet.createRow(rowNum++);
-                String[] vHeaders = {"Placa", "Marca", "Tipo", "Km Actual", "Área", "Ubicación"};
-                for (int i = 0; i < vHeaders.length; i++) {
-                    Cell cell = vHeaderRow.createCell(i);
-                    cell.setCellValue(vHeaders[i]);
-                    cell.setCellStyle(headerStyle);
-                }
-
-                // Vehicle info data
-                Row vDataRow = sheet.createRow(rowNum++);
-                vDataRow.createCell(0).setCellValue(curriculum.vehicle().placa() != null ? curriculum.vehicle().placa() : "");
-                vDataRow.createCell(1).setCellValue(curriculum.vehicle().marca() != null ? curriculum.vehicle().marca() : "");
-                vDataRow.createCell(2).setCellValue(curriculum.vehicle().tipoVehiculo() != null ? curriculum.vehicle().tipoVehiculo() : "");
-                vDataRow.createCell(3).setCellValue(curriculum.vehicle().kilometrajeActual() != null ? curriculum.vehicle().kilometrajeActual() : 0);
-                vDataRow.createCell(4).setCellValue(curriculum.vehicle().belongsTo() != null ? curriculum.vehicle().belongsTo() : "");
-                vDataRow.createCell(5).setCellValue(curriculum.vehicle().ubicacionBase() != null ? curriculum.vehicle().ubicacionBase() : "");
-                for (int i = 0; i < vHeaders.length; i++) {
-                    vDataRow.getCell(i).setCellStyle(dataStyle);
-                }
-
-                rowNum += 2;
-
-                // Results header
-                Row rHeaderRow = sheet.createRow(rowNum++);
-                String[] rHeaders = {"Fecha", "Kilómetro", "Descripción", "REF", "Nombre repuesto", "Cantidad", "Valor repuesto", "Mecánico de planta", "Contratista", "Tiempo empleado", "Valor mano de obra", "Valor total", "Observaciones"};
-                for (int i = 0; i < rHeaders.length; i++) {
-                    Cell cell = rHeaderRow.createCell(i);
-                    cell.setCellValue(rHeaders[i]);
-                    cell.setCellStyle(headerStyle);
-                }
-
-                // Results data
-                for (var result : curriculum.results()) {
-                    Row row = sheet.createRow(rowNum++);
-                    int colNum = 0;
-                    row.createCell(colNum++).setCellValue(result.date() != null ? result.date().format(DATETIME_FORMATTER) : "");
-                    row.createCell(colNum++).setCellValue(result.hourMeter() != null ? result.hourMeter() : 0);
-                    row.createCell(colNum++).setCellValue(result.description() != null ? result.description() : "");
-                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().ref() : "");
-                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().name() : "");
-                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().quantity() : "");
-                    row.createCell(colNum++).setCellValue(result.sparePart() != null ? result.sparePart().price().toString() : "");
-                    row.createCell(colNum++).setCellValue(result.labor() != null && result.labor().user() != null ? result.labor().user().getFullName() : "");
-                    row.createCell(colNum++).setCellValue(result.labor() != null ? result.labor().contractor() : "");
-                    row.createCell(colNum++).setCellValue(result.timeSpent() != null ? result.timeSpent() : "");
-                    row.createCell(colNum++).setCellValue(result.labor() != null ? result.labor().price().toString() : "");
-                    row.createCell(colNum++).setCellValue(result.totalPrice() != null ? result.totalPrice().toString() : "");
-                    row.createCell(colNum++).setCellValue(result.labor() != null && result.labor().observations() != null ? result.labor().observations() : "");
-                    for (int i = 0; i < rHeaders.length; i++) {
-                        row.getCell(i).setCellStyle(dataStyle);
-                    }
-                }
-
-                int maxCols = Math.max(vHeaders.length, rHeaders.length);
-                for (int i = 0; i < maxCols; i++) {
-                    sheet.autoSizeColumn(i);
-                    if (sheet.getColumnWidth(i) < 3000) sheet.setColumnWidth(i, 3000);
-                    if (sheet.getColumnWidth(i) > 8000) sheet.setColumnWidth(i, 8000);
-                }
-            }
-
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            workbook.write(outputStream);
-            log.info("Archivo Excel de curriculum de vehículos generado exitosamente con {} hojas", curriculumData.size());
-            return outputStream.toByteArray();
+    /**
+     * Color según el texto que guarda el sistema: vencido, malo, no aprobado → rojo; próximo, regular
+     * → amarillo; bueno, al día, cerrada → verde. Lo que no se reconoce queda sin color.
+     */
+    static Estado estadoDe(String texto) {
+        if (texto == null || texto.isBlank()) {
+            return null;
         }
+        String t = Normalizer.normalize(texto, Normalizer.Form.NFD).replaceAll("\\p{M}", "").toLowerCase(ES).trim();
+        if (t.contains("venc") || t.equals("malo") || t.equals("mal") || t.contains("critic") || t.contains("no cumple")
+                || t.contains("deficiente") || t.equals("bajo") || t.contains("fuga") && !t.contains("sin")) {
+            return Estado.MAL;
+        }
+        if (t.contains("prox") || t.contains("regular") || t.contains("pendiente") || t.contains("proceso")
+                || t.contains("asignad") || t.contains("revis")) {
+            return Estado.ALERTA;
+        }
+        if (t.equals("bueno") || t.equals("buena") || t.equals("ok") || t.contains("al dia") || t.contains("vigente")
+                || t.contains("cerrad") || t.contains("completad") || t.contains("finaliz") || t.equals("cumple")
+                || t.equals("normal") || t.equals("adecuado") || t.startsWith("sin ")) {
+            return Estado.OK;
+        }
+        return null;
+    }
+
+    private static Estado diasSinReporte(Number dias) {
+        if (dias == null) {
+            return null;
+        }
+        return dias.longValue() > 30 ? Estado.MAL : dias.longValue() > 7 ? Estado.ALERTA : null;
+    }
+
+    private static <T> long contar(List<T> datos, Function<T, String> estado, Estado buscado) {
+        return datos.stream().filter(d -> estadoDe(estado.apply(d)) == buscado).count();
+    }
+
+    private static String siNo(Boolean b) {
+        return b == null ? null : b ? "Sí" : "No";
+    }
+
+    private static String texto(Object v) {
+        return v == null ? "—" : v.toString();
+    }
+
+    private static String pesos(BigDecimal v) {
+        return v == null ? "—" : "$ " + String.format(ES, "%,.0f", v);
+    }
+
+    private static String capitalizar(String s) {
+        return s == null || s.isEmpty() ? s : s.substring(0, 1).toUpperCase(ES) + s.substring(1);
     }
 }

@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.review.web;
 
+import com.app.usochicamochabackend.common.excel.Periodo;
+import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.review.application.dto.ImageDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
@@ -141,17 +143,13 @@ public class InspectionController {
             @ApiResponse(responseCode = "200", description = "Excel file generated successfully"),
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<byte[]> exportInspectionsToExcel() throws IOException {
+    public ResponseEntity<byte[]> exportInspectionsToExcel(
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
+            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
+        Periodo periodo = new Periodo(desde, hasta);
         List<com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity> inspections = getAllInspectionsForExportUseCase.getAllInspectionsForExport();
-        byte[] excelData = excelGenerationService.generateInspectionsExcel(inspections);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentDispositionFormData("attachment", "inspecciones.xlsx");
-
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(excelData);
+        byte[] excelData = excelGenerationService.generateInspectionsExcel(inspections, RespuestaExcel.usuarioActual(), periodo);
+        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("inspecciones_maquinaria", periodo));
     }
 
 }
