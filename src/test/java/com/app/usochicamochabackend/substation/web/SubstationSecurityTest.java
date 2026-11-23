@@ -52,6 +52,9 @@ class SubstationSecurityTest {
     private SubstationCatalogUseCase catalogUseCase;
 
     @MockBean
+    private com.app.usochicamochabackend.substation.application.service.ExportacionEstacionesService exportacion;
+
+    @MockBean
     private SubstationCatalogAdminUseCase catalogAdminUseCase;
 
     @MockBean
@@ -92,6 +95,8 @@ class SubstationSecurityTest {
             "GET,    /api/v1/substation/cronograma?anio=2026,       SUPERVISOR_OPERATIVO, true",
             // El OPERARIO solo usa el móvil: lee lo que pide la app y nada de la web
             "GET,    /api/v1/substation/disciplinas,                OPERARIO,             true",
+            "GET,    /api/v1/substation/exportar/hojas,             OPERARIO,             false",
+            "GET,    /api/v1/substation/exportar/hojas,             SUPERVISOR_OPERATIVO, true",
             "GET,    /api/v1/substation/actividades,                OPERARIO,             true",
             "GET,    /api/v1/substation/programacion?estacionId=1&anio=2026&mes=10, OPERARIO, true",
             "GET,    /api/v1/substation/ejecuciones,                OPERARIO,             true",

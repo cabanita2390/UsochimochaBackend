@@ -16,6 +16,8 @@ import com.app.usochicamochabackend.substation.application.port.SubstationCatalo
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
 import com.app.usochicamochabackend.substation.application.service.CalendarioMantenimiento;
+import com.app.usochicamochabackend.substation.application.service.ExportacionEstacionesService;
+import com.app.usochicamochabackend.substation.application.dto.HojaExportacionResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +46,7 @@ public class SubstationController {
     private final SubstationEjecucionUseCase ejecucionUseCase;
     private final SubstationIndicadoresUseCase indicadoresUseCase;
     private final CalendarioMantenimiento calendario;
+    private final ExportacionEstacionesService exportacion;
 
     @GetMapping("/programacion")
     @Operation(summary = "Citas del cronograma para una estación+mes+disciplina",
@@ -150,6 +153,37 @@ public class SubstationController {
                 estacionId, fechaInicio, fechaFin, esProgramada,
                 resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, disciplina, conOrden, elementoId,
                 pageable));
+    }
+
+    @GetMapping("/exportar/hojas")
+    @Operation(summary = "Hojas que se pueden descargar a Excel",
+            description = "Cada hoja con los filtros que usa y sus columnas (cuáles salen marcadas por defecto).")
+    public ResponseEntity<List<HojaExportacionResponse>> hojasExportables() {
+        return ResponseEntity.ok(exportacion.listarHojas());
+    }
+
+    @GetMapping("/exportar")
+    @Operation(summary = "Descargar a Excel",
+            description = "hoja: EJECUCIONES, HALLAZGOS, ORDENES, AVANCE o ACTIVIDADES. Filtros opcionales: disciplina, "
+                    + "anio (por defecto el actual), mes y estacionId (solo en las hojas que los usan). columnas: claves "
+                    + "separadas por coma; sin ellas, las de por defecto. Trae lo mismo que la pantalla.")
+    public ResponseEntity<byte[]> exportar(
+            @RequestParam String hoja,
+            @RequestParam(required = false) String disciplina,
+            @RequestParam(required = false) Integer anio,
+            @RequestParam(required = false) Integer mes,
+            @RequestParam(required = false) Long estacionId,
+            @RequestParam(required = false) List<String> columnas,
+            Authentication authentication) throws IOException {
+        String usuario = authentication != null && authentication.getPrincipal() instanceof UserPrincipal u
+                ? u.username() : "—";
+        var archivo = exportacion.exportar(hoja,
+                new ExportacionEstacionesService.Filtros(disciplina, anio, mes, estacionId), columnas, usuario);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + archivo.nombre() + "\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(archivo.contenido());
     }
 
     @GetMapping("/indicadores/cumplimiento")
