@@ -5,6 +5,8 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.substation.application.dto.ActividadRequest;
 import com.app.usochicamochabackend.substation.application.dto.ActividadResponse;
+import com.app.usochicamochabackend.substation.application.dto.ConjuntoElementosRequest;
+import com.app.usochicamochabackend.substation.application.dto.ElementoDeConjuntoResponse;
 import com.app.usochicamochabackend.substation.application.dto.DisciplinaResponse;
 import com.app.usochicamochabackend.substation.application.dto.EstacionRequest;
 import com.app.usochicamochabackend.substation.application.dto.EstacionResponse;
@@ -12,12 +14,14 @@ import com.app.usochicamochabackend.substation.application.dto.ItemCatalogoReque
 import com.app.usochicamochabackend.substation.application.dto.ItemCatalogoResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationCatalogAdminUseCase;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ActividadEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.ConjuntoElementoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ConjuntoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.DisciplinaEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ElementoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EstacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ProgramacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.ConjuntoElementoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ConjuntoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.DisciplinaRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.EjecucionRepository;
@@ -31,9 +35,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.text.Normalizer;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -52,6 +58,8 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     private final EjecucionRepository ejecucionRepository;
     private final ConjuntoRepository conjuntoRepository;
     private final ElementoRepository elementoRepository;
+    private final ConjuntoElementoRepository conjuntoElementoRepository;
+    private final CatalogoElementos catalogoElementos;
 
     // ---------------------------------------------------------------------
     // Disciplinas
@@ -240,8 +248,11 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
                     ? conjuntoRepository.findByStatusTrueOrderByNombreAsc()
                     : conjuntoRepository.findByDisciplina_CodigoAndStatusTrueOrderByNombreAsc(disciplina);
         }
+        Map<Long, List<ElementoDeConjuntoResponse>> elementos =
+                catalogoElementos.elementosPorConjunto(conjuntos.stream().map(ConjuntoEntity::getId).toList());
         return conjuntos.stream()
-                .map(c -> ItemCatalogoResponse.fromEntity(c, conjuntoRepository.enUso(c.getId())))
+                .map(c -> ItemCatalogoResponse.fromEntity(c, conjuntoRepository.enUso(c.getId()),
+                        elementos.getOrDefault(c.getId(), List.of())))
                 .toList();
     }
 
@@ -261,7 +272,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha creado el conjunto " + nombre
                 + " (" + disciplina.getCodigo() + ")");
-        return ItemCatalogoResponse.fromEntity(guardado, false);
+        return ItemCatalogoResponse.fromEntity(guardado, false, List.of());
     }
 
     @Override
@@ -286,7 +297,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha editado el conjunto " + nombre
                 + " (" + disciplina.getCodigo() + ")");
-        return ItemCatalogoResponse.fromEntity(guardado, enUso);
+        return ItemCatalogoResponse.fromEntity(guardado, enUso, catalogoElementos.elementosDe(id));
     }
 
     @Override
@@ -299,7 +310,64 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
 
         saveActionUseCase.save("El usuario " + usuario.username() + " ha "
                 + (activa ? "reactivado" : "desactivado") + " el conjunto " + conjunto.getNombre());
-        return ItemCatalogoResponse.fromEntity(guardado, conjuntoRepository.enUso(id));
+        return ItemCatalogoResponse.fromEntity(guardado, conjuntoRepository.enUso(id), catalogoElementos.elementosDe(id));
+    }
+
+    @Override
+    @Transactional
+    public ItemCatalogoResponse guardarElementosConjunto(Long id, ConjuntoElementosRequest request, UserPrincipal usuario) {
+        ConjuntoEntity conjunto = conjuntoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Conjunto no encontrado: " + id));
+        DisciplinaEntity disciplina = conjunto.getDisciplina();
+        List<ConjuntoElementoEntity> actuales = conjuntoElementoRepository.findByConjunto_IdOrderByOrdenAscIdAsc(id);
+
+        Set<Long> quedan = new HashSet<>();
+        int orden = 0;
+        for (ConjuntoElementosRequest.Item item : request.elementos()) {
+            ElementoEntity elemento;
+            if (item.elementoId() != null) {
+                elemento = elementoRepository.findById(item.elementoId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Elemento no encontrado: " + item.elementoId()));
+                if (!elemento.getDisciplina().getId().equals(disciplina.getId())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El elemento \"" + elemento.getNombre()
+                            + "\" es de " + elemento.getDisciplina().getCodigo() + ", no de " + disciplina.getCodigo());
+                }
+            } else if (item.nombre() != null && !item.nombre().isBlank()) {
+                // Reutiliza el nombre si ya existe escrito igual (sin mayúsculas ni tildes); si no, lo crea.
+                elemento = catalogoElementos.elementoPorNombre(disciplina, item.nombre(), false);
+            } else {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cada elemento necesita elementoId o nombre");
+            }
+            if (!quedan.add(elemento.getId())) {
+                continue; // repetido en la lista: cuenta una vez
+            }
+            // Elegido por el administrador: el nombre y su lugar en el conjunto quedan revisados.
+            if (!elemento.getStatus() || elemento.getProvisional()) {
+                elemento.setStatus(true);
+                elemento.setProvisional(false);
+                elementoRepository.save(elemento);
+            }
+            ConjuntoElementoEntity ce = actuales.stream()
+                    .filter(x -> x.getElemento().getId().equals(elemento.getId()))
+                    .findFirst()
+                    .orElseGet(() -> ConjuntoElementoEntity.builder().conjunto(conjunto).elemento(elemento).build());
+            ce.setOrden(++orden);
+            ce.setPideDetalle(Boolean.TRUE.equals(item.pideDetalle()));
+            ce.setProvisional(false);
+            ce.setStatus(true);
+            conjuntoElementoRepository.save(ce);
+        }
+        // Lo que no vino se quita del conjunto; no se borra: las visitas viejas lo siguen mostrando.
+        actuales.stream()
+                .filter(x -> x.getStatus() && !quedan.contains(x.getElemento().getId()))
+                .forEach(x -> {
+                    x.setStatus(false);
+                    conjuntoElementoRepository.save(x);
+                });
+
+        saveActionUseCase.save("El usuario " + usuario.username() + " ha actualizado los elementos del conjunto "
+                + conjunto.getNombre() + " (" + quedan.size() + " elementos)");
+        return ItemCatalogoResponse.fromEntity(conjunto, conjuntoRepository.enUso(id), catalogoElementos.elementosDe(id));
     }
 
     // ---------------------------------------------------------------------
@@ -466,7 +534,7 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
      * mayúscula ("  dren   Cuche " → "Dren Cuche"): así el mismo nombre escrito de dos formas no
      * queda guardado distinto. El resto se respeta tal cual (siglas, tildes).
      */
-    private String normalizarNombre(String nombre) {
+    static String normalizarNombre(String nombre) {
         String limpio = nombre.trim().replaceAll("\\s+", " ");
         return limpio.isEmpty() ? limpio : limpio.substring(0, 1).toUpperCase(ES) + limpio.substring(1);
     }

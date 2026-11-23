@@ -64,6 +64,13 @@ public interface SubstationCatalogAdminUseCase {
     /** Soft-delete: las visitas que ya lo marcaron lo conservan. */
     ItemCatalogoResponse cambiarEstadoConjunto(Long id, boolean activa, UserPrincipal usuario);
 
+    /**
+     * Lo que tiene adentro el conjunto, en orden. Reemplaza la lista: lo que no venga se quita del
+     * conjunto (sin borrarlo). Un nombre nuevo se reutiliza si ya existe escrito igual.
+     */
+    ItemCatalogoResponse guardarElementosConjunto(Long id,
+            com.app.usochicamochabackend.substation.application.dto.ConjuntoElementosRequest request, UserPrincipal usuario);
+
     List<ItemCatalogoResponse> listarElementos(String disciplina, boolean incluirInactivas);
 
     ItemCatalogoResponse crearElemento(ItemCatalogoRequest request, UserPrincipal usuario);

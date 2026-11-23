@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.substation.web;
 
+import com.app.usochicamochabackend.substation.application.dto.ConjuntoElementosRequest;
 import com.app.usochicamochabackend.substation.application.dto.DisciplinaResponse;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.substation.application.dto.ActividadRequest;
@@ -136,6 +137,16 @@ public class SubstationCatalogAdminController {
     public ResponseEntity<ItemCatalogoResponse> cambiarEstadoConjunto(
             @PathVariable Long id, @RequestBody @Valid CambioEstadoRequest request, Authentication authentication) {
         return ResponseEntity.ok(catalogAdminUseCase.cambiarEstadoConjunto(id, request.activa(), usuario(authentication)));
+    }
+
+    @PutMapping("/conjuntos/{id}/elementos")
+    @Operation(summary = "Guardar los elementos de un conjunto",
+            description = "Lista completa y en orden de lo que tiene adentro el conjunto. Lo que no venga se quita del "
+                    + "conjunto (sin borrarlo: las visitas viejas lo conservan). Un elemento nuevo va por nombre y se "
+                    + "reutiliza si ya existe escrito igual (sin mayúsculas ni tildes).")
+    public ResponseEntity<ItemCatalogoResponse> guardarElementosConjunto(
+            @PathVariable Long id, @RequestBody @Valid ConjuntoElementosRequest request, Authentication authentication) {
+        return ResponseEntity.ok(catalogAdminUseCase.guardarElementosConjunto(id, request, usuario(authentication)));
     }
 
     @GetMapping("/elementos")

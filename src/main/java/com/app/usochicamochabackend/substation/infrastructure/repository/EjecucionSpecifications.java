@@ -82,8 +82,8 @@ public final class EjecucionSpecifications {
             if (elementoId != null) {
                 // EXISTS en vez de JOIN: un JOIN a la colección repetiría filas y descuadraría la paginación.
                 Subquery<Long> sq = query.subquery(Long.class);
-                Join<EjecucionEntity, ?> elementos = sq.correlate(root).join("elementos");
-                sq.select(elementos.get("id")).where(cb.equal(elementos.get("id"), elementoId));
+                Join<EjecucionEntity, ?> marcados = sq.correlate(root).join("elementos");
+                sq.select(marcados.get("id")).where(cb.equal(marcados.get("elemento").get("id"), elementoId));
                 predicados.add(cb.exists(sq));
             }
             if (seguimiento != null && !seguimiento.isEmpty()) {

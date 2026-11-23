@@ -17,6 +17,6 @@ public interface ElementoRepository extends JpaRepository<ElementoEntity, Long> 
     List<ElementoEntity> findAllByOrderByNombreAsc();
 
     /** Lo marcó alguna visita: el nombre se puede corregir, pero no cambia de disciplina. */
-    @Query("SELECT COUNT(e) > 0 FROM EjecucionEntity e JOIN e.elementos x WHERE x.id = :id")
+    @Query("SELECT COUNT(x) > 0 FROM EjecucionElementoEntity x WHERE x.elemento.id = :id")
     boolean enUso(@Param("id") Long id);
 }

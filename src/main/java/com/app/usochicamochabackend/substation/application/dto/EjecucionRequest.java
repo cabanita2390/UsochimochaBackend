@@ -24,13 +24,28 @@ public record EjecucionRequest(
         @Schema(description = "Orden de trabajo que esta visita ejecuta; null en citas e imprevistos") Long ordenId,
         @Schema(description = "Eléctrico: IDs de los conjuntos intervenidos (opcional). Los que no son de la disciplina se ignoran.")
         List<Long> conjuntoIds,
-        @Schema(description = "Eléctrico: IDs de los elementos inspeccionados o intervenidos (opcional)")
+        @Schema(description = "Obsoleto (móviles anteriores al ajuste de conjuntos): elementos sin conjunto. Usar elementosMarcados.")
         List<Long> elementoIds,
         @Schema(description = "Eléctrico: texto de \"Otros\" en conjuntos (opcional, máx. 200)", example = "Tablero de bombas auxiliares")
         String conjuntoOtro,
-        @Schema(description = "Eléctrico: texto de \"Otros\" en elementos (opcional, máx. 200)")
-        String elementoOtro
+        @Schema(description = "Obsoleto: texto suelto de \"Otros\" en elementos. Usar elementosOtros.")
+        String elementoOtro,
+        @Schema(description = "Eléctrico: elementos marcados, cada uno con su conjunto")
+        List<ElementoMarcadoRequest> elementosMarcados,
+        @Schema(description = "Eléctrico: \"Otro\" en los elementos de un conjunto")
+        List<ElementoOtroRequest> elementosOtros
 ) {
+    /** Conjuntos y elementos sin conjunto (móviles anteriores al ajuste de conjuntos → elementos). */
+    public EjecucionRequest(LocalDate fecha, Integer mesEjecucion, Integer semanaEjecucion, Long estacionId,
+            String disciplina, String tipoMantenimiento, String tipoActividad, Long actividadId, Long programacionId,
+            String motivoNoCatalogado, String resultado, String observaciones, String descripcionLibre,
+            UUID uuidCliente, Long ordenId, List<Long> conjuntoIds, List<Long> elementoIds, String conjuntoOtro,
+            String elementoOtro) {
+        this(fecha, mesEjecucion, semanaEjecucion, estacionId, disciplina, tipoMantenimiento, tipoActividad,
+                actividadId, programacionId, motivoNoCatalogado, resultado, observaciones, descripcionLibre,
+                uuidCliente, ordenId, conjuntoIds, elementoIds, conjuntoOtro, elementoOtro, null, null);
+    }
+
     /** Sin conjuntos ni elementos (Civil; versiones del móvil anteriores a Eléctrico). */
     public EjecucionRequest(LocalDate fecha, Integer mesEjecucion, Integer semanaEjecucion, Long estacionId,
             String disciplina, String tipoMantenimiento, String tipoActividad, Long actividadId, Long programacionId,
@@ -38,7 +53,7 @@ public record EjecucionRequest(
             UUID uuidCliente, Long ordenId) {
         this(fecha, mesEjecucion, semanaEjecucion, estacionId, disciplina, tipoMantenimiento, tipoActividad,
                 actividadId, programacionId, motivoNoCatalogado, resultado, observaciones, descripcionLibre,
-                uuidCliente, ordenId, null, null, null, null);
+                uuidCliente, ordenId, null, null, null, null, null, null);
     }
 
     /** Sin orden de trabajo (citas del cronograma e imprevistos; versiones del móvil anteriores a las OT). */

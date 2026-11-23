@@ -15,6 +15,7 @@ import com.app.usochicamochabackend.substation.infrastructure.entity.ConjuntoEnt
 import com.app.usochicamochabackend.substation.infrastructure.entity.ElementoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.DisciplinaEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEdicionEntity;
+import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionElementoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EjecucionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EvidenciaEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.EstacionEntity;
@@ -23,6 +24,7 @@ import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenEvento
 import com.app.usochicamochabackend.substation.infrastructure.entity.OrdenTrabajoEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ProgramacionEntity;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ActividadRepository;
+import com.app.usochicamochabackend.substation.infrastructure.repository.ConjuntoElementoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ConjuntoRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.CumplimientoViewRepository;
 import com.app.usochicamochabackend.substation.infrastructure.repository.ElementoRepository;
@@ -57,6 +59,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -90,6 +93,8 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     private final SubstationEventosPort eventos;
     private final ConjuntoRepository conjuntoRepository;
     private final ElementoRepository elementoRepository;
+    private final ConjuntoElementoRepository conjuntoElementoRepository;
+    private final CatalogoElementos catalogoElementos;
 
     // NO_PROGRAMADO en tipoMantenimiento / tipoActividad es obsoleto: si un trabajo estaba en el
     // cronograma lo dice esProgramada (registro desde una cita), y la web y el móvil ya no lo
@@ -188,6 +193,15 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
         UserEntity usuarioEntity = userRepositoryJpa.getUserEntityById(usuario.id());
 
+        // Qué se intervino: conjuntos y, dentro de cada uno, sus elementos. Desde el móvil nunca se
+        // rechaza (pudo registrarse sin señal con un catálogo viejo): lo que no cuadra se guarda igual.
+        Set<ConjuntoEntity> conjuntos = conjuntosDe(request.conjuntoIds(), disciplina, false);
+        List<Marca> marcas = marcasDeLaVisita(request.elementosMarcados(), request.elementosOtros(),
+                request.elementoIds(), conjuntos, disciplina, false, List.of());
+        if (conjuntoObligatorio(disciplina) && conjuntos.isEmpty() && textoOtro(request.conjuntoOtro()) == null) {
+            log.warn("Visita {} de {} sin conjunto: se guarda igual", request.uuidCliente(), disciplina.getCodigo());
+        }
+
         EjecucionEntity entity = EjecucionEntity.builder()
                 .fecha(request.fecha())
                 .mesEjecucion(request.mesEjecucion())
@@ -206,11 +220,11 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .descripcionLibre(actividad == null ? descripcionLibre : null)
                 .uuidCliente(request.uuidCliente())
                 .orden(orden)
-                .conjuntos(conjuntosDe(request.conjuntoIds(), disciplina, false))
-                .elementos(elementosDe(request.elementoIds(), disciplina, false))
+                .conjuntos(conjuntos)
                 .conjuntoOtro(textoOtro(request.conjuntoOtro()))
                 .elementoOtro(textoOtro(request.elementoOtro()))
                 .build();
+        aplicarMarcas(entity, marcas);
 
         EjecucionEntity guardada = ejecucionRepository.save(entity);
         if (orden != null) {
@@ -409,6 +423,165 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 e -> e.getDisciplina().getId().equals(disciplina.getId()), "elemento", disciplina, estricto);
     }
 
+    /** Un elemento marcado en la visita, con su conjunto (null = "sin conjunto") y su texto. */
+    private record Marca(ConjuntoEntity conjunto, ElementoEntity elemento, String detalle) {
+        String clave() {
+            return (conjunto != null ? conjunto.getId() : 0) + ":" + elemento.getId();
+        }
+    }
+
+    private static boolean conjuntoObligatorio(DisciplinaEntity disciplina) {
+        return DisciplinaEntity.CONJUNTOS_OBLIGATORIO.equals(disciplina.getConjuntos());
+    }
+
+    /**
+     * Elementos marcados en la visita, cada uno dentro de su conjunto. {@code conjuntos} son los
+     * conjuntos marcados y puede crecer.
+     * <ul>
+     *   <li>Registro desde el móvil ({@code estricto = false}): nada se rechaza. Un elemento que ya no
+     *   existe o es de otra disciplina se ignora; uno cuyo conjunto no se marcó agrega ese conjunto;
+     *   uno cuyo conjunto no sirve queda "sin conjunto".</li>
+     *   <li>Edición ({@code estricto = true}): cualquiera de esos casos es un 400, y el elemento debe
+     *   pertenecer al conjunto (aunque después se haya quitado de él).</li>
+     * </ul>
+     * {@code elementoIdsSinConjunto} es lo que mandan los clientes anteriores al ajuste: conserva el
+     * conjunto que el elemento ya tenía en {@code anteriores}. Si viene junto con la lista nueva (el
+     * móvil al editar una visita vieja), son los elementos "sin conjunto" que esa visita conserva.
+     */
+    private List<Marca> marcasDeLaVisita(List<ElementoMarcadoRequest> marcados, List<ElementoOtroRequest> otros,
+            List<Long> elementoIdsSinConjunto, Set<ConjuntoEntity> conjuntos, DisciplinaEntity disciplina,
+            boolean estricto, List<EjecucionElementoEntity> anteriores) {
+        Map<String, Marca> marcas = new LinkedHashMap<>();
+        boolean conConjunto = marcados != null || otros != null;
+
+        for (ElementoEntity e : elementosDe(elementoIdsSinConjunto, disciplina, estricto)) {
+            List<EjecucionElementoEntity> previos = anteriores.stream()
+                    .filter(a -> a.getElemento().getId().equals(e.getId()))
+                    // Junto con la lista nueva solo vienen los "sin conjunto" de una visita vieja.
+                    .filter(a -> !conConjunto || a.getConjunto() == null)
+                    .toList();
+            if (previos.isEmpty()) {
+                Marca m = new Marca(null, e, null);
+                marcas.put(m.clave(), m);
+            } else {
+                previos.forEach(a -> {
+                    Marca m = new Marca(a.getConjunto(), e, a.getDetalle());
+                    marcas.put(m.clave(), m);
+                });
+            }
+        }
+        if (!conConjunto) {
+            return new ArrayList<>(marcas.values());
+        }
+
+        for (ElementoMarcadoRequest r : marcados == null ? List.<ElementoMarcadoRequest>of() : marcados) {
+            if (r == null) {
+                continue;
+            }
+            ElementoEntity elemento = r.elementoId() == null ? null
+                    : elementoRepository.findById(r.elementoId())
+                            .filter(e -> e.getDisciplina().getId().equals(disciplina.getId()))
+                            .orElse(null);
+            if (elemento == null) {
+                if (estricto) {
+                    throw new BadRequestException("elemento inválido para disciplina " + disciplina.getCodigo()
+                            + ": id=" + r.elementoId());
+                }
+                log.warn("Elemento {} ignorado: no existe o no es de {}", r.elementoId(), disciplina.getCodigo());
+                continue;
+            }
+            ConjuntoEntity conjunto = conjuntoDeLaMarca(r.conjuntoId(), conjuntos, disciplina, estricto);
+            if (estricto && conjuntoElementoRepository
+                    .findByConjunto_IdAndElemento_Id(conjunto.getId(), elemento.getId()).isEmpty()) {
+                throw new BadRequestException("\"" + elemento.getNombre() + "\" no es un elemento de \""
+                        + conjunto.getNombre() + "\"");
+            }
+            Marca m = new Marca(conjunto, elemento, textoDetalle(r.detalle()));
+            marcas.put(m.clave(), m);
+        }
+
+        // "Otro": el texto pasa a ser un elemento de ese conjunto (provisional) y el siguiente ya lo encuentra.
+        for (ElementoOtroRequest r : otros == null ? List.<ElementoOtroRequest>of() : otros) {
+            String texto = r == null ? null : textoOtro(r.texto());
+            if (texto == null) {
+                continue;
+            }
+            ConjuntoEntity conjunto = conjuntoDeLaMarca(r.conjuntoId(), conjuntos, disciplina, estricto);
+            ElementoEntity elemento = catalogoElementos.elementoPorNombre(disciplina, texto, true);
+            if (conjunto != null) {
+                catalogoElementos.agregarAConjunto(conjunto, elemento, true);
+            }
+            Marca m = new Marca(conjunto, elemento, null);
+            marcas.putIfAbsent(m.clave(), m);
+        }
+        return new ArrayList<>(marcas.values());
+    }
+
+    /** El conjunto de un elemento marcado (ver {@link #marcasDeLaVisita}); null = "sin conjunto". */
+    private ConjuntoEntity conjuntoDeLaMarca(Long conjuntoId, Set<ConjuntoEntity> conjuntos,
+            DisciplinaEntity disciplina, boolean estricto) {
+        ConjuntoEntity conjunto = conjuntoId == null ? null
+                : conjuntos.stream().filter(c -> c.getId().equals(conjuntoId)).findFirst()
+                        .orElseGet(() -> conjuntoRepository.findById(conjuntoId)
+                                .filter(c -> c.getDisciplina().getId().equals(disciplina.getId()))
+                                .orElse(null));
+        if (estricto) {
+            if (conjunto == null) {
+                throw new BadRequestException("conjunto inválido para disciplina " + disciplina.getCodigo()
+                        + ": id=" + conjuntoId);
+            }
+            if (!conjuntos.contains(conjunto)) {
+                throw new BadRequestException("Para marcar sus elementos hay que marcar el conjunto \""
+                        + conjunto.getNombre() + "\"");
+            }
+        } else if (conjunto != null) {
+            conjuntos.add(conjunto);
+        } else if (conjuntoId != null) {
+            log.warn("Conjunto {} ignorado: no existe o no es de {}", conjuntoId, disciplina.getCodigo());
+        }
+        return conjunto;
+    }
+
+    /**
+     * Deja en la visita exactamente {@code marcas}. Cambia la misma lista (no la reemplaza) y conserva
+     * las filas que siguen: borrar y volver a insertar la misma fila chocaría con el índice único,
+     * porque Hibernate inserta antes de borrar.
+     */
+    private static void aplicarMarcas(EjecucionEntity entity, List<Marca> marcas) {
+        Map<String, Marca> deseadas = new LinkedHashMap<>();
+        marcas.forEach(m -> deseadas.put(m.clave(), m));
+        List<EjecucionElementoEntity> filas = entity.getElementos();
+        filas.removeIf(f -> !deseadas.containsKey(new Marca(f.getConjunto(), f.getElemento(), null).clave()));
+        for (EjecucionElementoEntity f : filas) {
+            Marca m = deseadas.remove(new Marca(f.getConjunto(), f.getElemento(), null).clave());
+            f.setDetalle(m.detalle());
+        }
+        deseadas.values().forEach(m -> filas.add(EjecucionElementoEntity.builder()
+                .ejecucion(entity)
+                .conjunto(m.conjunto())
+                .elemento(m.elemento())
+                .detalle(m.detalle())
+                .build()));
+    }
+
+    /** "Transformador › Estado físico: con óxido, Breaker" para el historial; null si no hay ninguno. */
+    private static String describir(List<Marca> marcas) {
+        return marcas.isEmpty() ? null : marcas.stream()
+                .map(m -> (m.conjunto() != null ? m.conjunto().getNombre() + " › " : "") + m.elemento().getNombre()
+                        + (m.detalle() != null ? ": " + m.detalle() : ""))
+                .sorted()
+                .collect(Collectors.joining(", "));
+    }
+
+    /** Texto de un elemento que lo pide: sin espacios sobrantes, vacío → null, máximo 500. */
+    private static String textoDetalle(String texto) {
+        if (texto == null || texto.isBlank()) {
+            return null;
+        }
+        String limpio = texto.trim().replaceAll("\\s+", " ");
+        return limpio.length() > 500 ? limpio.substring(0, 500) : limpio;
+    }
+
     private static List<Long> idsSinNulos(List<Long> ids) {
         return ids == null ? List.of() : ids.stream().filter(Objects::nonNull).distinct().toList();
     }
@@ -570,16 +743,33 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         // null = el cliente no los envía (Civil, móvil anterior): se dejan como estaban.
         Set<ConjuntoEntity> conjuntos = request.conjuntoIds() == null ? entity.getConjuntos()
                 : conjuntosDe(request.conjuntoIds(), entity.getDisciplina(), true);
-        Set<ElementoEntity> elementos = request.elementoIds() == null ? entity.getElementos()
-                : elementosDe(request.elementoIds(), entity.getDisciplina(), true);
+        if (request.conjuntoIds() != null && conjuntoObligatorio(entity.getDisciplina()) && conjuntos.isEmpty()
+                && textoOtro(request.conjuntoOtro() != null ? request.conjuntoOtro() : entity.getConjuntoOtro()) == null) {
+            throw new BadRequestException("En " + disciplina + " hay que marcar al menos un conjunto");
+        }
+        conjuntos = new HashSet<>(conjuntos);
+        boolean tocaElementos = request.elementosMarcados() != null || request.elementosOtros() != null
+                || request.elementoIds() != null;
+        List<Marca> marcas = tocaElementos
+                ? marcasDeLaVisita(request.elementosMarcados(), request.elementosOtros(), request.elementoIds(),
+                        conjuntos, entity.getDisciplina(), true, entity.getElementos())
+                : entity.getElementos().stream()
+                        .map(m -> new Marca(m.getConjunto(), m.getElemento(), m.getDetalle())).toList();
+        // Un conjunto que se quita se lleva sus elementos.
+        if (request.conjuntoIds() != null && !tocaElementos) {
+            Set<ConjuntoEntity> finales = conjuntos;
+            marcas = marcas.stream().filter(m -> m.conjunto() == null || finales.contains(m.conjunto())).toList();
+        }
         String conjuntoOtro = request.conjuntoOtro() == null ? entity.getConjuntoOtro() : textoOtro(request.conjuntoOtro());
         String elementoOtro = request.elementoOtro() == null ? entity.getElementoOtro() : textoOtro(request.elementoOtro());
 
         List<CambioCampo> cambios = calcularCambios(entity, request, actividad);
         agregarSiCambio(cambios, "conjuntos", nombres(entity.getConjuntos(), ConjuntoEntity::getNombre),
                 nombres(conjuntos, ConjuntoEntity::getNombre));
-        agregarSiCambio(cambios, "elementos", nombres(entity.getElementos(), ElementoEntity::getNombre),
-                nombres(elementos, ElementoEntity::getNombre));
+        agregarSiCambio(cambios, "elementos",
+                describir(entity.getElementos().stream()
+                        .map(m -> new Marca(m.getConjunto(), m.getElemento(), m.getDetalle())).toList()),
+                describir(marcas));
         agregarSiCambio(cambios, "conjuntoOtro", entity.getConjuntoOtro(), conjuntoOtro);
         agregarSiCambio(cambios, "elementoOtro", entity.getElementoOtro(), elementoOtro);
         if (cambios.isEmpty()) {
@@ -599,7 +789,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         entity.setObservaciones(request.observaciones());
         entity.setDescripcionLibre(actividad == null ? request.descripcionLibre() : null);
         entity.setConjuntos(new HashSet<>(conjuntos));
-        entity.setElementos(new HashSet<>(elementos));
+        aplicarMarcas(entity, marcas);
         entity.setConjuntoOtro(conjuntoOtro);
         entity.setElementoOtro(elementoOtro);
         ejecucionRepository.save(entity);

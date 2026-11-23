@@ -25,13 +25,27 @@ public record EjecucionEditRequest(
         String motivoEdicion,
         @Schema(description = "Eléctrico: conjuntos intervenidos. null = no se cambian; lista vacía = se quitan todos.")
         List<Long> conjuntoIds,
-        @Schema(description = "Eléctrico: elementos intervenidos. null = no se cambian; lista vacía = se quitan todos.")
+        @Schema(description = "Obsoleto: elementos sin conjunto (null = no se cambian). Usar elementosMarcados.")
         List<Long> elementoIds,
         @Schema(description = "Eléctrico: \"Otros\" en conjuntos. null = no se cambia; vacío = se borra.")
         String conjuntoOtro,
-        @Schema(description = "Eléctrico: \"Otros\" en elementos. null = no se cambia; vacío = se borra.")
-        String elementoOtro
+        @Schema(description = "Eléctrico: \"Otros\" suelto en elementos (visitas viejas). null = no se cambia; vacío = se borra.")
+        String elementoOtro,
+        @Schema(description = "Eléctrico: elementos marcados con su conjunto. null = no se cambian; lista vacía = se quitan todos.")
+        List<ElementoMarcadoRequest> elementosMarcados,
+        @Schema(description = "Eléctrico: \"Otro\" en los elementos de un conjunto (se agregan a elementosMarcados)")
+        List<ElementoOtroRequest> elementosOtros
 ) {
+    /** Conjuntos y elementos sin conjunto (clientes anteriores al ajuste de conjuntos → elementos). */
+    public EjecucionEditRequest(LocalDate fecha, Integer mesEjecucion, Integer semanaEjecucion,
+            String tipoMantenimiento, String tipoActividad, Long actividadId, String motivoNoCatalogado,
+            String resultado, String observaciones, String descripcionLibre, String motivoEdicion,
+            List<Long> conjuntoIds, List<Long> elementoIds, String conjuntoOtro, String elementoOtro) {
+        this(fecha, mesEjecucion, semanaEjecucion, tipoMantenimiento, tipoActividad, actividadId,
+                motivoNoCatalogado, resultado, observaciones, descripcionLibre, motivoEdicion,
+                conjuntoIds, elementoIds, conjuntoOtro, elementoOtro, null, null);
+    }
+
     /**
      * Sin tocar conjuntos ni elementos: Civil y las versiones del móvil anteriores a Eléctrico, cuyo
      * "Editar registro" no los envía (null) y no debe borrarlos.
@@ -41,6 +55,6 @@ public record EjecucionEditRequest(
             String resultado, String observaciones, String descripcionLibre, String motivoEdicion) {
         this(fecha, mesEjecucion, semanaEjecucion, tipoMantenimiento, tipoActividad, actividadId,
                 motivoNoCatalogado, resultado, observaciones, descripcionLibre, motivoEdicion,
-                null, null, null, null);
+                null, null, null, null, null, null);
     }
 }

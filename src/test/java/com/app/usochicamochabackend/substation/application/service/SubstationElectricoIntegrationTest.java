@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.substation.application.service;
 
 import com.app.usochicamochabackend.substation.application.dto.DisciplinaResponse;
+import com.app.usochicamochabackend.substation.application.dto.ElementoMarcadoResponse;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
@@ -150,6 +151,10 @@ class SubstationElectricoIntegrationTest {
         return items.stream().map(ItemRefResponse::nombre).toList();
     }
 
+    private static List<String> nombresElementos(List<ElementoMarcadoResponse> items) {
+        return items.stream().map(ElementoMarcadoResponse::nombre).toList();
+    }
+
     // ---------------------------------------------------------------------
     // Registro y edición de la visita
     // ---------------------------------------------------------------------
@@ -164,7 +169,7 @@ class SubstationElectricoIntegrationTest {
 
         EjecucionResponse leida = ejecucionUseCase.obtenerEjecucion(creada.id());
         assertEquals(List.of("Gabinetes de control", "Motores"), nombres(leida.conjuntos()));
-        assertEquals(List.of("Breaker", "Variador de velocidad"), nombres(leida.elementos()));
+        assertEquals(List.of("Breaker", "Variador de velocidad"), nombresElementos(leida.elementos()));
         assertEquals("Tablero auxiliar", leida.conjuntoOtro());
         assertNull(leida.elementoOtro(), "Un \"Otros\" en blanco no se guarda");
     }
@@ -186,7 +191,7 @@ class SubstationElectricoIntegrationTest {
                 null, null), usuario);
 
         assertEquals(List.of("Gabinetes de control"), nombres(creada.conjuntos()));
-        assertEquals(List.of("Breaker"), nombres(creada.elementos()));
+        assertEquals(List.of("Breaker"), nombresElementos(creada.elementos()));
     }
 
     @Test
@@ -197,7 +202,7 @@ class SubstationElectricoIntegrationTest {
         EjecucionResponse creada = ejecucionUseCase.registrarEjecucion(
                 visita(estacionUno, "INSPECCION", null, List.of(breaker.getId()), null, null), usuario);
 
-        assertEquals(List.of("Breaker"), nombres(creada.elementos()));
+        assertEquals(List.of("Breaker"), nombresElementos(creada.elementos()));
     }
 
     @Test
@@ -219,7 +224,7 @@ class SubstationElectricoIntegrationTest {
         EjecucionResponse editada = ejecucionUseCase.editarEjecucion(creada.id(), sinTocarlos, usuario);
 
         assertEquals(List.of("Gabinetes de control"), nombres(editada.conjuntos()));
-        assertEquals(List.of("Breaker"), nombres(editada.elementos()));
+        assertEquals(List.of("Breaker"), nombresElementos(editada.elementos()));
         assertEquals("Tablero", editada.conjuntoOtro());
     }
 

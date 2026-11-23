@@ -10,7 +10,9 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -96,14 +98,16 @@ public class EjecucionEntity {
     @EqualsAndHashCode.Exclude
     private Set<ConjuntoEntity> conjuntos = new HashSet<>();
 
-    @ManyToMany
-    @JoinTable(name = "mant_ejecucion_elemento",
-            joinColumns = @JoinColumn(name = "ejecucion_id"),
-            inverseJoinColumns = @JoinColumn(name = "elemento_id"))
+    /**
+     * Elementos marcados, cada uno con su conjunto (V54). Se cambia siempre sobre esta misma lista
+     * (clear + add), nunca reemplazándola: orphanRemoval borra las filas quitadas.
+     */
+    @OneToMany(mappedBy = "ejecucion", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("id")
     @Builder.Default
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    private Set<ElementoEntity> elementos = new HashSet<>();
+    private List<EjecucionElementoEntity> elementos = new ArrayList<>();
 
     @Column(name = "conjunto_otro", length = 200)
     private String conjuntoOtro; // texto de "Otros"; null si no se usó
