@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.substation.application.port;
 
+import com.app.usochicamochabackend.substation.application.dto.DisciplinaResponse;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.substation.application.dto.ActividadRequest;
 import com.app.usochicamochabackend.substation.application.dto.ActividadResponse;
@@ -15,6 +16,11 @@ import java.util.List;
  * (solo ADMIN, ver SecurityConfig).
  */
 public interface SubstationCatalogAdminUseCase {
+
+    // ----- Disciplinas -----
+
+    /** Disciplinas con sus características, en su orden. Las leen la web y el móvil. */
+    List<DisciplinaResponse> listarDisciplinas();
 
     // ----- Estaciones -----
 

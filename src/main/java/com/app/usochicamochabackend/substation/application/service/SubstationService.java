@@ -100,23 +100,11 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
     private static final Set<String> RESULTADO_VALIDOS =
             Set.of("CONFORME", "CON_HALLAZGOS", "REQUIERE_INTERVENCION");
 
-    /** Valores que acepta cada disciplina según su formulario. */
-    private record ReglasDisciplina(Set<String> tiposActividad, Set<String> motivosNoCatalogado) {
-    }
-
-    // Civil y Eléctrico piden lo mismo en el formulario (Inspección / Mantenimiento / No programado).
-    private static final ReglasDisciplina REGLAS_FORMULARIO =
-            new ReglasDisciplina(Set.of("INSPECCION", "MANTENIMIENTO", "NO_PROGRAMADO"), Set.of("NO_PROGRAMADO"));
-    // Disciplinas sin formulario definido todavía (Electromecánico): lo amplio de V34, incluido OTRO.
-    private static final ReglasDisciplina REGLAS_POR_DEFECTO = new ReglasDisciplina(
-            Set.of("INSPECCION", "MANTENIMIENTO", "NO_PROGRAMADO", "OTRO"), Set.of("NO_PROGRAMADO", "OTRO"));
-    private static final Map<String, ReglasDisciplina> REGLAS_POR_DISCIPLINA =
-            Map.of("CIVIL", REGLAS_FORMULARIO, "ELECTRICO", REGLAS_FORMULARIO);
-
-    private static ReglasDisciplina reglas(String disciplina) {
-        return disciplina == null ? REGLAS_POR_DEFECTO
-                : REGLAS_POR_DISCIPLINA.getOrDefault(disciplina, REGLAS_POR_DEFECTO);
-    }
+    // Los formularios de todas las disciplinas piden lo mismo (Inspección / Mantenimiento / No
+    // programado). OTRO (V34) ya no se acepta en ninguna: se quitó "Otros" (D9 de Electromecánico).
+    // Lo que sí cambia por disciplina (conjuntos, elementos, equipos, controles) está en mant_disciplina.
+    private static final Set<String> TIPO_ACTIVIDAD_VALIDOS = Set.of("INSPECCION", "MANTENIMIENTO", "NO_PROGRAMADO");
+    private static final Set<String> MOTIVO_NO_CATALOGADO_VALIDOS = Set.of("NO_PROGRAMADO");
 
     /** Tope de los textos "Otros" (columna VARCHAR(200)). */
     static final int LARGO_MAXIMO_OTRO = 200;
@@ -161,9 +149,22 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
 
         ActividadEntity actividad = null;
         ProgramacionEntity programacion = null;
+        String motivoNoCatalogado = request.motivoNoCatalogado();
+        String descripcionLibre = request.descripcionLibre();
         if (request.actividadId() != null) {
             actividad = actividadRepository.findById(request.actividadId())
                     .orElseThrow(() -> new ResourceNotFoundException("Actividad no encontrada: id=" + request.actividadId()));
+            // Una actividad de otra disciplina descuadra los indicadores por disciplina. Rechazarla
+            // dejaría al móvil reintentando para siempre (catálogo viejo, sin señal): la visita se
+            // guarda como un trabajo no programado, con el nombre de la actividad como descripción.
+            if (!actividad.getDisciplina().getId().equals(disciplina.getId())) {
+                log.warn("Visita {} de {} con la actividad {} ({}) de otra disciplina: se guarda como no programada",
+                        request.uuidCliente(), disciplina.getCodigo(), actividad.getId(),
+                        actividad.getDisciplina().getCodigo());
+                motivoNoCatalogado = "NO_PROGRAMADO";
+                descripcionLibre = actividad.getNombre();
+                actividad = null;
+            }
         }
         if (request.programacionId() != null && orden == null) {
             programacion = programacionRepository.findById(request.programacionId())
@@ -199,10 +200,10 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
                 .actividad(actividad)
                 .programacion(programacion)
                 .esProgramada(programacion != null)
-                .motivoNoCatalogado(actividad == null ? request.motivoNoCatalogado() : null)
+                .motivoNoCatalogado(actividad == null ? motivoNoCatalogado : null)
                 .resultado(request.resultado())
                 .observaciones(request.observaciones())
-                .descripcionLibre(actividad == null ? request.descripcionLibre() : null)
+                .descripcionLibre(actividad == null ? descripcionLibre : null)
                 .uuidCliente(request.uuidCliente())
                 .orden(orden)
                 .conjuntos(conjuntosDe(request.conjuntoIds(), disciplina, false))
@@ -491,8 +492,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         if (resultado == null || !RESULTADO_VALIDOS.contains(resultado)) {
             throw new BadRequestException("resultado inválido: " + resultado);
         }
-        ReglasDisciplina reglas = reglas(disciplina);
-        if (tipoActividad == null || !reglas.tiposActividad().contains(tipoActividad)) {
+        if (tipoActividad == null || !TIPO_ACTIVIDAD_VALIDOS.contains(tipoActividad)) {
             throw new BadRequestException(
                     "tipoActividad inválido para disciplina " + disciplina + ": " + tipoActividad);
         }
@@ -507,7 +507,7 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
             if (motivoNoCatalogado == null) {
                 throw new BadRequestException("motivoNoCatalogado es obligatorio cuando actividadId es null.");
             }
-            if (!reglas.motivosNoCatalogado().contains(motivoNoCatalogado)) {
+            if (!MOTIVO_NO_CATALOGADO_VALIDOS.contains(motivoNoCatalogado)) {
                 throw new BadRequestException(
                         "motivoNoCatalogado inválido para disciplina " + disciplina + ": " + motivoNoCatalogado);
             }
@@ -559,6 +559,12 @@ public class SubstationService implements SubstationCatalogUseCase, SubstationEj
         if (request.actividadId() != null) {
             actividad = actividadRepository.findById(request.actividadId())
                     .orElseThrow(() -> new ResourceNotFoundException("Actividad no encontrada: id=" + request.actividadId()));
+            // Solo al cambiarla: un registro viejo que ya la tiene se puede seguir corrigiendo.
+            if (!actividad.getId().equals(actividadActualId)
+                    && !actividad.getDisciplina().getId().equals(entity.getDisciplina().getId())) {
+                throw new BadRequestException("actividad inválida para disciplina " + disciplina + ": id="
+                        + actividad.getId() + " es de " + actividad.getDisciplina().getCodigo());
+            }
         }
 
         // null = el cliente no los envía (Civil, móvil anterior): se dejan como estaban.

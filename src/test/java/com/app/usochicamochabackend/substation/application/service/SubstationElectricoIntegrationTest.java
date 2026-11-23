@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.substation.application.service;
 
+import com.app.usochicamochabackend.substation.application.dto.DisciplinaResponse;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
@@ -247,6 +248,72 @@ class SubstationElectricoIntegrationTest {
 
         assertThrows(BadRequestException.class, () -> ejecucionUseCase.editarEjecucion(creada.id(),
                 edicion(creada, null, List.of(elementoCivil.getId()), null, null), usuario));
+    }
+
+    @Test
+    void electromecanico_tampocoAceptaOtro() {
+        disciplinaRepository.save(DisciplinaEntity.builder().codigo("ELECTROMECANICO").build());
+        EjecucionRequest otro = new EjecucionRequest(LocalDate.of(2026, 9, 7), 9, 2, estacionUno.getId(),
+                "ELECTROMECANICO", "CORRECTIVO", "OTRO", null, null, "OTRO", "CONFORME",
+                "Cambio de sello", "Algo no catalogado", UUID.randomUUID());
+
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.registrarEjecucion(otro, usuario));
+    }
+
+    @Test
+    void listarDisciplinas_enSuOrdenConSusCaracteristicas() {
+        electrico.setNombre("Eléctrico");
+        electrico.setOrden(2);
+        electrico.setCapturaMovil(true);
+        electrico.setConjuntos(DisciplinaEntity.CONJUNTOS_OPCIONAL);
+        electrico.setUsaElementos(true);
+        civil.setNombre("Civil");
+        civil.setOrden(1);
+        disciplinaRepository.saveAll(List.of(electrico, civil));
+
+        var disciplinas = catalogAdminUseCase.listarDisciplinas();
+
+        assertEquals(List.of("CIVIL", "ELECTRICO"),
+                disciplinas.stream().map(DisciplinaResponse::codigo).toList());
+        var e = disciplinas.get(1);
+        assertEquals("Eléctrico", e.nombre());
+        assertTrue(e.capturaMovil());
+        assertEquals("OPCIONAL", e.conjuntos());
+        assertTrue(e.usaElementos());
+        assertFalse(e.usaEquipos());
+        assertEquals("NO", disciplinas.get(0).conjuntos());
+    }
+
+    @Test
+    void registrarDesdeElMovilConUnaActividadDeOtraDisciplina_seGuardaComoNoProgramada() {
+        ActividadEntity pintura = actividadRepository.save(ActividadEntity.builder()
+                .nombre("Pintura de prueba").disciplina(civil).capturaMovilHabilitada(true).status(true).build());
+        EjecucionRequest base = visita(estacionUno, "MANTENIMIENTO", null, null, null, null);
+        EjecucionRequest conPintura = new EjecucionRequest(base.fecha(), base.mesEjecucion(), base.semanaEjecucion(),
+                base.estacionId(), "ELECTRICO", base.tipoMantenimiento(), base.tipoActividad(), pintura.getId(),
+                null, null, base.resultado(), base.observaciones(), null, base.uuidCliente(), null,
+                null, null, null, null);
+
+        EjecucionResponse creada = ejecucionUseCase.registrarEjecucion(conPintura, usuario);
+
+        assertNull(creada.actividadId(), "No debe contar como actividad de Eléctrico");
+        assertEquals("NO_PROGRAMADO", creada.motivoNoCatalogado());
+        assertEquals("Pintura de prueba", creada.descripcionLibre());
+        assertEquals("ELECTRICO", creada.disciplina());
+    }
+
+    @Test
+    void editarConUnaActividadDeOtraDisciplina_esUn400() {
+        ActividadEntity pintura = actividadRepository.save(ActividadEntity.builder()
+                .nombre("Pintura de prueba").disciplina(civil).capturaMovilHabilitada(true).status(true).build());
+        EjecucionResponse creada = ejecucionUseCase.registrarEjecucion(
+                visita(estacionUno, "INSPECCION", null, null, null, null), usuario);
+
+        EjecucionEditRequest conPintura = new EjecucionEditRequest(creada.fecha(), creada.mesEjecucion(),
+                creada.semanaEjecucion(), creada.tipoMantenimiento(), creada.tipoActividad(), pintura.getId(),
+                null, creada.resultado(), creada.observaciones(), null, "Se cambia la actividad de la visita");
+
+        assertThrows(BadRequestException.class, () -> ejecucionUseCase.editarEjecucion(creada.id(), conPintura, usuario));
     }
 
     // ---------------------------------------------------------------------

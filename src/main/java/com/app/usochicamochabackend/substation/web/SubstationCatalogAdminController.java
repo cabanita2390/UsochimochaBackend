@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.substation.web;
 
+import com.app.usochicamochabackend.substation.application.dto.DisciplinaResponse;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.substation.application.dto.ActividadRequest;
 import com.app.usochicamochabackend.substation.application.dto.ActividadResponse;
@@ -31,10 +32,18 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/substation")
 @RequiredArgsConstructor
-@Tag(name = "Subestaciones - Catálogo", description = "Estaciones, actividades, conjuntos y elementos: consulta y administración (alta, edición, activar/desactivar).")
+@Tag(name = "Subestaciones - Catálogo", description = "Disciplinas, estaciones, actividades, conjuntos y elementos: consulta y administración (alta, edición, activar/desactivar).")
 public class SubstationCatalogAdminController {
 
     private final SubstationCatalogAdminUseCase catalogAdminUseCase;
+
+    @GetMapping("/disciplinas")
+    @Operation(summary = "Listar disciplinas y sus características",
+            description = "Nombre visible, orden, si el móvil las captura, conjuntos (NO / OPCIONAL / OBLIGATORIO), "
+                    + "elementos, equipos y controles. La web y el móvil no tienen estas reglas en su código.")
+    public ResponseEntity<List<DisciplinaResponse>> listarDisciplinas() {
+        return ResponseEntity.ok(catalogAdminUseCase.listarDisciplinas());
+    }
 
     @GetMapping("/estaciones")
     @Operation(summary = "Listar estaciones", description = "Por defecto solo activas (lo que usa el móvil). incluirInactivas=true para Configuración.")

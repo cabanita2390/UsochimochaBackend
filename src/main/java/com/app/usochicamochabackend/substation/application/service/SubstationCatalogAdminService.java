@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.substation.application.dto.ActividadRequest;
 import com.app.usochicamochabackend.substation.application.dto.ActividadResponse;
+import com.app.usochicamochabackend.substation.application.dto.DisciplinaResponse;
 import com.app.usochicamochabackend.substation.application.dto.EstacionRequest;
 import com.app.usochicamochabackend.substation.application.dto.EstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ItemCatalogoRequest;
@@ -51,6 +52,18 @@ public class SubstationCatalogAdminService implements SubstationCatalogAdminUseC
     private final EjecucionRepository ejecucionRepository;
     private final ConjuntoRepository conjuntoRepository;
     private final ElementoRepository elementoRepository;
+
+    // ---------------------------------------------------------------------
+    // Disciplinas
+    // ---------------------------------------------------------------------
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DisciplinaResponse> listarDisciplinas() {
+        return disciplinaRepository.findAllByOrderByOrdenAscCodigoAsc().stream()
+                .map(DisciplinaResponse::fromEntity)
+                .toList();
+    }
 
     // ---------------------------------------------------------------------
     // Estaciones

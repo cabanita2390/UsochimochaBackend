@@ -91,6 +91,7 @@ class SubstationSecurityTest {
             "GET,    /api/v1/substation/indicadores/por-actividad?disciplina=CIVIL, SUPERVISOR_OPERATIVO, true",
             "GET,    /api/v1/substation/cronograma?anio=2026,       SUPERVISOR_OPERATIVO, true",
             // El OPERARIO solo usa el móvil: lee lo que pide la app y nada de la web
+            "GET,    /api/v1/substation/disciplinas,                OPERARIO,             true",
             "GET,    /api/v1/substation/actividades,                OPERARIO,             true",
             "GET,    /api/v1/substation/programacion?estacionId=1&anio=2026&mes=10, OPERARIO, true",
             "GET,    /api/v1/substation/ejecuciones,                OPERARIO,             true",
