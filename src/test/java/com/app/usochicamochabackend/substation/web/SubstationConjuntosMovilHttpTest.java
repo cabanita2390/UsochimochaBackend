@@ -109,4 +109,12 @@ class SubstationConjuntosMovilHttpTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].elementos").value(nullValue()));
     }
+
+    @Test
+    void ejecucionesSeOrdenanPorDisciplina() throws Exception {
+        // La columna Disciplina de la web ordena con sort=disciplina.orden (Civil, Eléctrico, Electromecánico).
+        mockMvc.perform(get("/api/v1/substation/ejecuciones").param("sort", "disciplina.orden,desc")
+                        .with(authentication(operario)))
+                .andExpect(status().isOk());
+    }
 }
