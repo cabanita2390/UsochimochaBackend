@@ -175,15 +175,10 @@ public class SubstationController {
             @RequestParam(required = false) Long estacionId,
             @RequestParam(required = false) List<String> columnas,
             Authentication authentication) throws IOException {
-        String usuario = authentication != null && authentication.getPrincipal() instanceof UserPrincipal u
-                ? u.username() : "—";
+        String usuario = com.app.usochicamochabackend.common.excel.RespuestaExcel.usuarioActual();
         var archivo = exportacion.exportar(hoja,
                 new ExportacionEstacionesService.Filtros(disciplina, anio, mes, estacionId), columnas, usuario);
-        return ResponseEntity.ok()
-                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + archivo.nombre() + "\"")
-                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                .body(archivo.contenido());
+        return com.app.usochicamochabackend.common.excel.RespuestaExcel.de(archivo.contenido(), archivo.nombre());
     }
 
     @GetMapping("/indicadores/cumplimiento")
