@@ -1,7 +1,5 @@
 package com.app.usochicamochabackend.order.web;
 
-import com.app.usochicamochabackend.common.excel.Periodo;
-import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.*;
@@ -17,14 +15,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/order")
@@ -37,7 +32,6 @@ public class OrderController {
     private final AssignVehicleOrderUseCase assignVehicleOrderUseCase;
     private final GetAllOrdersByVehicleInspectionIdUseCase getAllOrdersByVehicleInspectionIdUseCase;
     private final GetAllVehicleOrdersUseCase getAllVehicleOrdersUseCase;
-    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @Operation(
             summary = "Assign a new order",
@@ -116,21 +110,4 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
-    @Operation(summary = "Exportar órdenes de maquinaria a Excel")
-    @GetMapping("/export")
-    public ResponseEntity<byte[]> exportMachineOrders(
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-        return motorReportes.descargar("ordenes-maquinaria", desde, hasta, java.util.Map.of());
-    }
-
-    @Operation(summary = "Exportar órdenes de vehículos o de motos a Excel",
-            description = "Por defecto, las de vehículos (sin motos), como la pestaña Vehículos. Con `soloMotos=true`, solo las de motos.")
-    @GetMapping("/vehicle/export")
-    public ResponseEntity<byte[]> exportVehicleOrders(
-            @RequestParam(defaultValue = "false") boolean soloMotos,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-        return motorReportes.descargar(soloMotos ? "ordenes-motos" : "ordenes-vehiculos", desde, hasta, java.util.Map.of());
-    }
 }

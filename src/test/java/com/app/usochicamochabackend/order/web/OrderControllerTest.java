@@ -3,7 +3,6 @@ package com.app.usochicamochabackend.order.web;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.*;
-import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,12 +49,6 @@ class OrderControllerTest {
 
     @MockBean
     private GetAllVehicleOrdersUseCase getAllVehicleOrdersUseCase;
-
-    @MockBean
-    private ExcelGenerationService excelGenerationService;
-
-    @MockBean
-    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @MockBean
     private JwtUtils jwtUtils;

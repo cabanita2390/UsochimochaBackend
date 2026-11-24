@@ -25,11 +25,6 @@ public final class RespuestaExcel {
         return ResponseEntity.ok().headers(h).body(contenido);
     }
 
-    /** "estaciones_ejecuciones" + periodo → "estaciones_ejecuciones_2026-01-01_a_2026-12-31.xlsx". */
-    public static String nombre(String base, Periodo periodo) {
-        return base + (periodo == null ? "" : periodo.sufijoArchivo()) + ".xlsx";
-    }
-
     /** Quién está descargando (sale en la portada del Excel). */
     public static String usuarioActual() {
         Authentication a = SecurityContextHolder.getContext().getAuthentication();

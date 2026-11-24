@@ -43,10 +43,6 @@ public record PeticionReporte(Periodo periodo, Map<String, String> filtros, List
         return v == null ? null : v.intValue();
     }
 
-    public boolean filtroSi(String clave) {
-        return "true".equalsIgnoreCase(filtro(clave));
-    }
-
     public String filtroObligatorio(String clave) {
         String v = filtro(clave);
         if (v == null) {

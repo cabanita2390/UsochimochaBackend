@@ -1,12 +1,5 @@
 package com.app.usochicamochabackend.update.web;
 
-import com.app.usochicamochabackend.common.excel.Periodo;
-import com.app.usochicamochabackend.common.excel.RespuestaExcel;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,15 +10,10 @@ import com.app.usochicamochabackend.update.application.port.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -37,19 +25,12 @@ public class OilChangeController {
     private final GetConsolidateHydraulicAndMotorOilAllMachinesUseCase getConsolidateHydraulicAndMotorOilAllMachines;
     private final PerformMotorOilChangeUseCase performMotorOilChange;
     private final PerformHydraulicChangeUseCase performHydraulicChange;
-    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
     private final ManageMachineOilChangeHistoryUseCase manageMachineOilChangeHistoryUseCase;
 
     @GetMapping("/consolidated")
     @Operation(summary = "Get consolidated motor and hydraulic oil for all machines")
     public List<ConsolidateHydraulicAndMotorOilDTO> getAllConsolidated() {
         return getConsolidateHydraulicAndMotorOilAllMachines.getConsolidateHydraulicAndMotorOilAllMachines();
-    }
-
-    @GetMapping("/consolidated/excel")
-    @Operation(summary = "Get consolidated motor and hydraulic oil for all machines in Excel format")
-    public ResponseEntity<byte[]> getAllConsolidatedExcel() throws IOException {
-        return motorReportes.descargar("consolidado-aceites-maquinaria", null, null, java.util.Map.of());
     }
 
     @PostMapping("/motor")

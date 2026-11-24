@@ -29,7 +29,7 @@ class InspeccionReintentoTest {
     @Test
     void vehiculo_elEnvioQueChocaConElIndiceUnico_respondeConLaYaRegistrada() throws Exception {
         CreateVehiculoInspectionUseCase useCase = mock(CreateVehiculoInspectionUseCase.class);
-        VehiculoInspectionController controller = new VehiculoInspectionController(useCase, null, null, null);
+        VehiculoInspectionController controller = new VehiculoInspectionController(useCase, null, null);
         VehiculoInspectionRequest request = mock(VehiculoInspectionRequest.class);
         when(request.uuidCliente()).thenReturn(UUID_MOVIL);
         when(useCase.create(any(), any())).thenThrow(new DataIntegrityViolationException("uuid_cliente"));
@@ -45,7 +45,7 @@ class InspeccionReintentoTest {
     @Test
     void moto_elEnvioQueChocaConElIndiceUnico_respondeConLaYaRegistrada() {
         MotoService motoService = mock(MotoService.class);
-        MotoController controller = new MotoController(motoService, null, null, null, null);
+        MotoController controller = new MotoController(motoService, null, null, null);
         InspeccionMotoRequest request = mock(InspeccionMotoRequest.class);
         when(request.uuidCliente()).thenReturn(UUID_MOVIL);
         when(motoService.saveInspeccion(any())).thenThrow(new DataIntegrityViolationException("uuid_cliente"));

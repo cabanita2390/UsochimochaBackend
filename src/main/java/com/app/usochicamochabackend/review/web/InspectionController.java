@@ -1,7 +1,5 @@
 package com.app.usochicamochabackend.review.web;
 
-import com.app.usochicamochabackend.common.excel.Periodo;
-import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.review.application.dto.ImageDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
@@ -17,7 +15,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -39,9 +36,7 @@ public class InspectionController {
     private final GetInspectionByIdUseCase getInspectionByIdUseCase;
     private final GetInspectionImagesUseCase  getInspectionImagesUseCase;
     private final SaveInspectionImageUseCase  saveInspectionImageUseCase;
-    private final GetAllInspectionsForExportUseCase getAllInspectionsForExportUseCase;
     private final UpdateInspectionHourMeterUseCase updateInspectionHourMeterUseCase;
-    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
@@ -131,21 +126,6 @@ public class InspectionController {
     ) {
         updateInspectionHourMeterUseCase.updateHourMeter(machineId, newHourMeter);
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/export")
-    @Operation(
-            summary = "Export all inspections to Excel",
-            description = "Generates and downloads an Excel file with all inspections data."
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Excel file generated successfully"),
-            @ApiResponse(responseCode = "500", description = "Internal server error")
-    })
-    public ResponseEntity<byte[]> exportInspectionsToExcel(
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-        return motorReportes.descargar("inspecciones-maquinaria", desde, hasta, java.util.Map.of());
     }
 
 }

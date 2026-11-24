@@ -3,10 +3,6 @@ package com.app.usochicamochabackend.context.web;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.context.application.port.GetMachineCurriculumUseCase;
 import com.app.usochicamochabackend.context.application.port.GetVehicleCurriculumUseCase;
-import com.app.usochicamochabackend.machine.application.port.FindAllMachinesUseCase;
-import com.app.usochicamochabackend.moto.application.port.MotoCRUDUseCase;
-import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
-import com.app.usochicamochabackend.vehicle.application.port.VehicleUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,21 +28,6 @@ class CurriculumControllerTest {
 
     @MockBean
     private GetVehicleCurriculumUseCase getVehicleCurriculumUseCase;
-
-    @MockBean
-    private FindAllMachinesUseCase findAllMachinesUseCase;
-
-    @MockBean
-    private VehicleUseCase vehicleUseCase;
-
-    @MockBean
-    private MotoCRUDUseCase motoCRUDUseCase;
-
-    @MockBean
-    private ExcelGenerationService excelGenerationService;
-
-    @MockBean
-    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @MockBean
     private JwtUtils jwtUtils;

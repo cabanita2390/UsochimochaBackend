@@ -9,7 +9,6 @@ import com.app.usochicamochabackend.common.excel.reporte.FiltroReporte;
 import com.app.usochicamochabackend.common.excel.reporte.PeticionReporte;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ElementoMarcadoResponse;
-import com.app.usochicamochabackend.substation.application.dto.HojaExportacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.IndicadorEstacionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ItemRefResponse;
 import com.app.usochicamochabackend.substation.application.dto.OrdenResumenResponse;
@@ -28,10 +27,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -200,16 +197,6 @@ public class ExportacionEstacionesService {
 
     private static <T> Col<T> col(String clave, boolean porDefecto, ColumnaExcel<T> excel) {
         return new Col<>(clave, porDefecto, excel);
-    }
-
-    /** Lo que la web muestra en el panel de descarga: hojas, filtros y columnas. */
-    public List<HojaExportacionResponse> listarHojas() {
-        return hojas().values().stream()
-                .map(h -> new HojaExportacionResponse(h.clave(), h.titulo(), h.filtros(),
-                        h.columnas().stream()
-                                .map(c -> new HojaExportacionResponse.Columna(c.clave(), c.excel().titulo(), c.porDefecto()))
-                                .toList()))
-                .toList();
     }
 
     // ---------------------------------------------------------------------

@@ -1,14 +1,10 @@
 package com.app.usochicamochabackend.fuel.web;
 
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
-import com.app.usochicamochabackend.fuel.application.port.ExportRefuelingReportUseCase;
 import com.app.usochicamochabackend.fuel.application.port.GetRefuelingReportUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,8 +20,6 @@ import java.util.List;
 public class RefuelingReportController {
 
     private final GetRefuelingReportUseCase getRefuelingReportUseCase;
-    private final ExportRefuelingReportUseCase exportRefuelingReportUseCase;
-    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @GetMapping
     public ResponseEntity<List<RefuelingRecordResponse>> reporte(
@@ -43,16 +37,4 @@ public class RefuelingReportController {
         return ResponseEntity.ok(getRefuelingReportUseCase.obtenerPorId(id));
     }
 
-    @GetMapping("/export")
-    public ResponseEntity<byte[]> exportar(
-            @RequestParam String tipo,
-            @RequestParam(required = false) String area,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin)
-            throws java.io.IOException {
-        java.util.Map<String, String> filtros = new java.util.HashMap<>();
-        filtros.put("tipo", tipo);
-        filtros.put("area", area);
-        return motorReportes.descargar("tanqueos", fechaInicio, fechaFin, filtros);
-    }
 }

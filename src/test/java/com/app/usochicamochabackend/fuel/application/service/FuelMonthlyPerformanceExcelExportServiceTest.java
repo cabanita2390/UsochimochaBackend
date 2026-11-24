@@ -46,7 +46,7 @@ class FuelMonthlyPerformanceExcelExportServiceTest {
     private FuelMonthlyPerformanceExcelExportService service;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         service = new FuelMonthlyPerformanceExcelExportService(
                 refuelingRecordsRepository, assetFuelConfigRepository, vehicleRepository, machineRepository);
     }
@@ -68,7 +68,7 @@ class FuelMonthlyPerformanceExcelExportServiceTest {
         when(assetFuelConfigRepository.findAll()).thenReturn(List.of());
         when(refuelingRecordsRepository.findByFechaRegistroBetweenAndStatusTrue(any(), any())).thenReturn(List.of());
 
-        byte[] excel = service.exportarMensual(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 9, 15));
+        byte[] excel = exportar(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 9, 15));
 
         Workbook workbook = leer(excel);
         assertEquals(4, workbook.getNumberOfSheets()); // portada + 3 meses
@@ -90,7 +90,7 @@ class FuelMonthlyPerformanceExcelExportServiceTest {
                 tanqueo(10L, LocalDateTime.of(2026, 7, 20, 8, 0), new BigDecimal("163"), new BigDecimal("10")));
         when(refuelingRecordsRepository.findByFechaRegistroBetweenAndStatusTrue(any(), any())).thenReturn(tanqueos);
 
-        byte[] excel = service.exportarMensual(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+        byte[] excel = exportar(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
         Sheet sheet = leer(excel).getSheet("2026-07");
         Row fila = sheet.getRow(4);
@@ -115,7 +115,7 @@ class FuelMonthlyPerformanceExcelExportServiceTest {
                 tanqueo(20L, LocalDateTime.of(2026, 7, 10, 8, 0), BigDecimal.ZERO, new BigDecimal("6")));
         when(refuelingRecordsRepository.findByFechaRegistroBetweenAndStatusTrue(any(), any())).thenReturn(tanqueos);
 
-        byte[] excel = service.exportarMensual(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+        byte[] excel = exportar(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
         Sheet sheet = leer(excel).getSheet("2026-07");
         Row fila = sheet.getRow(4);
@@ -135,7 +135,7 @@ class FuelMonthlyPerformanceExcelExportServiceTest {
                 MachineEntity.builder().id(30L).name("Camión Hino").build()));
         when(refuelingRecordsRepository.findByFechaRegistroBetweenAndStatusTrue(any(), any())).thenReturn(List.of());
 
-        byte[] excel = service.exportarMensual(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+        byte[] excel = exportar(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
         Sheet sheet = leer(excel).getSheet("2026-07");
         // Sin tanqueos ese mes, el activo configurado igual aparece — con "-" en las
@@ -152,9 +152,15 @@ class FuelMonthlyPerformanceExcelExportServiceTest {
         when(assetFuelConfigRepository.findAll()).thenReturn(List.of());
         when(refuelingRecordsRepository.findByFechaRegistroBetweenAndStatusTrue(any(), any())).thenReturn(List.of());
 
-        byte[] excel = service.exportarMensual(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+        byte[] excel = exportar(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
         Sheet sheet = leer(excel).getSheet("2026-07");
         assertEquals("Rendimiento de Julio 2026", sheet.getRow(0).getCell(0).getStringCellValue());
+    }
+
+    /** Por el motor único, como la web (GET /reportes/rendimiento-mensual). */
+    private byte[] exportar(LocalDate desde, LocalDate hasta) throws java.io.IOException {
+        return com.app.usochicamochabackend.common.excel.reporte.MotorReportes.generar(service,
+                com.app.usochicamochabackend.common.excel.reporte.PeticionReporte.de(desde, hasta, java.util.Map.of(), "test")).contenido();
     }
 }

@@ -1,7 +1,5 @@
 package com.app.usochicamochabackend.vehicleinspection.web;
 
-import com.app.usochicamochabackend.common.excel.Periodo;
-import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.DocumentoVehiculoResponse;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.DocumentoVehiculoVersionDTO;
@@ -17,14 +15,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.dao.DataIntegrityViolationException;
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -42,7 +38,6 @@ public class VehiculoInspectionController {
         private final CreateVehiculoInspectionUseCase createVehiculoInspectionUseCase;
         private final GetVehicleInspectionsUseCase getVehicleInspectionsUseCase;
         private final VehiculoInspectionService vehiculoInspectionService;
-        private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
         @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
         @Operation(summary = "Registrar una inspección pre-operativa de vehículo", description = "Guarda la inspección completa en 5 tablas: cabecera, mecánico, documentos, elementos y salud.")
@@ -153,20 +148,6 @@ public class VehiculoInspectionController {
         })
         public ResponseEntity<java.util.List<VehicleInspectionReportDTO>> getLatestVehicleReports() {
                 return ResponseEntity.ok(getVehicleInspectionsUseCase.getLatestVehicleInspectionsPerVehicle());
-        }
-
-        @GetMapping("/export")
-        @Operation(
-                        summary = "Exportar inspecciones de vehículos a Excel",
-                        description = "Descarga todas las inspecciones pre-operativas de vehículos (excluye motos) en formato .xlsx.")
-        @ApiResponses(value = {
-                        @ApiResponse(responseCode = "200", description = "Archivo Excel generado"),
-                        @ApiResponse(responseCode = "401", description = "No autorizado")
-        })
-        public ResponseEntity<byte[]> exportVehicleInspections(
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-            return motorReportes.descargar("inspecciones-vehiculos", desde, hasta, java.util.Map.of());
         }
 
         @GetMapping("/reports/{typeId}")

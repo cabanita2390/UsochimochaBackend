@@ -1,9 +1,7 @@
 package com.app.usochicamochabackend.review.web;
 
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
-import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
 import com.app.usochicamochabackend.review.application.port.*;
-import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,7 +11,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -51,16 +48,7 @@ class InspectionControllerTest {
     private SaveInspectionImageUseCase saveInspectionImageUseCase;
 
     @MockBean
-    private GetAllInspectionsForExportUseCase getAllInspectionsForExportUseCase;
-
-    @MockBean
     private UpdateInspectionHourMeterUseCase updateInspectionHourMeterUseCase;
-
-    @MockBean
-    private ExcelGenerationService excelGenerationService;
-
-    @MockBean
-    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @MockBean
     private JwtUtils jwtUtils;

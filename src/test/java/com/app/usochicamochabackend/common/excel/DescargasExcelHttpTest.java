@@ -28,8 +28,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Todas las descargas a Excel del sistema responden con el estilo común: un .xlsx que abre, con la
- * portada "Resumen" de primera hoja y el nombre del archivo con el periodo cuando se pide.
+ * Todas las descargas a Excel salen del motor único (/api/v1/reportes) con el estilo común: un .xlsx
+ * que abre, con la portada "Resumen" de primera hoja y el nombre del archivo con el periodo cuando se
+ * pide.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -48,24 +49,23 @@ class DescargasExcelHttpTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "/api/v1/oil-changes/consolidated/excel",
-            "/api/v1/vehicle/monitoring/consolidated/export",
-            "/api/v1/moto/monitoring/consolidated/export",
-            "/api/v1/curriculum/export",
-            "/api/v1/curriculum/export/vehicles",
-            "/api/v1/curriculum/export/motos",
-            "/api/v1/inspection/export?desde=2026-01-01&hasta=2026-12-31",
-            "/api/v1/vehicle-inspection/export?desde=2026-01-01",
-            "/api/v1/moto/inspections/export?hasta=2026-12-31",
-            "/api/v1/order/export?desde=2026-01-01&hasta=2026-12-31",
-            "/api/v1/order/vehicle/export?desde=2026-01-01&hasta=2026-12-31",
-            "/api/v1/order/vehicle/export?soloMotos=true",
-            "/api/v1/fuel/refueling/reporte/export?tipo=VEHICULO&fechaInicio=2026-01-01&fechaFin=2026-01-31",
-            "/api/v1/fuel/rendimiento/export-mensual?fechaInicio=2026-01-01&fechaFin=2026-02-28",
-            "/api/v1/substation/exportar?hoja=EJECUCIONES&anio=2026",
+            "/api/v1/reportes/consolidado-aceites-maquinaria",
+            "/api/v1/reportes/consolidado-vehiculos",
+            "/api/v1/reportes/consolidado-motos",
+            "/api/v1/reportes/hojas-de-vida-maquinaria",
+            "/api/v1/reportes/hojas-de-vida-vehiculos",
+            "/api/v1/reportes/hojas-de-vida-motos",
+            "/api/v1/reportes/inspecciones-maquinaria?desde=2026-01-01&hasta=2026-12-31",
+            "/api/v1/reportes/inspecciones-vehiculos?desde=2026-01-01",
+            "/api/v1/reportes/inspecciones-motos?hasta=2026-12-31",
             "/api/v1/reportes/ordenes-maquinaria?desde=2026-01-01&hasta=2026-12-31",
-            "/api/v1/reportes/estaciones-avance?anio=2026&columnas=estacion,criticidad",
+            "/api/v1/reportes/ordenes-vehiculos?desde=2026-01-01&hasta=2026-12-31",
+            "/api/v1/reportes/ordenes-motos",
+            "/api/v1/reportes/tanqueos?tipo=VEHICULO&desde=2026-01-01&hasta=2026-01-31",
             "/api/v1/reportes/tanqueos?tipo=MAQUINARIA_MOTO",
+            "/api/v1/reportes/rendimiento-mensual?desde=2026-01-01&hasta=2026-02-28",
+            "/api/v1/reportes/estaciones-ejecuciones?anio=2026&mes=9",
+            "/api/v1/reportes/estaciones-avance?anio=2026&columnas=estacion,criticidad",
     })
     void cadaDescargaTraeLaPortadaYSeAbre(String url) throws Exception {
         MvcResult r = mockMvc.perform(get(url).with(authentication(ADMIN)))

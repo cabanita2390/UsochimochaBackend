@@ -16,9 +16,6 @@ import com.app.usochicamochabackend.substation.application.port.SubstationCatalo
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
 import com.app.usochicamochabackend.substation.application.service.CalendarioMantenimiento;
-import com.app.usochicamochabackend.substation.application.service.ExportacionEstacionesService;
-import com.app.usochicamochabackend.substation.application.service.ReportesEstaciones;
-import com.app.usochicamochabackend.substation.application.dto.HojaExportacionResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -47,8 +44,6 @@ public class SubstationController {
     private final SubstationEjecucionUseCase ejecucionUseCase;
     private final SubstationIndicadoresUseCase indicadoresUseCase;
     private final CalendarioMantenimiento calendario;
-    private final ExportacionEstacionesService exportacion;
-    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @GetMapping("/programacion")
     @Operation(summary = "Citas del cronograma para una estación+mes+disciplina",
@@ -155,37 +150,6 @@ public class SubstationController {
                 estacionId, fechaInicio, fechaFin, esProgramada,
                 resultado, actividadId, tipoMantenimiento, tipoActividad, seguimiento, disciplina, conOrden, elementoId,
                 pageable));
-    }
-
-    @GetMapping("/exportar/hojas")
-    @Operation(summary = "Hojas que se pueden descargar a Excel",
-            description = "Cada hoja con los filtros que usa y sus columnas (cuáles salen marcadas por defecto).")
-    public ResponseEntity<List<HojaExportacionResponse>> hojasExportables() {
-        return ResponseEntity.ok(exportacion.listarHojas());
-    }
-
-    @GetMapping("/exportar")
-    @Operation(summary = "Descargar a Excel",
-            description = "hoja: EJECUCIONES, HALLAZGOS, ORDENES, AVANCE o ACTIVIDADES. Filtros opcionales: disciplina, "
-                    + "anio (por defecto el actual), mes y estacionId (solo en las hojas que los usan). columnas: claves "
-                    + "separadas por coma; sin ellas, las de por defecto. Trae lo mismo que la pantalla.")
-    public ResponseEntity<byte[]> exportar(
-            @RequestParam String hoja,
-            @RequestParam(required = false) String disciplina,
-            @RequestParam(required = false) Integer anio,
-            @RequestParam(required = false) Integer mes,
-            @RequestParam(required = false) Long estacionId,
-            @RequestParam(required = false) List<String> columnas,
-            Authentication authentication) throws IOException {
-        if (hoja == null || ExportacionEstacionesService.HOJAS.stream().noneMatch(h -> h.getKey().equalsIgnoreCase(hoja))) {
-            throw new com.app.usochicamochabackend.exception.BadRequestException("Hoja desconocida: " + hoja);
-        }
-        java.util.Map<String, String> filtros = new java.util.HashMap<>();
-        filtros.put("disciplina", disciplina);
-        filtros.put("anio", anio == null ? null : anio.toString());
-        filtros.put("mes", mes == null ? null : mes.toString());
-        filtros.put("estacionId", estacionId == null ? null : estacionId.toString());
-        return motorReportes.descargar(ReportesEstaciones.clave(hoja), null, null, filtros, columnas);
     }
 
     @GetMapping("/indicadores/cumplimiento")

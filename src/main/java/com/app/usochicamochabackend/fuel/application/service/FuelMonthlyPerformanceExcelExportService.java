@@ -3,12 +3,8 @@ package com.app.usochicamochabackend.fuel.application.service;
 import com.app.usochicamochabackend.common.excel.ColumnaExcel;
 import com.app.usochicamochabackend.common.excel.LibroExcel;
 import com.app.usochicamochabackend.common.excel.Periodo;
-import com.app.usochicamochabackend.common.excel.RespuestaExcel;
-import com.app.usochicamochabackend.common.excel.reporte.FiltroReporte;
-import com.app.usochicamochabackend.common.excel.reporte.MotorReportes;
 import com.app.usochicamochabackend.common.excel.reporte.PeticionReporte;
 import com.app.usochicamochabackend.common.excel.reporte.ReporteExcel;
-import com.app.usochicamochabackend.fuel.application.port.ExportFuelMonthlyPerformanceUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.AssetFuelConfigEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.AssetFuelConfigRepository;
@@ -20,8 +16,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Timestamp;
@@ -58,7 +52,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class FuelMonthlyPerformanceExcelExportService implements ExportFuelMonthlyPerformanceUseCase, ReporteExcel {
+public class FuelMonthlyPerformanceExcelExportService implements ReporteExcel {
 
     private static final DateTimeFormatter MES_TITULO_FORMATTER = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.forLanguageTag("es-CO"));
     private static final DateTimeFormatter MES_SHEET_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM");
@@ -96,17 +90,6 @@ public class FuelMonthlyPerformanceExcelExportService implements ExportFuelMonth
         LocalDate hasta = p.periodo().hasta();
         return new Periodo(desde != null ? desde : (hasta != null ? hasta : hoy).withDayOfYear(1),
                 hasta != null ? hasta : hoy);
-    }
-
-    /** El endpoint anterior: mismo motor. */
-    @Override
-    public byte[] exportarMensual(LocalDate fechaInicio, LocalDate fechaFin) {
-        try {
-            return MotorReportes.generar(this, PeticionReporte.de(fechaInicio, fechaFin, Map.of(),
-                    RespuestaExcel.usuarioActual())).contenido();
-        } catch (IOException e) {
-            throw new UncheckedIOException("No se pudo generar el archivo Excel de rendimiento mensual.", e);
-        }
     }
 
     @Override

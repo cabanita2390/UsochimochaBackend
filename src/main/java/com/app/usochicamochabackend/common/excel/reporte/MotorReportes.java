@@ -89,27 +89,6 @@ public class MotorReportes {
         }
     }
 
-    /**
-     * Para los endpoints anteriores al motor (siguen respondiendo igual): genera el reporte para el
-     * usuario en sesión y lo devuelve como descarga.
-     */
-    public org.springframework.http.ResponseEntity<byte[]> descargar(String clave, LocalDate desde, LocalDate hasta,
-            Map<String, String> filtros) throws IOException {
-        return descargar(clave, desde, hasta, filtros, null);
-    }
-
-    /** Igual, con las columnas elegidas (Estaciones). */
-    public org.springframework.http.ResponseEntity<byte[]> descargar(String clave, LocalDate desde, LocalDate hasta,
-            Map<String, String> filtros, List<String> columnas) throws IOException {
-        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        List<String> roles = auth == null ? List.of()
-                : auth.getAuthorities().stream().map(org.springframework.security.core.GrantedAuthority::getAuthority).toList();
-        PeticionReporte p = new PeticionReporte(new Periodo(desde, hasta), filtros, columnas,
-                com.app.usochicamochabackend.common.excel.RespuestaExcel.usuarioActual());
-        Archivo a = generar(clave, p, roles);
-        return com.app.usochicamochabackend.common.excel.RespuestaExcel.de(a.contenido(), a.nombre());
-    }
-
     private static String nombre(ReporteExcel r, PeticionReporte p, Periodo periodo) {
         String base = r.nombreArchivo(p);
         String sufijo = periodo.esTodo()

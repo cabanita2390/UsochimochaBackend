@@ -6,7 +6,6 @@ import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositor
 import com.app.usochicamochabackend.exception.BadRequestException;
 import com.app.usochicamochabackend.substation.application.dto.ElementoMarcadoRequest;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionRequest;
-import com.app.usochicamochabackend.substation.application.dto.HojaExportacionResponse;
 import com.app.usochicamochabackend.substation.application.port.SubstationEjecucionUseCase;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ActividadEntity;
 import com.app.usochicamochabackend.substation.infrastructure.entity.ConjuntoElementoEntity;
@@ -128,13 +127,12 @@ class ExportacionEstacionesIntegrationTest {
 
     @Test
     void lasHojasTraenSusColumnasPorDefecto() {
-        List<HojaExportacionResponse> hojas = exportacion.listarHojas();
-
-        assertEquals(List.of("EJECUCIONES", "HALLAZGOS", "ORDENES", "AVANCE", "ACTIVIDADES"),
-                hojas.stream().map(HojaExportacionResponse::clave).toList());
-        HojaExportacionResponse ej = hojas.get(0);
-        assertTrue(ej.columnas().stream().anyMatch(c -> c.clave().equals("elementos") && c.porDefecto()));
-        assertTrue(ej.columnas().stream().noneMatch(c -> c.clave().toLowerCase().contains("uuid")), "Nunca salen IDs internos");
+        assertEquals(List.of("estaciones-ejecuciones", "estaciones-hallazgos", "estaciones-ordenes", "estaciones-avance",
+                        "estaciones-actividades"),
+                ExportacionEstacionesService.HOJAS.stream().map(h -> ReportesEstaciones.clave(h.getKey())).toList());
+        var ej = exportacion.columnasDe("EJECUCIONES");
+        assertTrue(ej.stream().anyMatch(c -> c.clave().equals("elementos") && c.porDefecto()));
+        assertTrue(ej.stream().noneMatch(c -> c.clave().toLowerCase().contains("uuid")), "Nunca salen IDs internos");
     }
 
     @Test

@@ -234,7 +234,7 @@ class FuelReportingE2ETest {
                 false, new BigDecimal("10000"), null, new BigDecimal("200000"), "Estación Norte");
         registerRefuelingRecordUseCase.registrar(tanqueoBomba, factura, 2L);
 
-        var response = mockMvc.perform(get("/api/v1/fuel/refueling/reporte/export")
+        var response = mockMvc.perform(get("/api/v1/reportes/tanqueos")
                         .param("tipo", "VEHICULO")
                         .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isOk())
@@ -246,11 +246,18 @@ class FuelReportingE2ETest {
         assertThat(excel).isNotEmpty();
 
         try (var workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(excel))) {
+            assertThat(workbook.getSheetName(0)).isEqualTo("Resumen");
             Sheet tanqueos = workbook.getSheet("Tanqueos");
             assertThat(tanqueos).isNotNull();
-            assertThat(tanqueos.getLastRowNum()).isEqualTo(1); // encabezado + 1 tanqueo
+            boolean conElTanqueo = false;
+            for (var fila : tanqueos) {
+                for (var celda : fila) {
+                    conElTanqueo |= "BOMBA".equals(celda.toString());
+                }
+            }
+            assertThat(conElTanqueo).as("trae el tanqueo registrado").isTrue();
 
-            Sheet proyeccion = workbook.getSheet("Proyección Presupuestal");
+            Sheet proyeccion = workbook.getSheet("Proyección presupuestal");
             assertThat(proyeccion).isNotNull();
         }
     }

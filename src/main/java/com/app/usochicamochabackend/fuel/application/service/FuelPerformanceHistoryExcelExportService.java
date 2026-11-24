@@ -4,13 +4,10 @@ import com.app.usochicamochabackend.common.excel.ColumnaExcel;
 import com.app.usochicamochabackend.common.excel.ColumnaExcel.Estado;
 import com.app.usochicamochabackend.common.excel.LibroExcel;
 import com.app.usochicamochabackend.common.excel.Periodo;
-import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.common.excel.reporte.FiltroReporte;
-import com.app.usochicamochabackend.common.excel.reporte.MotorReportes;
 import com.app.usochicamochabackend.common.excel.reporte.PeticionReporte;
 import com.app.usochicamochabackend.common.excel.reporte.ReporteExcel;
 import com.app.usochicamochabackend.fuel.application.dto.FuelPerformanceResponse;
-import com.app.usochicamochabackend.fuel.application.port.ExportFuelPerformanceHistoryUseCase;
 import com.app.usochicamochabackend.fuel.application.port.GetFuelPerformanceUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.AssetFuelConfigEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelTypesEntity;
@@ -22,8 +19,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -54,7 +49,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class FuelPerformanceHistoryExcelExportService implements ExportFuelPerformanceHistoryUseCase, ReporteExcel {
+public class FuelPerformanceHistoryExcelExportService implements ReporteExcel {
 
     private static final String MAQUINARIA = "MAQUINARIA";
     private static final String VEHICULO = "VEHICULO";
@@ -98,20 +93,6 @@ public class FuelPerformanceHistoryExcelExportService implements ExportFuelPerfo
     @Override
     public String nombreArchivo(PeticionReporte p) {
         return "rendimiento_historial_" + p.filtroObligatorio("tipo").toLowerCase(Locale.ROOT) + "_" + p.filtroObligatorio("activoId");
-    }
-
-    /** El endpoint anterior: mismo motor. */
-    @Override
-    public byte[] exportarHistorialActivo(String tipo, Long activoId, LocalDate desde, LocalDate hasta) {
-        Map<String, String> filtros = new java.util.HashMap<>();
-        filtros.put("tipo", tipo);
-        filtros.put("activoId", activoId == null ? null : activoId.toString());
-        try {
-            return MotorReportes.generar(this, PeticionReporte.de(desde, hasta, filtros, RespuestaExcel.usuarioActual()))
-                    .contenido();
-        } catch (IOException e) {
-            throw new UncheckedIOException("No se pudo generar el archivo Excel de historial de rendimiento.", e);
-        }
     }
 
     @Override
@@ -216,10 +197,6 @@ public class FuelPerformanceHistoryExcelExportService implements ExportFuelPerfo
 
     private BigDecimal nullToZero(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
-    }
-
-    private String nullSafe(String value) {
-        return value != null ? value : "";
     }
 
     private String unidadConsumoLabel(String codigo) {

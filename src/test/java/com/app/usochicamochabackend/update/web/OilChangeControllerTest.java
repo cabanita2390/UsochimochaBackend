@@ -7,7 +7,6 @@ import com.app.usochicamochabackend.update.application.port.GetConsolidateHydrau
 import com.app.usochicamochabackend.update.application.port.ManageMachineOilChangeHistoryUseCase;
 import com.app.usochicamochabackend.update.application.port.PerformHydraulicChangeUseCase;
 import com.app.usochicamochabackend.update.application.port.PerformMotorOilChangeUseCase;
-import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,12 +51,6 @@ class OilChangeControllerTest {
 
     @MockBean
     private PerformHydraulicChangeUseCase performHydraulicChange;
-
-    @MockBean
-    private ExcelGenerationService excelGenerationService;
-
-    @MockBean
-    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @MockBean
     private ManageMachineOilChangeHistoryUseCase manageMachineOilChangeHistoryUseCase;

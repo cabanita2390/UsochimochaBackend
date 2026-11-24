@@ -1,8 +1,6 @@
 package com.app.usochicamochabackend.vehicleinspection.web;
 
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
-import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
-import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
 import com.app.usochicamochabackend.vehicleinspection.application.service.VehiculoInspectionService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,12 +26,6 @@ class VehiculoInspectionControllerTest {
 
     @MockBean
     private VehiculoInspectionService vehiculoInspectionService;
-
-    @MockBean
-    private ExcelGenerationService excelGenerationService;
-
-    @MockBean
-    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @MockBean
     private JwtUtils jwtUtils;

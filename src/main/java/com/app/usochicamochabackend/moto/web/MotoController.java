@@ -1,7 +1,5 @@
 package com.app.usochicamochabackend.moto.web;
 
-import com.app.usochicamochabackend.common.excel.Periodo;
-import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.moto.application.port.MotoMonitoringUseCase;
 import com.app.usochicamochabackend.moto.application.service.MotoService;
@@ -20,19 +18,16 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.dao.DataIntegrityViolationException;
 import com.app.usochicamochabackend.vehicleinspection.application.service.VehiculoInspectionService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.MediaType;
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -48,7 +43,6 @@ public class MotoController {
     private final MotoService motoService;
     private final MotoMonitoringUseCase monitoringUseCase;
     private final GetVehicleInspectionsUseCase getInspectionsUseCase;
-    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
     private final VehicleOilChangeService vehicleOilChangeService;
 
     @GetMapping("/placas")
@@ -107,12 +101,6 @@ public class MotoController {
         return ResponseEntity.ok(monitoringUseCase.getConsolidatedMonitoring());
     }
 
-    @GetMapping("/monitoring/consolidated/export")
-    @Operation(summary = "Exportar consolidado de motos a Excel")
-    public ResponseEntity<byte[]> exportConsolidatedMonitoring() throws IOException {
-        return motorReportes.descargar("consolidado-motos", null, null, java.util.Map.of());
-    }
-
     @GetMapping("/monitoring/alerts/yellow")
     @Operation(
         summary = "Motocicletas con alertas YELLOW (próximas a cambio de aceite)",
@@ -141,20 +129,6 @@ public class MotoController {
                 && "RED".equals(m.oil().alertColor()))
             .collect(Collectors.toList());
         return ResponseEntity.ok(red);
-    }
-
-    @GetMapping("/inspections/export")
-    @Operation(
-                    summary = "Exportar inspecciones de motos a Excel",
-                    description = "Descarga el historial completo de inspecciones de motocicletas en formato .xlsx.")
-    @ApiResponses({
-                    @ApiResponse(responseCode = "200", description = "Archivo Excel generado"),
-                    @ApiResponse(responseCode = "401", description = "No autorizado")
-    })
-    public ResponseEntity<byte[]> exportMotoInspections(
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-        return motorReportes.descargar("inspecciones-motos", desde, hasta, java.util.Map.of());
     }
 
     @GetMapping("/inspections/reports/history")

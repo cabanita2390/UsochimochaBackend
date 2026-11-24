@@ -3,29 +3,21 @@ package com.app.usochicamochabackend.fuel.application.service;
 import com.app.usochicamochabackend.common.excel.ColumnaExcel;
 import com.app.usochicamochabackend.common.excel.ColumnaExcel.Estado;
 import com.app.usochicamochabackend.common.excel.LibroExcel;
-import com.app.usochicamochabackend.common.excel.Periodo;
-import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.common.excel.reporte.FiltroReporte;
-import com.app.usochicamochabackend.common.excel.reporte.MotorReportes;
 import com.app.usochicamochabackend.common.excel.reporte.PeticionReporte;
 import com.app.usochicamochabackend.common.excel.reporte.ReporteExcel;
 import com.app.usochicamochabackend.fuel.application.dto.FuelBudgetProjectionRow;
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
-import com.app.usochicamochabackend.fuel.application.port.ExportRefuelingReportUseCase;
 import com.app.usochicamochabackend.fuel.application.port.GetFuelDashboardUseCase;
 import com.app.usochicamochabackend.fuel.application.port.GetRefuelingReportUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Function;
@@ -42,7 +34,7 @@ import java.util.function.Function;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class FuelExcelExportService implements ExportRefuelingReportUseCase, ReporteExcel {
+public class FuelExcelExportService implements ReporteExcel {
 
     private static final DateTimeFormatter MES = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.forLanguageTag("es-CO"));
 
@@ -61,22 +53,6 @@ public class FuelExcelExportService implements ExportRefuelingReportUseCase, Rep
     public List<FiltroReporte> filtros() {
         return List.of(FiltroReporte.contexto("tipo", "Tipo de activo", true),
                 FiltroReporte.contexto("area", "Área de costo", false));
-    }
-
-    /** El endpoint anterior: mismo motor. */
-    @Override
-    public byte[] exportarExcel(String tipo, String area, LocalDate fechaInicio, LocalDate fechaFin) {
-        Map<String, String> filtros = new HashMap<>();
-        filtros.put("tipo", tipo);
-        if (area != null) {
-            filtros.put("area", area);
-        }
-        try {
-            return MotorReportes.generar(this, PeticionReporte.de(fechaInicio, fechaFin, filtros, RespuestaExcel.usuarioActual()))
-                    .contenido();
-        } catch (IOException e) {
-            throw new UncheckedIOException("No se pudo generar el archivo Excel de tanqueos.", e);
-        }
     }
 
     @Override

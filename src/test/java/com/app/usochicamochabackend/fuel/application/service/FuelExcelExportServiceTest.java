@@ -38,7 +38,7 @@ class FuelExcelExportServiceTest {
     private FuelExcelExportService fuelExcelExportService;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         fuelExcelExportService = new FuelExcelExportService(getRefuelingReportUseCase, getFuelDashboardUseCase);
     }
 
@@ -63,7 +63,7 @@ class FuelExcelExportServiceTest {
         when(getRefuelingReportUseCase.obtenerReporte(any(), any(), any(), any())).thenReturn(List.of());
         when(getFuelDashboardUseCase.obtenerProyeccionPresupuestal(any())).thenReturn(List.of());
 
-        byte[] excel = fuelExcelExportService.exportarExcel("VEHICULO", null, null, null);
+        byte[] excel = exportar("VEHICULO", null, null, null);
 
         Workbook workbook = leer(excel);
         // Portada "Resumen" (estilo común) + las dos hojas de datos.
@@ -79,7 +79,7 @@ class FuelExcelExportServiceTest {
                 .thenReturn(List.of(tanqueo(1L, false, false), tanqueo(2L, false, false), tanqueo(3L, false, false)));
         when(getFuelDashboardUseCase.obtenerProyeccionPresupuestal(any())).thenReturn(List.of());
 
-        byte[] excel = fuelExcelExportService.exportarExcel("VEHICULO", null, null, null);
+        byte[] excel = exportar("VEHICULO", null, null, null);
 
         Sheet sheet = leer(excel).getSheet("Tanqueos");
         // filas 0-1 = título y periodo, 3 = encabezado, 4..6 = datos, 7 = totales
@@ -94,7 +94,7 @@ class FuelExcelExportServiceTest {
                 .thenReturn(List.of(tanqueo(1L, true, false), tanqueo(2L, false, true)));
         when(getFuelDashboardUseCase.obtenerProyeccionPresupuestal(any())).thenReturn(List.of());
 
-        byte[] excel = fuelExcelExportService.exportarExcel("VEHICULO", null, null, null);
+        byte[] excel = exportar("VEHICULO", null, null, null);
 
         Sheet sheet = leer(excel).getSheet("Tanqueos");
         Row filaConDiscrepancia = sheet.getRow(4);
@@ -118,7 +118,7 @@ class FuelExcelExportServiceTest {
                 new FuelBudgetProjectionRow(LocalDate.of(2026, 9, 1), new BigDecimal("300000"), true)
         ));
 
-        byte[] excel = fuelExcelExportService.exportarExcel("VEHICULO", null, null, null);
+        byte[] excel = exportar("VEHICULO", null, null, null);
 
         Sheet sheet = leer(excel).getSheet("Proyección presupuestal");
         Row historica = sheet.getRow(4);
@@ -131,5 +131,14 @@ class FuelExcelExportServiceTest {
         assertEquals("Septiembre 2026", proyectada.getCell(0).getStringCellValue());
         assertEquals(300000.0, proyectada.getCell(1).getNumericCellValue(), 0.01);
         assertEquals("Proyectado", proyectada.getCell(2).getStringCellValue());
+    }
+
+    /** Por el motor único, como la web (GET /reportes/tanqueos). */
+    private byte[] exportar(String tipo, String area, LocalDate desde, LocalDate hasta) throws java.io.IOException {
+        java.util.Map<String, String> filtros = new java.util.HashMap<>();
+        filtros.put("tipo", tipo);
+        filtros.put("area", area);
+        return com.app.usochicamochabackend.common.excel.reporte.MotorReportes.generar(fuelExcelExportService,
+                com.app.usochicamochabackend.common.excel.reporte.PeticionReporte.de(desde, hasta, filtros, "test")).contenido();
     }
 }
