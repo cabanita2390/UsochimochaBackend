@@ -156,7 +156,7 @@ class FuelReportingE2ETest {
         mockMvc.perform(get("/api/v1/fuel/almacen/movimientos")
                         .param("fechaInicio", LocalDate.now().withDayOfMonth(1).toString())
                         .param("fechaFin", LocalDate.now().toString())
-                        .with(as(1L, "almacen", "ALMACEN")))
+                        .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.conciliacion[0].saldoInicial").value(30))
                 .andExpect(jsonPath("$.conciliacion[0].entradas").value(100))

@@ -162,7 +162,7 @@ class FuelAnomalyDetectionE2ETest {
         var request = buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "BOMBA",
                 new BigDecimal("20"), new BigDecimal("1100"), new BigDecimal("10000"), new BigDecimal("200000"), null);
 
-        mockMvc.perform(request.with(as(1L, "operario", "OPERARIO")))
+        mockMvc.perform(request.with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.urlFactura").doesNotExist())
                 .andExpect(jsonPath("$.discrepanciaValor").value(false));
@@ -176,14 +176,14 @@ class FuelAnomalyDetectionE2ETest {
         for (int i = 0; i < 2; i++) {
             mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "BOMBA",
                             new BigDecimal("10"), new BigDecimal("1000"), new BigDecimal("10000"), new BigDecimal("100000"), null)
-                    .with(as(1L, "operario", "OPERARIO")))
+                    .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                     .andExpect(status().isCreated());
         }
 
         // Tercero a 15000 (50% por encima del promedio) -> fuera de rango.
         mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "BOMBA",
                         new BigDecimal("10"), new BigDecimal("1000"), new BigDecimal("15000"), new BigDecimal("150000"), null)
-                .with(as(1L, "operario", "OPERARIO")))
+                .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.precioFueraDeRango").value(true));
     }
@@ -192,13 +192,13 @@ class FuelAnomalyDetectionE2ETest {
     void precioUnitario_DentroDelRango_NoQuedaMarcado() throws Exception {
         mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "BOMBA",
                         new BigDecimal("10"), new BigDecimal("1000"), new BigDecimal("10000"), new BigDecimal("100000"), null)
-                .with(as(1L, "operario", "OPERARIO")))
+                .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isCreated());
 
         // Segundo a 10800 (8% por encima) -> dentro del 30% de tolerancia.
         mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "BOMBA",
                         new BigDecimal("10"), new BigDecimal("1000"), new BigDecimal("10800"), new BigDecimal("108000"), null)
-                .with(as(1L, "operario", "OPERARIO")))
+                .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.precioFueraDeRango").value(false));
     }
@@ -209,7 +209,7 @@ class FuelAnomalyDetectionE2ETest {
     void cantidadFueraDeRango_VehiculoNoMoto_MasDe60Galones_QuedaMarcado() throws Exception {
         mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "ALMACEN",
                         new BigDecimal("70"), new BigDecimal("1000"), null, null, null)
-                .with(as(1L, "operario", "OPERARIO")))
+                .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.cantidadFueraDeRango").value(true));
     }
@@ -218,7 +218,7 @@ class FuelAnomalyDetectionE2ETest {
     void cantidadDentroDeRango_VehiculoNoMoto_MenosDe60Galones_NoQuedaMarcado() throws Exception {
         mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "ALMACEN",
                         new BigDecimal("30"), new BigDecimal("1000"), null, null, null)
-                .with(as(1L, "operario", "OPERARIO")))
+                .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.cantidadFueraDeRango").value(false));
     }
@@ -227,7 +227,7 @@ class FuelAnomalyDetectionE2ETest {
     void cantidadFueraDeRango_Motocicleta_MasDe15Galones_QuedaMarcado() throws Exception {
         mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", motoId, null, "ALMACEN",
                         new BigDecimal("20"), new BigDecimal("500"), null, null, null)
-                .with(as(1L, "operario", "OPERARIO")))
+                .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.cantidadFueraDeRango").value(true));
     }
@@ -239,7 +239,7 @@ class FuelAnomalyDetectionE2ETest {
 
         mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", null, maquina.getId(), "ALMACEN",
                         new BigDecimal("600"), new BigDecimal("50"), null, null, null)
-                .with(as(1L, "operario", "OPERARIO")))
+                .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.cantidadFueraDeRango").value(true));
     }
@@ -254,7 +254,7 @@ class FuelAnomalyDetectionE2ETest {
         // 55 gal > 50 gal configurados -> excede capacidad, aunque esté bajo el umbral genérico de 60.
         mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "ALMACEN",
                         new BigDecimal("55"), new BigDecimal("1000"), null, null, null)
-                .with(as(1L, "operario", "OPERARIO")))
+                .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.capacidadExcedida").value(true))
                 .andExpect(jsonPath("$.cantidadFueraDeRango").value(false));
@@ -266,7 +266,7 @@ class FuelAnomalyDetectionE2ETest {
     void editarTanqueoAlmacen_CambiaCantidadSinTocarInventario() throws Exception {
         var creado = mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "ALMACEN",
                         new BigDecimal("30"), new BigDecimal("1000"), null, null, null)
-                        .with(as(1L, "operario", "OPERARIO")))
+                        .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isCreated())
                 .andReturn();
         Long id = new com.fasterxml.jackson.databind.ObjectMapper()
@@ -288,7 +288,7 @@ class FuelAnomalyDetectionE2ETest {
     void eliminarTanqueoAlmacen_SoftDeleteSinTocarInventario() throws Exception {
         var creado = mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "ALMACEN",
                         new BigDecimal("25"), new BigDecimal("1000"), null, null, null)
-                        .with(as(1L, "operario", "OPERARIO")))
+                        .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isCreated())
                 .andReturn();
         Long id = new com.fasterxml.jackson.databind.ObjectMapper()
@@ -302,7 +302,7 @@ class FuelAnomalyDetectionE2ETest {
         FuelInventoryEntity trasEliminar = fuelInventoryRepository.findByAreaCostoAndFuelTypeId("DISTRITO", fuelTypeId).orElseThrow();
         assertThat(trasEliminar.getCantidadDisponible()).isEqualByComparingTo("100");
 
-        mockMvc.perform(get("/api/v1/fuel/refueling").param("activo", "true").with(as(2L, "operario", "OPERARIO")))
+        mockMvc.perform(get("/api/v1/fuel/refueling").param("activo", "true").with(as(2L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(0));
     }

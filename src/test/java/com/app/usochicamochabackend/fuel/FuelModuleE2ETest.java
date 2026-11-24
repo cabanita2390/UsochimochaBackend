@@ -129,7 +129,7 @@ class FuelModuleE2ETest {
         assertThat(trasTanqueo.getCantidadDisponible()).isEqualByComparingTo("100");
 
         // Paso 3: el historial de tanqueos refleja el registro
-        mockMvc.perform(get("/api/v1/fuel/refueling").with(as(2L, "operario", "OPERARIO")))
+        mockMvc.perform(get("/api/v1/fuel/refueling").with(as(2L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].machineId").value(99));
@@ -151,40 +151,35 @@ class FuelModuleE2ETest {
     }
 
     @Test
-    void matrizDePermisos_OperarioNoPuedeComprarPeroSiTanquear_AlmacenSoloLee() throws Exception {
-        // OPERARIO no puede POST /purchases
-        mockMvc.perform(multipart("/api/v1/fuel/purchases")
-                        .part(new org.springframework.mock.web.MockPart("areaCosto", "DISTRITO".getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("fuelTypeId", fuelTypeId.toString().getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("cantidad", "10".getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("precioUnitario", "10000".getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("totalIngresado", "100000".getBytes()))
-                        .file(new MockMultipartFile("factura", "f.pdf", MediaType.APPLICATION_PDF_VALUE, new byte[]{1, 2, 3}))
-                        .with(as(3L, "operario", "OPERARIO")))
-                .andExpect(status().isForbidden());
+    void matrizDePermisos_SoloSupervisorYAdminManejanCombustible() throws Exception {
+        // Combustible es de la web (SUPERVISOR_OPERATIVO y ADMIN); la app móvil del operario no lo tiene.
+        mockMvc.perform(compra().with(as(3L, "operario", "OPERARIO"))).andExpect(status().isForbidden());
+        mockMvc.perform(tanqueo().with(as(3L, "operario", "OPERARIO"))).andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/fuel/purchases").with(as(3L, "operario", "OPERARIO"))).andExpect(status().isForbidden());
 
-        // OPERARIO sí puede POST /refueling (ALMACEN)
-        mockMvc.perform(multipart("/api/v1/fuel/refueling")
-                        .part(new org.springframework.mock.web.MockPart("machineId", "99".getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("lugar", "ALMACEN".getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("areaCosto", "DISTRITO".getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("fuelTypeId", fuelTypeId.toString().getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("cantidadGalones", "10".getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("horometroKm", "500".getBytes()))
-                        .with(as(3L, "operario", "OPERARIO")))
-                .andExpect(status().isCreated());
-
-        // ALMACEN puede GET /purchases pero no POST /purchases
-        mockMvc.perform(get("/api/v1/fuel/purchases").with(as(4L, "almacen", "ALMACEN")))
+        mockMvc.perform(get("/api/v1/fuel/purchases").with(as(4L, "supervisor", "SUPERVISOR_OPERATIVO")))
                 .andExpect(status().isOk());
-        mockMvc.perform(multipart("/api/v1/fuel/purchases")
-                        .part(new org.springframework.mock.web.MockPart("areaCosto", "DISTRITO".getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("fuelTypeId", fuelTypeId.toString().getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("cantidad", "10".getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("precioUnitario", "10000".getBytes()))
-                        .part(new org.springframework.mock.web.MockPart("totalIngresado", "100000".getBytes()))
-                        .file(new MockMultipartFile("factura", "f.pdf", MediaType.APPLICATION_PDF_VALUE, new byte[]{1, 2, 3}))
-                        .with(as(4L, "almacen", "ALMACEN")))
-                .andExpect(status().isForbidden());
+        mockMvc.perform(tanqueo().with(as(4L, "supervisor", "SUPERVISOR_OPERATIVO"))).andExpect(status().isCreated());
+        mockMvc.perform(compra().with(as(4L, "supervisor", "SUPERVISOR_OPERATIVO"))).andExpect(status().isCreated());
+    }
+
+    private org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder compra() {
+        return (org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder) multipart("/api/v1/fuel/purchases")
+                .part(new org.springframework.mock.web.MockPart("areaCosto", "DISTRITO".getBytes()))
+                .part(new org.springframework.mock.web.MockPart("fuelTypeId", fuelTypeId.toString().getBytes()))
+                .part(new org.springframework.mock.web.MockPart("cantidad", "10".getBytes()))
+                .part(new org.springframework.mock.web.MockPart("precioUnitario", "10000".getBytes()))
+                .part(new org.springframework.mock.web.MockPart("totalIngresado", "100000".getBytes()))
+                .file(new MockMultipartFile("factura", "f.pdf", MediaType.APPLICATION_PDF_VALUE, new byte[]{1, 2, 3}));
+    }
+
+    private org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder tanqueo() {
+        return multipart("/api/v1/fuel/refueling")
+                .part(new org.springframework.mock.web.MockPart("machineId", "99".getBytes()))
+                .part(new org.springframework.mock.web.MockPart("lugar", "ALMACEN".getBytes()))
+                .part(new org.springframework.mock.web.MockPart("areaCosto", "DISTRITO".getBytes()))
+                .part(new org.springframework.mock.web.MockPart("fuelTypeId", fuelTypeId.toString().getBytes()))
+                .part(new org.springframework.mock.web.MockPart("cantidadGalones", "10".getBytes()))
+                .part(new org.springframework.mock.web.MockPart("horometroKm", "500".getBytes()));
     }
 }

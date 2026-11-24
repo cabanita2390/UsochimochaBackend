@@ -82,8 +82,18 @@ class PreventiveAlertsE2ETest {
     @Autowired private PreventiveAlertRepository alertRepository;
     @Autowired private JdbcTemplate jdbcTemplate;
 
+    /** Las acciones de la web van con un usuario en sesión (el registro de auditoría lo pide). */
+    @BeforeEach
+    void sesion() {
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        new com.app.usochicamochabackend.auth.application.dto.UserPrincipal(1L, "admin"), null,
+                        java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"))));
+    }
+
     @AfterEach
     void tearDown() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
         jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
         alertRepository.deleteAll();
         documentacionRepository.deleteAll();
