@@ -325,7 +325,8 @@ public class ExcelGenerationService {
                 siNoCol("Salud física", VehicleInspectionReportDTO::saludFisica),
                 siNoCol("Salud mental", VehicleInspectionReportDTO::saludMental),
                 siNoCol("Sobriedad", VehicleInspectionReportDTO::sobrio),
-                ColumnaExcel.texto("Medicamentos", d -> siNo(d.medicamentos())),
+                // Aquí lo malo es el "Sí": consume medicamentos que afectan los sentidos.
+                siNoCol("Medicamentos", VehicleInspectionReportDTO::medicamentos, false),
                 siNoCol("Condición para conducir", VehicleInspectionReportDTO::condicionParaConducir),
                 siNoCol("Consciente de su responsabilidad", VehicleInspectionReportDTO::conscienteResponsabilidad),
                 ColumnaExcel.texto("Mecánico de planta", VehicleInspectionReportDTO::mechanicName),
@@ -407,9 +408,15 @@ public class ExcelGenerationService {
         return ColumnaExcel.texto(titulo, (T t) -> valor.apply(t)).conEstado(t -> estadoDe(valor.apply(t)));
     }
 
+    /** Sí/No donde lo bueno es el "Sí": el "No" sale en rojo. */
     private static <T> ColumnaExcel<T> siNoCol(String titulo, Function<T, Boolean> valor) {
+        return siNoCol(titulo, valor, true);
+    }
+
+    /** Sí/No con la respuesta buena de la pregunta: la otra sale en rojo. */
+    static <T> ColumnaExcel<T> siNoCol(String titulo, Function<T, Boolean> valor, boolean siEsBueno) {
         return ColumnaExcel.texto(titulo, (T t) -> siNo(valor.apply(t)))
-                .conEstado(t -> valor.apply(t) == null ? null : valor.apply(t) ? null : Estado.MAL);
+                .conEstado(t -> valor.apply(t) == null || valor.apply(t) == siEsBueno ? null : Estado.MAL);
     }
 
     /**

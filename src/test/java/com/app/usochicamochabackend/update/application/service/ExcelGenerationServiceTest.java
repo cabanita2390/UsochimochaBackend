@@ -88,4 +88,17 @@ class ExcelGenerationServiceTest {
         assertEquals(com.app.usochicamochabackend.common.excel.ColumnaExcel.Estado.OK, ExcelGenerationService.estadoDe("Bueno"));
         assertEquals(null, ExcelGenerationService.estadoDe("N/A"));
     }
+
+    @Test
+    void siNoEnRojoSoloLaRespuestaMala() {
+        var sobrio = ExcelGenerationService.<Boolean>siNoCol("Sobriedad", b -> b, true);
+        var medicamentos = ExcelGenerationService.<Boolean>siNoCol("Medicamentos", b -> b, false);
+        assertEquals(null, sobrio.estado().apply(true));
+        assertEquals(com.app.usochicamochabackend.common.excel.ColumnaExcel.Estado.MAL, sobrio.estado().apply(false));
+        // Medicamentos que afectan los sentidos: lo malo es el "Sí".
+        assertEquals(com.app.usochicamochabackend.common.excel.ColumnaExcel.Estado.MAL, medicamentos.estado().apply(true));
+        assertEquals(null, medicamentos.estado().apply(false));
+        assertEquals(null, medicamentos.estado().apply(null));
+        assertEquals("No", medicamentos.valor().apply(false));
+    }
 }
