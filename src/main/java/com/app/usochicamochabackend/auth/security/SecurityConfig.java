@@ -193,6 +193,8 @@ public class SecurityConfig {
                     http.requestMatchers("/api/v1/tire/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
 
                     // Cualquier otra petición: solo ADMIN
+                    // Descargas a Excel: el motor revisa el rol de cada reporte (403 si no le toca).
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/reportes", "/api/v1/reportes/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.anyRequest().hasRole("ADMIN");
                 })
                 .exceptionHandling(ex -> ex
@@ -222,6 +224,8 @@ public class SecurityConfig {
         configuration.addAllowedHeader("*");
         configuration.setAllowedMethods(List.of("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowCredentials(true);
+        // La web lee el nombre del archivo que pone el motor de reportes a Excel.
+        configuration.setExposedHeaders(List.of("Content-Disposition"));
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

@@ -5,6 +5,10 @@ import com.app.usochicamochabackend.common.excel.ColumnaExcel.Estado;
 import com.app.usochicamochabackend.common.excel.LibroExcel;
 import com.app.usochicamochabackend.common.excel.Periodo;
 import com.app.usochicamochabackend.common.excel.RespuestaExcel;
+import com.app.usochicamochabackend.common.excel.reporte.FiltroReporte;
+import com.app.usochicamochabackend.common.excel.reporte.MotorReportes;
+import com.app.usochicamochabackend.common.excel.reporte.PeticionReporte;
+import com.app.usochicamochabackend.common.excel.reporte.ReporteExcel;
 import com.app.usochicamochabackend.fuel.application.dto.FuelBudgetProjectionRow;
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
 import com.app.usochicamochabackend.fuel.application.port.ExportRefuelingReportUseCase;
@@ -19,7 +23,9 @@ import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Function;
@@ -36,15 +42,49 @@ import java.util.function.Function;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class FuelExcelExportService implements ExportRefuelingReportUseCase {
+public class FuelExcelExportService implements ExportRefuelingReportUseCase, ReporteExcel {
 
     private static final DateTimeFormatter MES = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.forLanguageTag("es-CO"));
 
     private final GetRefuelingReportUseCase getRefuelingReportUseCase;
     private final GetFuelDashboardUseCase getFuelDashboardUseCase;
 
+    // --- Reporte del motor único (GET /api/v1/reportes/tanqueos) ---
+
+    @Override public String clave() { return "tanqueos"; }
+    @Override public String titulo() { return "Tanqueo y distribución de combustible"; }
+    @Override public String modulo() { return ReporteExcel.COMBUSTIBLE; }
+    @Override public boolean usaPeriodo() { return true; }
+    @Override public String periodoInicial() { return "mes"; }
+
+    @Override
+    public List<FiltroReporte> filtros() {
+        return List.of(FiltroReporte.contexto("tipo", "Tipo de activo", true),
+                FiltroReporte.contexto("area", "Área de costo", false));
+    }
+
+    /** El endpoint anterior: mismo motor. */
     @Override
     public byte[] exportarExcel(String tipo, String area, LocalDate fechaInicio, LocalDate fechaFin) {
+        Map<String, String> filtros = new HashMap<>();
+        filtros.put("tipo", tipo);
+        if (area != null) {
+            filtros.put("area", area);
+        }
+        try {
+            return MotorReportes.generar(this, PeticionReporte.de(fechaInicio, fechaFin, filtros, RespuestaExcel.usuarioActual()))
+                    .contenido();
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo generar el archivo Excel de tanqueos.", e);
+        }
+    }
+
+    @Override
+    public void llenar(LibroExcel libro, PeticionReporte p) {
+        String tipo = p.filtroObligatorio("tipo");
+        String area = p.filtro("area");
+        LocalDate fechaInicio = p.periodo().desde();
+        LocalDate fechaFin = p.periodo().hasta();
         List<RefuelingRecordResponse> tanqueos = getRefuelingReportUseCase.obtenerReporte(tipo, area, fechaInicio, fechaFin);
         List<FuelBudgetProjectionRow> proyeccion = getFuelDashboardUseCase.obtenerProyeccionPresupuestal(fechaFin);
 
@@ -71,8 +111,7 @@ public class FuelExcelExportService implements ExportRefuelingReportUseCase {
                 ColumnaExcel.texto("Tipo", (FuelBudgetProjectionRow f) -> f.proyectado() ? "Proyectado" : "Histórico")
                         .conEstado(f -> f.proyectado() ? Estado.ALERTA : null));
 
-        try (LibroExcel libro = new LibroExcel("Tanqueo y distribución de combustible", RespuestaExcel.usuarioActual(),
-                new Periodo(fechaInicio, fechaFin))) {
+        {
             libro.filtro("Tipo de activo", tipo).filtro("Área de costo", area)
                     .cifra("Tanqueos", tanqueos.size())
                     .cifra("Galones", suma(tanqueos, RefuelingRecordResponse::cantidadGalones).doubleValue())
@@ -83,9 +122,6 @@ public class FuelExcelExportService implements ExportRefuelingReportUseCase {
             libro.tabla("Tanqueos", "Detalle de tanqueos", cols, tanqueos);
             libro.tabla("Proyección presupuestal", "Gasto neto mensual: histórico y proyectado", colsProyeccion, proyeccion);
             log.info("Excel de tanqueos generado: {} tanqueos, {} filas de proyección", tanqueos.size(), proyeccion.size());
-            return libro.bytes();
-        } catch (IOException e) {
-            throw new UncheckedIOException("No se pudo generar el archivo Excel de tanqueos.", e);
         }
     }
 

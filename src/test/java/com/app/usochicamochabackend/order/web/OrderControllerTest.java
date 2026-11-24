@@ -55,6 +55,9 @@ class OrderControllerTest {
     private ExcelGenerationService excelGenerationService;
 
     @MockBean
+    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
+
+    @MockBean
     private JwtUtils jwtUtils;
 
     private OrderResponse buildOrderResponse() {

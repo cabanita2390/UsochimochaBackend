@@ -4,6 +4,9 @@ import com.app.usochicamochabackend.common.excel.ColumnaExcel;
 import com.app.usochicamochabackend.common.excel.ColumnaExcel.Estado;
 import com.app.usochicamochabackend.common.excel.LibroExcel;
 import com.app.usochicamochabackend.common.excel.Periodo;
+import com.app.usochicamochabackend.common.excel.reporte.ColumnaReporte;
+import com.app.usochicamochabackend.common.excel.reporte.FiltroReporte;
+import com.app.usochicamochabackend.common.excel.reporte.PeticionReporte;
 import com.app.usochicamochabackend.substation.application.dto.EjecucionResponse;
 import com.app.usochicamochabackend.substation.application.dto.ElementoMarcadoResponse;
 import com.app.usochicamochabackend.substation.application.dto.HojaExportacionResponse;
@@ -213,27 +216,80 @@ public class ExportacionEstacionesService {
     // Generación
     // ---------------------------------------------------------------------
 
-    /** El archivo y su nombre ("estaciones_ejecuciones_electrico_2026.xlsx"). */
-    public record Archivo(String nombre, byte[] contenido) {
+    /** Las hojas, en el orden del panel: clave → título. Fijas, para registrarlas en el motor al arrancar. */
+    public static final List<Map.Entry<String, String>> HOJAS = List.of(
+            Map.entry("EJECUCIONES", "Ejecuciones"),
+            Map.entry("HALLAZGOS", "Hallazgos"),
+            Map.entry("ORDENES", "Órdenes de trabajo"),
+            Map.entry("AVANCE", "Avance por estación"),
+            Map.entry("ACTIVIDADES", "Resumen por actividad"));
+
+    private static final Map<String, FiltroReporte> FILTROS = Map.of(
+            "disciplina", FiltroReporte.elegible("disciplina", "Disciplina", "DISCIPLINA"),
+            "anio", FiltroReporte.elegible("anio", "Año", "ANIO"),
+            "mes", FiltroReporte.elegible("mes", "Mes", "MES"),
+            "estacionId", FiltroReporte.elegible("estacionId", "Estación", "ESTACION"));
+
+    private static final Map<String, List<String>> FILTROS_POR_HOJA = Map.of(
+            "EJECUCIONES", List.of("disciplina", "anio", "mes", "estacionId"),
+            "HALLAZGOS", List.of("disciplina", "anio", "mes", "estacionId"),
+            "ORDENES", List.of("disciplina", "anio", "mes", "estacionId"),
+            "AVANCE", List.of("disciplina", "anio", "estacionId"),
+            "ACTIVIDADES", List.of("disciplina", "anio"));
+
+    /** Los filtros que usa la hoja (sin tocar la base: se piden al registrar el motor). */
+    public List<FiltroReporte> filtrosDe(String clave) {
+        return FILTROS_POR_HOJA.getOrDefault(clave, List.of()).stream().map(FILTROS::get).toList();
     }
 
+    /** Las columnas elegibles de la hoja y cuáles salen marcadas. */
+    public List<ColumnaReporte> columnasDe(String clave) {
+        return hoja(clave).columnas().stream()
+                .map(c -> new ColumnaReporte(c.clave(), c.excel().titulo(), c.porDefecto()))
+                .toList();
+    }
+
+    /** Lo que se pidió, ya validado y con el año actual si no vino. */
+    private Filtros filtrosPedidos(String clave, PeticionReporte p) {
+        List<String> usa = FILTROS_POR_HOJA.getOrDefault(clave, List.of());
+        Integer mes = usa.contains("mes") ? p.filtroEntero("mes") : null;
+        if (mes != null && (mes < 1 || mes > 12)) {
+            throw new BadRequestException("mes inválido: " + mes);
+        }
+        Integer anio = p.filtroEntero("anio");
+        return new Filtros(p.filtro("disciplina"), anio != null ? anio : calendario.anioActual(), mes,
+                usa.contains("estacionId") ? p.filtroLong("estacionId") : null);
+    }
+
+    /** El año (o el mes) pedido: es el periodo de la portada y del nombre del archivo. */
+    public Periodo periodoDe(String clave, PeticionReporte p) {
+        Filtros f = filtrosPedidos(clave, p);
+        LocalDate desde = f.mes() == null ? LocalDate.of(f.anio(), 1, 1) : LocalDate.of(f.anio(), f.mes(), 1);
+        LocalDate hasta = f.mes() == null ? LocalDate.of(f.anio(), 12, 31) : desde.withDayOfMonth(desde.lengthOfMonth());
+        return new Periodo(desde, hasta);
+    }
+
+    /** "estaciones_ejecuciones_electrico" (el motor le agrega el periodo). */
+    public String nombreArchivoDe(String clave, PeticionReporte p) {
+        String disciplina = p.filtro("disciplina");
+        return "estaciones_" + clave.toLowerCase() + (disciplina == null ? "" : "_" + disciplina.toLowerCase());
+    }
+
+    /** Llena el libro con la hoja pedida. */
     @Transactional(readOnly = true)
-    public Archivo exportar(String claveHoja, Filtros pedidos, List<String> columnas, String usuario) throws IOException {
-        Hoja<?> hoja = hojas().get(claveHoja == null ? "" : claveHoja.toUpperCase());
-        if (hoja == null) {
-            throw new BadRequestException("Hoja desconocida: " + claveHoja + ". Opciones: " + String.join(", ", hojas().keySet()));
-        }
-        if (pedidos.mes() != null && (pedidos.mes() < 1 || pedidos.mes() > 12)) {
-            throw new BadRequestException("mes inválido: " + pedidos.mes());
-        }
-        Filtros f = new Filtros(blancoANull(pedidos.disciplina()),
-                pedidos.anio() != null ? pedidos.anio() : calendario.anioActual(),
-                hoja.filtros().contains("mes") ? pedidos.mes() : null,
-                hoja.filtros().contains("estacionId") ? pedidos.estacionId() : null);
-        return generar(hoja, f, columnas, usuario);
+    public void llenar(String clave, LibroExcel libro, PeticionReporte p) {
+        llenar(hoja(clave), libro, filtrosPedidos(clave, p), p.columnas());
     }
 
-    private <T> Archivo generar(Hoja<T> hoja, Filtros f, List<String> claves, String usuario) throws IOException {
+    private Hoja<?> hoja(String clave) {
+        Hoja<?> hoja = hojas().get(clave == null ? "" : clave.toUpperCase());
+        if (hoja == null) {
+            throw new BadRequestException("Hoja desconocida: " + clave + ". Opciones: " + String.join(", ", FILTROS_POR_HOJA.keySet()));
+        }
+        return hoja;
+    }
+
+    private <T> void llenar(Hoja<T> hoja, LibroExcel libro, Filtros f, List<String> claves) {
         List<Col<T>> elegidas = claves == null || claves.isEmpty()
                 ? hoja.columnas().stream().filter(Col::porDefecto).toList()
                 // En el orden de la hoja, no en el que llegaron; las claves desconocidas se ignoran.
@@ -242,36 +298,15 @@ public class ExportacionEstacionesService {
             throw new BadRequestException("Elija al menos una columna de " + hoja.titulo());
         }
         List<T> filas = hoja.filas().apply(f);
-
-        LocalDate desde = f.mes() == null ? LocalDate.of(f.anio(), 1, 1) : LocalDate.of(f.anio(), f.mes(), 1);
-        LocalDate hasta = f.mes() == null ? LocalDate.of(f.anio(), 12, 31) : desde.withDayOfMonth(desde.lengthOfMonth());
-        try (LibroExcel libro = new LibroExcel("Estaciones de Bombeo · " + hoja.titulo(), usuario, new Periodo(desde, hasta))) {
-            libro.filtro("Disciplina", f.disciplina() == null ? "Todas las disciplinas"
-                    : nombresDisciplina().getOrDefault(f.disciplina(), f.disciplina()));
-            if (hoja.filtros().contains("estacionId")) {
-                libro.filtro("Estación", f.estacionId() == null ? "Todas las estaciones"
-                        : estacionRepository.findById(f.estacionId()).map(e -> e.getNombre()).orElse("#" + f.estacionId()));
-            }
-            libro.cifra("Registros", filas.size());
-            libro.tabla(hoja.titulo(), hoja.titulo() + " · " + (f.disciplina() == null ? "todas las disciplinas"
-                    : nombresDisciplina().getOrDefault(f.disciplina(), f.disciplina())), elegidas.stream().map(Col::excel).toList(), filas);
-            return new Archivo(nombreArchivo(hoja, f), libro.bytes());
+        String disciplina = f.disciplina() == null ? null : nombresDisciplina().getOrDefault(f.disciplina(), f.disciplina());
+        libro.filtro("Disciplina", disciplina == null ? "Todas las disciplinas" : disciplina);
+        if (hoja.filtros().contains("estacionId")) {
+            libro.filtro("Estación", f.estacionId() == null ? "Todas las estaciones"
+                    : estacionRepository.findById(f.estacionId()).map(e -> e.getNombre()).orElse("#" + f.estacionId()));
         }
-    }
-
-    private static final String[] MESES = {"Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio",
-            "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"};
-
-    private static String nombreArchivo(Hoja<?> hoja, Filtros f) {
-        List<String> partes = new ArrayList<>(List.of("estaciones", hoja.clave().toLowerCase()));
-        if (f.disciplina() != null) {
-            partes.add(f.disciplina().toLowerCase());
-        }
-        partes.add(String.valueOf(f.anio()));
-        if (f.mes() != null) {
-            partes.add(String.format("%02d", f.mes()));
-        }
-        return String.join("_", partes) + ".xlsx";
+        libro.cifra("Registros", filas.size());
+        libro.tabla(hoja.titulo(), hoja.titulo() + " · " + (disciplina == null ? "todas las disciplinas" : disciplina),
+                elegidas.stream().map(Col::excel).toList(), filas);
     }
 
     // ---------------------------------------------------------------------
@@ -428,7 +463,4 @@ public class ExportacionEstacionesService {
         return v >= 90 ? Estado.OK : v >= 70 ? Estado.ALERTA : Estado.MAL;
     }
 
-    private static String blancoANull(String s) {
-        return s == null || s.isBlank() ? null : s;
-    }
 }

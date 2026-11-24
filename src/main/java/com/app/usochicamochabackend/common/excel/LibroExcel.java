@@ -74,7 +74,7 @@ public final class LibroExcel implements AutoCloseable {
 
     private final SXSSFWorkbook libro = new SXSSFWorkbook(200);
     private final SXSSFSheet portada;
-    private final String titulo;
+    private String titulo;
     private final String usuario;
     private final Periodo periodo;
     private final List<String[]> filtros = new ArrayList<>();
@@ -142,6 +142,15 @@ public final class LibroExcel implements AutoCloseable {
     // ---------------------------------------------------------------------
     // Portada
     // ---------------------------------------------------------------------
+
+    /**
+     * Cambia el título del libro cuando depende de los datos ("Historial de rendimiento · ABC-123").
+     * Llamarlo antes de crear la primera hoja: cada hoja lo repite en su subtítulo.
+     */
+    public LibroExcel titulo(String nuevo) {
+        this.titulo = nuevo;
+        return this;
+    }
 
     /** Un filtro usado ("Disciplina" → "Eléctrico"). Sale en la portada. */
     public LibroExcel filtro(String etiqueta, Object valor) {
@@ -451,7 +460,9 @@ public final class LibroExcel implements AutoCloseable {
     }
 
     private String nombreUnico(String nombre) {
-        String base = nombre.replaceAll("[\\\\/?*\\[\\]:]", " ").trim();
+        // Excel no acepta \ / ? * [ ] : ni una comilla simple al inicio o al final.
+        String base = nombre == null ? "" : nombre.replaceAll("[\\\\/?*\\[\\]:]", " ").trim()
+                .replaceAll("^'+|'+$", "").trim();
         if (base.isEmpty()) {
             base = "Hoja";
         }

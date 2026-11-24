@@ -50,6 +50,9 @@ class MotoControllerTest {
     private ExcelGenerationService excelGenerationService;
 
     @MockBean
+    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
+
+    @MockBean
     private VehicleOilChangeService vehicleOilChangeService;
 
     @Autowired

@@ -9,7 +9,6 @@ import com.app.usochicamochabackend.vehicleinspection.application.dto.Kilometraj
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoInspectionRequest;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehiculoInspectionResponse;
-import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import com.app.usochicamochabackend.vehicleinspection.application.port.CreateVehiculoInspectionUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.service.VehiculoInspectionService;
@@ -43,7 +42,7 @@ public class VehiculoInspectionController {
         private final CreateVehiculoInspectionUseCase createVehiculoInspectionUseCase;
         private final GetVehicleInspectionsUseCase getVehicleInspectionsUseCase;
         private final VehiculoInspectionService vehiculoInspectionService;
-        private final ExcelGenerationService excelGenerationService;
+        private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
         @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
         @Operation(summary = "Registrar una inspección pre-operativa de vehículo", description = "Guarda la inspección completa en 5 tablas: cabecera, mecánico, documentos, elementos y salud.")
@@ -167,10 +166,7 @@ public class VehiculoInspectionController {
         public ResponseEntity<byte[]> exportVehicleInspections(
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-                Periodo periodo = new Periodo(desde, hasta);
-                List<VehicleInspectionReportDTO> inspections = getVehicleInspectionsUseCase.getAllVehicleInspections();
-                byte[] excelData = excelGenerationService.generateVehicleInspectionsExcel(inspections, RespuestaExcel.usuarioActual(), periodo, "Vehículos");
-                return RespuestaExcel.de(excelData, RespuestaExcel.nombre("inspecciones_vehiculos", periodo));
+            return motorReportes.descargar("inspecciones-vehiculos", desde, hasta, java.util.Map.of());
         }
 
         @GetMapping("/reports/{typeId}")

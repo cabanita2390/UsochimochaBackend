@@ -48,8 +48,7 @@ public class ExcelGenerationService {
     // Consolidado de aceites de maquinaria
     // ---------------------------------------------------------------------
 
-    public byte[] generateConsolidatedMachinesExcel(List<ConsolidateHydraulicAndMotorOilDTO> datos, String usuario)
-            throws IOException {
+    public void llenarConsolidadoAceites(LibroExcel libro, List<ConsolidateHydraulicAndMotorOilDTO> datos) throws IOException {
         log.info("Excel consolidado de maquinaria: {} máquinas", datos.size());
         List<ColumnaExcel<ConsolidateHydraulicAndMotorOilDTO>> cols = new ArrayList<>(List.of(
                 ColumnaExcel.texto("Pertenece a", d -> d.machine().belongsTo()),
@@ -69,14 +68,11 @@ public class ExcelGenerationService {
                 d.consolidateHydraulicOil().hourMeterNextUpdate(), d.consolidateHydraulicOil().timeLastUpdateMouths(),
                 d.consolidateHydraulicOil().remainingHoursNextUpdateMouths(), d.consolidateHydraulicOil().status())));
 
-        try (LibroExcel libro = new LibroExcel("Consolidado de aceites · Maquinaria", usuario, Periodo.todo())) {
             libro.filtro("Corte", LocalDate.now()).cifra("Máquinas", datos.size())
                     .cifra("Cambios de aceite de motor vencidos", contar(datos, d -> d.consolidateMotorOil() != null ? d.consolidateMotorOil().status() : null, Estado.MAL))
                     .cifra("Cambios de aceite hidráulico vencidos", contar(datos, d -> d.consolidateHydraulicOil() != null ? d.consolidateHydraulicOil().status() : null, Estado.MAL))
                     .nota("Foto del estado actual: no depende de un periodo.");
             libro.tabla("Consolidado", "Estado de los aceites por máquina", cols, datos);
-            return libro.bytes();
-        }
     }
 
     /** Lo común del aceite de motor e hidráulico en el consolidado de maquinaria. */
@@ -106,7 +102,7 @@ public class ExcelGenerationService {
     // Consolidados de vehículos y motos
     // ---------------------------------------------------------------------
 
-    public byte[] generateVehicleConsolidatedExcel(List<VehicleMonitoringDTO> datos, String usuario) throws IOException {
+    public void llenarConsolidadoVehiculos(LibroExcel libro, List<VehicleMonitoringDTO> datos) throws IOException {
         log.info("Excel consolidado de vehículos: {} registros", datos.size());
         List<ColumnaExcel<VehicleMonitoringDTO>> cols = new ArrayList<>(List.of(
                 ColumnaExcel.texto("Pertenece a", VehicleMonitoringDTO::area),
@@ -119,11 +115,11 @@ public class ExcelGenerationService {
                 d.maintenance().quantity(), d.maintenance().intervalKm(), d.maintenance().fechaUltimoCambio(),
                 d.maintenance().kmCambio(), d.maintenance().kmProximoCambio(), d.maintenance().diasDesdeUltimoCambio(),
                 d.maintenance().kmParaProximo(), d.maintenance().filtroAire(), d.maintenance().estado())));
-        return consolidado("Consolidado de vehículos", "Vehículos", usuario, cols, datos,
+        consolidado(libro, "Vehículos", cols, datos,
                 d -> d.maintenance() != null ? d.maintenance().estado() : null);
     }
 
-    public byte[] generateMotoConsolidatedExcel(List<MotoMonitoringDTO> datos, String usuario) throws IOException {
+    public void llenarConsolidadoMotos(LibroExcel libro, List<MotoMonitoringDTO> datos) throws IOException {
         log.info("Excel consolidado de motos: {} registros", datos.size());
         List<ColumnaExcel<MotoMonitoringDTO>> cols = new ArrayList<>(List.of(
                 ColumnaExcel.texto("Pertenece a", MotoMonitoringDTO::departamento),
@@ -135,7 +131,7 @@ public class ExcelGenerationService {
         cols.addAll(columnasAceiteKm(d -> d.oil() == null ? null : new AceiteKm(d.oil().brandName(), d.oil().quantity(),
                 d.oil().intervalKm(), d.oil().fechaUltimoCambio(), d.oil().kmCambio(), d.oil().kmProximoCambio(),
                 d.oil().diasDesdeUltimoCambio(), d.oil().kmParaProximo(), d.oil().filtroAire(), d.oil().estado())));
-        return consolidado("Consolidado de motos", "Motos", usuario, cols, datos, d -> d.oil() != null ? d.oil().estado() : null);
+        consolidado(libro, "Motos", cols, datos, d -> d.oil() != null ? d.oil().estado() : null);
     }
 
     private record AceiteKm(String marca, Object cantidad, Object intervalo, LocalDate fechaUltimo, Object kmCambio,
@@ -161,26 +157,21 @@ public class ExcelGenerationService {
                         .conEstado(t -> estadoDe(a.apply(t) == null ? null : a.apply(t).estado())));
     }
 
-    private <T> byte[] consolidado(String titulo, String que, String usuario, List<ColumnaExcel<T>> cols, List<T> datos,
+    private <T> void consolidado(LibroExcel libro, String que, List<ColumnaExcel<T>> cols, List<T> datos,
             Function<T, String> estado) throws IOException {
-        try (LibroExcel libro = new LibroExcel(titulo, usuario, Periodo.todo())) {
             libro.filtro("Corte", LocalDate.now()).cifra(que, datos.size())
                     .cifra("Cambio de aceite vencido", contar(datos, estado, Estado.MAL))
                     .cifra("Cambio de aceite próximo", contar(datos, estado, Estado.ALERTA))
                     .nota("Foto del estado actual: no depende de un periodo.");
             libro.tabla("Consolidado", "Estado del aceite por " + que.toLowerCase(ES), cols, datos);
-            return libro.bytes();
-        }
     }
 
     // ---------------------------------------------------------------------
     // Hojas de vida (una hoja por máquina o vehículo)
     // ---------------------------------------------------------------------
 
-    public byte[] generateMachineCurriculumExcel(List<MachineCurriculumDTO> hojas, String usuario, Periodo periodo)
-            throws IOException {
+    public void llenarHojasDeVidaMaquinaria(LibroExcel libro, List<MachineCurriculumDTO> hojas, Periodo periodo) throws IOException {
         log.info("Excel de hojas de vida de {} máquinas", hojas.size());
-        try (LibroExcel libro = new LibroExcel("Hojas de vida · Maquinaria", usuario, periodo)) {
             int trabajos = 0;
             BigDecimal valor = BigDecimal.ZERO;
             for (MachineCurriculumDTO h : hojas) {
@@ -192,28 +183,25 @@ public class ExcelGenerationService {
                 LibroExcel.Hoja hoja = libro.hoja(h.machine().name(), "Hoja de vida · " + h.machine().name(),
                         "Ficha y trabajos realizados");
                 hoja.ficha("Datos de la máquina", List.of(
-                        Map.entry("Equipo", texto(h.machine().name())),
-                        Map.entry("N.º interno", texto(h.machine().numInterIdentification())),
-                        Map.entry("Modelo", texto(h.machine().model())),
-                        Map.entry("N.º de motor", texto(h.machine().numEngine())),
-                        Map.entry("Vigencia SOAT", h.machine().soat()),
-                        Map.entry("Vigencia RUNT", h.machine().runt()),
-                        Map.entry("Trabajos en el periodo", filas.size()),
-                        Map.entry("Valor total en el periodo", pesos(sumar(filas)))));
+                        par("Equipo", texto(h.machine().name())),
+                        par("N.º interno", texto(h.machine().numInterIdentification())),
+                        par("Modelo", texto(h.machine().model())),
+                        par("N.º de motor", texto(h.machine().numEngine())),
+                        par("Vigencia SOAT", h.machine().soat()),
+                        par("Vigencia RUNT", h.machine().runt()),
+                        par("Trabajos en el periodo", filas.size()),
+                        par("Valor total en el periodo", pesos(sumar(filas)))));
                 hoja.tabla("Trabajos realizados", columnasHistorial("Horómetro"), filas);
                 hoja.terminar(13);
                 trabajos += filas.size();
                 valor = valor.add(sumar(filas));
             }
             libro.cifra("Máquinas", hojas.size()).cifra("Trabajos realizados", trabajos).cifra("Valor total", pesos(valor));
-            return libro.bytes();
-        }
     }
 
-    public byte[] generateVehicleCurriculumExcel(List<VehicleCurriculumDTO> hojas, String usuario, Periodo periodo,
+    public void llenarHojasDeVidaVehiculos(LibroExcel libro, List<VehicleCurriculumDTO> hojas, Periodo periodo,
             String que) throws IOException {
         log.info("Excel de hojas de vida de {} {}", hojas.size(), que);
-        try (LibroExcel libro = new LibroExcel("Hojas de vida · " + que, usuario, periodo)) {
             int trabajos = 0;
             BigDecimal valor = BigDecimal.ZERO;
             for (VehicleCurriculumDTO h : hojas) {
@@ -224,23 +212,21 @@ public class ExcelGenerationService {
                 String placa = h.vehicle().placa() != null ? h.vehicle().placa() : "Sin placa";
                 LibroExcel.Hoja hoja = libro.hoja(placa, "Hoja de vida · " + placa, "Ficha y trabajos realizados");
                 hoja.ficha("Datos del vehículo", List.of(
-                        Map.entry("Placa", placa),
-                        Map.entry("Marca", texto(h.vehicle().marca())),
-                        Map.entry("Tipo", texto(h.vehicle().tipoVehiculo())),
-                        Map.entry("Km actual", h.vehicle().kilometrajeActual() == null ? "—"
+                        par("Placa", placa),
+                        par("Marca", texto(h.vehicle().marca())),
+                        par("Tipo", texto(h.vehicle().tipoVehiculo())),
+                        par("Km actual", h.vehicle().kilometrajeActual() == null ? "—"
                                 : String.format(ES, "%,d", h.vehicle().kilometrajeActual().longValue())),
-                        Map.entry("Área", texto(h.vehicle().belongsTo())),
-                        Map.entry("Ubicación", texto(h.vehicle().ubicacionBase())),
-                        Map.entry("Trabajos en el periodo", filas.size()),
-                        Map.entry("Valor total en el periodo", pesos(sumar(filas)))));
+                        par("Área", texto(h.vehicle().belongsTo())),
+                        par("Ubicación", texto(h.vehicle().ubicacionBase())),
+                        par("Trabajos en el periodo", filas.size()),
+                        par("Valor total en el periodo", pesos(sumar(filas)))));
                 hoja.tabla("Trabajos realizados", columnasHistorial("Kilómetro"), filas);
                 hoja.terminar(13);
                 trabajos += filas.size();
                 valor = valor.add(sumar(filas));
             }
             libro.cifra(que, hojas.size()).cifra("Trabajos realizados", trabajos).cifra("Valor total", pesos(valor));
-            return libro.bytes();
-        }
     }
 
     /** Un trabajo de la hoja de vida: el resultado de una orden, con la fecha y el horómetro/km. */
@@ -273,7 +259,7 @@ public class ExcelGenerationService {
     // Inspecciones
     // ---------------------------------------------------------------------
 
-    public byte[] generateInspectionsExcel(List<InspectionEntity> todas, String usuario, Periodo periodo) throws IOException {
+    public void llenarInspeccionesMaquinaria(LibroExcel libro, List<InspectionEntity> todas, Periodo periodo) throws IOException {
         List<InspectionEntity> inspecciones = todas.stream().filter(i -> periodo.contiene(i.getDateStamp())).toList();
         log.info("Excel de inspecciones de maquinaria: {} de {}", inspecciones.size(), todas.size());
         List<ColumnaExcel<InspectionEntity>> cols = List.of(
@@ -299,17 +285,14 @@ public class ExcelGenerationService {
                 ColumnaExcel.texto("Engrasado", InspectionEntity::getGreasingAction),
                 ColumnaExcel.texto("Observaciones engrasado", InspectionEntity::getGreasingObservations),
                 ColumnaExcel.texto("Responsable", i -> i.getUser() != null ? i.getUser().getFullName() : null));
-        try (LibroExcel libro = new LibroExcel("Inspecciones pre-operativas · Maquinaria", usuario, periodo)) {
             libro.cifra("Inspecciones", inspecciones.size())
                     .cifra("Máquinas inspeccionadas", inspecciones.stream().map(i -> i.getMachine() != null ? i.getMachine().getId() : null)
                             .filter(Objects::nonNull).distinct().count())
                     .nota("Las revisiones con novedad salen en amarillo o rojo.");
             libro.tabla("Inspecciones", "Inspecciones pre-operativas de maquinaria", cols, inspecciones);
-            return libro.bytes();
-        }
     }
 
-    public byte[] generateVehicleInspectionsExcel(List<VehicleInspectionReportDTO> todas, String usuario, Periodo periodo,
+    public void llenarInspeccionesVehiculos(LibroExcel libro, List<VehicleInspectionReportDTO> todas, Periodo periodo,
             String que) throws IOException {
         List<VehicleInspectionReportDTO> inspecciones = todas.stream().filter(i -> periodo.contiene(i.fechaRegistro())).toList();
         log.info("Excel de inspecciones de {}: {} de {}", que, inspecciones.size(), todas.size());
@@ -349,31 +332,27 @@ public class ExcelGenerationService {
                 ColumnaExcel.texto("Contratista", VehicleInspectionReportDTO::contractorName),
                 ColumnaExcel.texto("Tiempo empleado", VehicleInspectionReportDTO::timeSpent),
                 ColumnaExcel.texto("Observaciones", VehicleInspectionReportDTO::observacionesFinales));
-        try (LibroExcel libro = new LibroExcel("Inspecciones pre-operativas · " + que, usuario, periodo)) {
             libro.cifra("Inspecciones", inspecciones.size())
                     .cifra("No aprobadas para ruta", inspecciones.stream().filter(i -> Boolean.FALSE.equals(i.aprobadoRuta())).count())
                     .cifra(que + " inspeccionados", inspecciones.stream().map(VehicleInspectionReportDTO::placa)
                             .filter(Objects::nonNull).distinct().count());
             libro.tabla("Inspecciones", "Inspecciones pre-operativas de " + que.toLowerCase(ES), cols, inspecciones);
-            return libro.bytes();
-        }
     }
 
     // ---------------------------------------------------------------------
     // Órdenes de trabajo
     // ---------------------------------------------------------------------
 
-    public byte[] generateMachineOrdersExcel(List<OrderWithMachineDTO> todas, String usuario, Periodo periodo) throws IOException {
+    public void llenarOrdenesMaquinaria(LibroExcel libro, List<OrderWithMachineDTO> todas, Periodo periodo) throws IOException {
         List<OrderWithMachineDTO> ordenes = todas.stream().filter(o -> o.order() != null && periodo.contiene(o.order().date())).toList();
         log.info("Excel de órdenes de maquinaria: {} de {}", ordenes.size(), todas.size());
         List<ColumnaExcel<OrderWithMachineDTO>> cols = new ArrayList<>(columnasOrden(OrderWithMachineDTO::order));
         cols.add(4, ColumnaExcel.texto("Máquina", o -> o.machine() != null ? o.machine().name() : null));
         cols.add(5, ColumnaExcel.texto("Área", o -> o.machine() != null ? o.machine().belongsTo() : null));
-        return ordenes("Órdenes de trabajo · Maquinaria", usuario, periodo, cols, ordenes, OrderWithMachineDTO::order);
+        ordenes(libro, "Órdenes de trabajo · Maquinaria", cols, ordenes, OrderWithMachineDTO::order);
     }
 
-    public byte[] generateVehicleOrdersExcel(List<OrderWithVehicleDTO> todas, String usuario, Periodo periodo, String que)
-            throws IOException {
+    public void llenarOrdenesVehiculos(LibroExcel libro, List<OrderWithVehicleDTO> todas, Periodo periodo, String que) throws IOException {
         List<OrderWithVehicleDTO> ordenes = todas.stream().filter(o -> o.order() != null && periodo.contiene(o.order().date())).toList();
         log.info("Excel de órdenes de {}: {} de {}", que, ordenes.size(), todas.size());
         List<ColumnaExcel<OrderWithVehicleDTO>> cols = new ArrayList<>(columnasOrden(OrderWithVehicleDTO::order));
@@ -381,7 +360,7 @@ public class ExcelGenerationService {
         cols.add(5, ColumnaExcel.texto("Marca", o -> o.vehicle() != null ? o.vehicle().marca() : null));
         cols.add(6, ColumnaExcel.texto("Tipo de vehículo", o -> o.vehicle() != null ? o.vehicle().tipoVehiculo() : null));
         cols.add(7, ColumnaExcel.fechaHora("Fecha de la inspección", o -> o.vehicle() != null ? o.vehicle().fechaInspeccion() : null));
-        return ordenes("Órdenes de trabajo · " + que, usuario, periodo, cols, ordenes, OrderWithVehicleDTO::order);
+        ordenes(libro, "Órdenes de trabajo · " + que, cols, ordenes, OrderWithVehicleDTO::order);
     }
 
     private static <T> List<ColumnaExcel<T>> columnasOrden(Function<T, OrderWithoutInspectionResponse> o) {
@@ -395,15 +374,12 @@ public class ExcelGenerationService {
                 ColumnaExcel.texto("Tiempo de ejecución", t -> tiempoEjecucion(o.apply(t))));
     }
 
-    private <T> byte[] ordenes(String titulo, String usuario, Periodo periodo, List<ColumnaExcel<T>> cols, List<T> ordenes,
+    private <T> void ordenes(LibroExcel libro, String titulo, List<ColumnaExcel<T>> cols, List<T> ordenes,
             Function<T, OrderWithoutInspectionResponse> o) throws IOException {
-        try (LibroExcel libro = new LibroExcel(titulo, usuario, periodo)) {
             libro.cifra("Órdenes", ordenes.size())
                     .cifra("Cerradas", ordenes.stream().filter(t -> estadoDe(o.apply(t).status()) == Estado.OK).count())
                     .cifra("Abiertas o en curso", ordenes.stream().filter(t -> estadoDe(o.apply(t).status()) != Estado.OK).count());
             libro.tabla("Órdenes", titulo, cols, ordenes);
-            return libro.bytes();
-        }
     }
 
     // ---------------------------------------------------------------------
@@ -470,6 +446,11 @@ public class ExcelGenerationService {
 
     private static <T> long contar(List<T> datos, Function<T, String> estado, Estado buscado) {
         return datos.stream().filter(d -> estadoDe(estado.apply(d)) == buscado).count();
+    }
+
+    /** Un dato de la ficha; acepta valores vacíos (Map.entry no: lanza NullPointerException). */
+    private static Map.Entry<String, Object> par(String etiqueta, Object valor) {
+        return new java.util.AbstractMap.SimpleEntry<>(etiqueta, valor);
     }
 
     private static String siNo(Boolean b) {

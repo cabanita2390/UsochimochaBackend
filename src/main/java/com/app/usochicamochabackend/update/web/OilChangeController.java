@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 
 import com.app.usochicamochabackend.update.application.dto.*;
 import com.app.usochicamochabackend.update.application.port.*;
-import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +37,7 @@ public class OilChangeController {
     private final GetConsolidateHydraulicAndMotorOilAllMachinesUseCase getConsolidateHydraulicAndMotorOilAllMachines;
     private final PerformMotorOilChangeUseCase performMotorOilChange;
     private final PerformHydraulicChangeUseCase performHydraulicChange;
-    private final ExcelGenerationService excelGenerationService;
+    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
     private final ManageMachineOilChangeHistoryUseCase manageMachineOilChangeHistoryUseCase;
 
     @GetMapping("/consolidated")
@@ -50,11 +49,7 @@ public class OilChangeController {
     @GetMapping("/consolidated/excel")
     @Operation(summary = "Get consolidated motor and hydraulic oil for all machines in Excel format")
     public ResponseEntity<byte[]> getAllConsolidatedExcel() throws IOException {
-        List<ConsolidateHydraulicAndMotorOilDTO> consolidatedData =
-            getConsolidateHydraulicAndMotorOilAllMachines.getConsolidateHydraulicAndMotorOilAllMachines();
-
-        byte[] excelBytes = excelGenerationService.generateConsolidatedMachinesExcel(consolidatedData, RespuestaExcel.usuarioActual());
-        return RespuestaExcel.de(excelBytes, "consolidado_aceites_maquinaria_" + java.time.LocalDate.now() + ".xlsx");
+        return motorReportes.descargar("consolidado-aceites-maquinaria", null, null, java.util.Map.of());
     }
 
     @PostMapping("/motor")

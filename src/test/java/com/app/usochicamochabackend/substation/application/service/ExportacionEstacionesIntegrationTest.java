@@ -52,6 +52,7 @@ class ExportacionEstacionesIntegrationTest {
     private com.app.usochicamochabackend.substation.application.port.SubstationEventosPort eventos;
 
     @Autowired private ExportacionEstacionesService exportacion;
+    @Autowired private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motor;
     @Autowired private SubstationEjecucionUseCase ejecucionUseCase;
     @Autowired private UserRepositoryJpa userRepositoryJpa;
     @Autowired private DisciplinaRepository disciplinaRepository;
@@ -138,10 +139,9 @@ class ExportacionEstacionesIntegrationTest {
 
     @Test
     void ejecucionesConFiltroDeDisciplinaYColumnasElegidas() throws Exception {
-        var archivo = exportacion.exportar("ejecuciones", new ExportacionEstacionesService.Filtros("ELECTRICO", 2026, null, null),
-                List.of("estacion", "fecha", "elementos", "disciplina"), "exporta");
+        var archivo = exportar("ejecuciones", "ELECTRICO", 2026, null, null, List.of("estacion", "fecha", "elementos", "disciplina"), "exporta");
 
-        assertEquals("estaciones_ejecuciones_electrico_2026.xlsx", archivo.nombre());
+        assertEquals("estaciones_ejecuciones_electrico_2026-01-01_a_2026-12-31.xlsx", archivo.nombre());
         // Muestra para revisar a ojo (solo si se pide con -Dexcel.muestra=<carpeta>).
         String muestra = System.getProperty("excel.muestra");
         if (muestra != null) {
@@ -156,8 +156,7 @@ class ExportacionEstacionesIntegrationTest {
 
     @Test
     void laHojaResumenDiceQueSeDescargoYCuantosRegistros() throws Exception {
-        var archivo = exportacion.exportar("EJECUCIONES", new ExportacionEstacionesService.Filtros(null, 2026, 9, ayalas.getId()),
-                null, "exporta");
+        var archivo = exportar("EJECUCIONES", null, 2026, 9, ayalas.getId(), null, "exporta");
 
         List<List<String>> resumen = tabla(archivo.contenido(), 0);
         List<String> textos = resumen.stream().flatMap(List::stream).filter(t -> !t.isBlank()).toList();
@@ -170,13 +169,12 @@ class ExportacionEstacionesIntegrationTest {
         assertTrue(textos.stream().anyMatch(t -> t.endsWith("por exporta")), "Quién lo descargó");
         // Índice con un enlace a la hoja de datos y cuántos registros trae.
         assertTrue(resumen.stream().anyMatch(f -> f.size() > 2 && f.get(0).equals("Ejecuciones") && f.get(2).equals("1")), resumen.toString());
-        assertEquals("estaciones_ejecuciones_2026_09.xlsx", archivo.nombre());
+        assertEquals("estaciones_ejecuciones_2026-09-01_a_2026-09-30.xlsx", archivo.nombre());
     }
 
     @Test
     void hallazgosSoloTraeLosQueNoSonConformes() throws Exception {
-        var archivo = exportacion.exportar("HALLAZGOS", new ExportacionEstacionesService.Filtros(null, 2026, null, null),
-                List.of("estacion", "resultado", "seguimiento"), "exporta");
+        var archivo = exportar("HALLAZGOS", null, 2026, null, null, List.of("estacion", "resultado", "seguimiento"), "exporta");
 
         List<List<String>> filas = tabla(archivo.contenido(), 1);
         assertEquals(2, filas.size());
@@ -185,8 +183,7 @@ class ExportacionEstacionesIntegrationTest {
 
     @Test
     void avancePorEstacionConCriticidad() throws Exception {
-        var archivo = exportacion.exportar("AVANCE", new ExportacionEstacionesService.Filtros(null, 2026, null, null),
-                List.of("estacion", "total", "criticidad"), "exporta");
+        var archivo = exportar("AVANCE", null, 2026, null, null, List.of("estacion", "total", "criticidad"), "exporta");
 
         List<List<String>> filas = tabla(archivo.contenido(), 1);
         assertEquals(List.of("Estación", "Ejecutado total", "Criticidad"), filas.get(0));
@@ -203,11 +200,34 @@ class ExportacionEstacionesIntegrationTest {
     }
 
     @Test
-    void unaHojaDesconocidaOSinColumnasEsUn400() {
-        var f = new ExportacionEstacionesService.Filtros(null, 2026, null, null);
-        assertThrows(BadRequestException.class, () -> exportacion.exportar("NOMINA", f, null, "x"));
-        assertThrows(BadRequestException.class, () -> exportacion.exportar("EJECUCIONES", f, List.of("noExiste"), "x"));
-        assertThrows(BadRequestException.class, () -> exportacion.exportar("EJECUCIONES",
-                new ExportacionEstacionesService.Filtros(null, 2026, 13, null), null, "x"));
+    void unaHojaDesconocidaEsUn404YSinColumnasOMesMaloUn400() {
+        assertThrows(com.app.usochicamochabackend.exception.ResourceNotFoundException.class,
+                () -> exportar("NOMINA", null, 2026, null, null, null, "x"));
+        assertThrows(BadRequestException.class, () -> exportar("EJECUCIONES", null, 2026, null, null, List.of("noExiste"), "x"));
+        assertThrows(BadRequestException.class, () -> exportar("EJECUCIONES", null, 2026, 13, null, null, "x"));
+    }
+
+    @Test
+    void lasHojasEstanEnElMotorConSusFiltrosYColumnas() {
+        var info = motor.listar(List.of("ROLE_SUPERVISOR_OPERATIVO")).stream()
+                .filter(r -> r.clave().equals("estaciones-avance")).findFirst().orElseThrow();
+        assertEquals("Estaciones de Bombeo", info.modulo());
+        assertEquals(List.of("disciplina", "anio", "estacionId"), info.filtros().stream().map(f -> f.clave()).toList());
+        assertTrue(info.columnas().stream().anyMatch(c -> c.clave().equals("criticidad")));
+        assertTrue(motor.listar(List.of("ROLE_OPERARIO")).stream().noneMatch(r -> r.clave().startsWith("estaciones-")),
+                "El operario no descarga Estaciones");
+    }
+
+    /** Por el motor único, como la web. */
+    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes.Archivo exportar(String hoja, String disciplina,
+            Integer anio, Integer mes, Long estacionId, List<String> columnas, String usuario) throws java.io.IOException {
+        java.util.Map<String, String> f = new java.util.HashMap<>();
+        f.put("disciplina", disciplina);
+        f.put("anio", anio == null ? null : anio.toString());
+        f.put("mes", mes == null ? null : mes.toString());
+        f.put("estacionId", estacionId == null ? null : estacionId.toString());
+        return motor.generar(ReportesEstaciones.clave(hoja),
+                new com.app.usochicamochabackend.common.excel.reporte.PeticionReporte(null, f, columnas, usuario),
+                List.of("ROLE_ADMIN"));
     }
 }

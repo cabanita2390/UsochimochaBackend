@@ -5,7 +5,6 @@ import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.*;
-import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -38,7 +37,7 @@ public class OrderController {
     private final AssignVehicleOrderUseCase assignVehicleOrderUseCase;
     private final GetAllOrdersByVehicleInspectionIdUseCase getAllOrdersByVehicleInspectionIdUseCase;
     private final GetAllVehicleOrdersUseCase getAllVehicleOrdersUseCase;
-    private final ExcelGenerationService excelGenerationService;
+    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @Operation(
             summary = "Assign a new order",
@@ -122,31 +121,16 @@ public class OrderController {
     public ResponseEntity<byte[]> exportMachineOrders(
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-        Periodo periodo = new Periodo(desde, hasta);
-        List<OrderWithMachineDTO> orders = getAllOrdersUseCase.getAllOrders(Pageable.unpaged()).getContent();
-        byte[] excelData = excelGenerationService.generateMachineOrdersExcel(orders, RespuestaExcel.usuarioActual(), periodo);
-        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("ordenes_maquinaria", periodo));
+        return motorReportes.descargar("ordenes-maquinaria", desde, hasta, java.util.Map.of());
     }
 
-    @Operation(summary = "Exportar órdenes de vehículos y motos a Excel",
-            description = "Por defecto exporta ambos. Con `soloMotos=true` exporta únicamente las órdenes cuyo tipo de vehículo es MOTOCICLETA.")
+    @Operation(summary = "Exportar órdenes de vehículos o de motos a Excel",
+            description = "Por defecto, las de vehículos (sin motos), como la pestaña Vehículos. Con `soloMotos=true`, solo las de motos.")
     @GetMapping("/vehicle/export")
     public ResponseEntity<byte[]> exportVehicleOrders(
             @RequestParam(defaultValue = "false") boolean soloMotos,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-        Periodo periodo = new Periodo(desde, hasta);
-        List<OrderWithVehicleDTO> orders = getAllVehicleOrdersUseCase.getAllVehicleOrders(Pageable.unpaged()).getContent();
-
-        if (soloMotos) {
-            orders = orders.stream()
-                    .filter(o -> o.vehicle() != null
-                            && "MOTOCICLETA".equalsIgnoreCase(o.vehicle().tipoVehiculo()))
-                    .toList();
-        }
-
-        byte[] excelData = excelGenerationService.generateVehicleOrdersExcel(orders, RespuestaExcel.usuarioActual(), periodo,
-                soloMotos ? "Motos" : "Vehículos y motos");
-        return RespuestaExcel.de(excelData, RespuestaExcel.nombre(soloMotos ? "ordenes_motos" : "ordenes_vehiculos_motos", periodo));
+        return motorReportes.descargar(soloMotos ? "ordenes-motos" : "ordenes-vehiculos", desde, hasta, java.util.Map.of());
     }
 }

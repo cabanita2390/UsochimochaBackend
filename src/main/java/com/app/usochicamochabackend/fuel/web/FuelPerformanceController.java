@@ -26,6 +26,7 @@ public class FuelPerformanceController {
     private final GetFuelPerformanceUseCase getFuelPerformanceUseCase;
     private final ExportFuelPerformanceHistoryUseCase exportFuelPerformanceHistoryUseCase;
     private final ExportFuelMonthlyPerformanceUseCase exportFuelMonthlyPerformanceUseCase;
+    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
@@ -45,11 +46,10 @@ public class FuelPerformanceController {
             @RequestParam String tipo,
             @RequestParam Long activoId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta) {
-        byte[] excelData = exportFuelPerformanceHistoryUseCase.exportarHistorialActivo(tipo, activoId, desde, hasta);
-        return com.app.usochicamochabackend.common.excel.RespuestaExcel.de(excelData,
-                com.app.usochicamochabackend.common.excel.RespuestaExcel.nombre("rendimiento_historial",
-                        new com.app.usochicamochabackend.common.excel.Periodo(desde, hasta)));
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta)
+            throws java.io.IOException {
+        return motorReportes.descargar("rendimiento-historial", desde, hasta,
+                java.util.Map.of("tipo", tipo, "activoId", activoId.toString()));
     }
 
     // Rendimiento mensual de TODOS los activos configurados, una hoja por mes con la
@@ -61,10 +61,8 @@ public class FuelPerformanceController {
     @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
     public ResponseEntity<byte[]> exportarMensual(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
-        byte[] excelData = exportFuelMonthlyPerformanceUseCase.exportarMensual(fechaInicio, fechaFin);
-        return com.app.usochicamochabackend.common.excel.RespuestaExcel.de(excelData,
-                com.app.usochicamochabackend.common.excel.RespuestaExcel.nombre("rendimiento_mensual",
-                        new com.app.usochicamochabackend.common.excel.Periodo(fechaInicio, fechaFin)));
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin)
+            throws java.io.IOException {
+        return motorReportes.descargar("rendimiento-mensual", fechaInicio, fechaFin, java.util.Map.of());
     }
 }

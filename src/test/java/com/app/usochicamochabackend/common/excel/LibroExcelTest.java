@@ -112,11 +112,17 @@ class LibroExcelTest {
             libro.tabla("Inspecciones", "Vacía", COLUMNAS, List.of());
             libro.tabla("Inspecciones", "Otra", COLUMNAS, filas());
             libro.tabla("Placa: ABC/123 [x]", "Raros", COLUMNAS, filas());
+            libro.tabla("'Tractor'", "Con comillas", COLUMNAS, filas());
+            libro.tabla(null, "Sin nombre", COLUMNAS, filas());
+            libro.tabla("Resumen", "Choca con la portada", COLUMNAS, filas());
             xlsx = libro.bytes();
         }
         try (XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(xlsx))) {
             assertEquals("Inspecciones (2)", wb.getSheetName(2));
             assertFalse(wb.getSheetName(3).matches(".*[:/\\[\\]].*"), wb.getSheetName(3));
+            assertEquals("Tractor", wb.getSheetName(4));
+            assertEquals("Hoja", wb.getSheetName(5));
+            assertEquals("Resumen (2)", wb.getSheetName(6));
             assertTrue(leer(wb.getSheet("Inspecciones")).toString().contains("Sin registros"));
             assertTrue(leer(wb.getSheet("Resumen")).toString().contains("Todo el historial"));
         }

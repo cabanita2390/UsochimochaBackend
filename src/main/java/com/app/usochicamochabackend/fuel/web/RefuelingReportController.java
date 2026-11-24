@@ -25,6 +25,7 @@ public class RefuelingReportController {
 
     private final GetRefuelingReportUseCase getRefuelingReportUseCase;
     private final ExportRefuelingReportUseCase exportRefuelingReportUseCase;
+    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @GetMapping
     public ResponseEntity<List<RefuelingRecordResponse>> reporte(
@@ -47,10 +48,11 @@ public class RefuelingReportController {
             @RequestParam String tipo,
             @RequestParam(required = false) String area,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
-        byte[] excelData = exportRefuelingReportUseCase.exportarExcel(tipo, area, fechaInicio, fechaFin);
-        return com.app.usochicamochabackend.common.excel.RespuestaExcel.de(excelData,
-                com.app.usochicamochabackend.common.excel.RespuestaExcel.nombre("tanqueos",
-                        new com.app.usochicamochabackend.common.excel.Periodo(fechaInicio, fechaFin)));
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin)
+            throws java.io.IOException {
+        java.util.Map<String, String> filtros = new java.util.HashMap<>();
+        filtros.put("tipo", tipo);
+        filtros.put("area", area);
+        return motorReportes.descargar("tanqueos", fechaInicio, fechaFin, filtros);
     }
 }

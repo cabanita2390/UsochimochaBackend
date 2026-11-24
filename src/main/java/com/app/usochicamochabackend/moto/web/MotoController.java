@@ -5,7 +5,6 @@ import com.app.usochicamochabackend.common.excel.RespuestaExcel;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.moto.application.port.MotoMonitoringUseCase;
 import com.app.usochicamochabackend.moto.application.service.MotoService;
-import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import com.app.usochicamochabackend.update.application.service.VehicleOilChangeService;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
@@ -49,7 +48,7 @@ public class MotoController {
     private final MotoService motoService;
     private final MotoMonitoringUseCase monitoringUseCase;
     private final GetVehicleInspectionsUseCase getInspectionsUseCase;
-    private final ExcelGenerationService excelGenerationService;
+    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
     private final VehicleOilChangeService vehicleOilChangeService;
 
     @GetMapping("/placas")
@@ -111,9 +110,7 @@ public class MotoController {
     @GetMapping("/monitoring/consolidated/export")
     @Operation(summary = "Exportar consolidado de motos a Excel")
     public ResponseEntity<byte[]> exportConsolidatedMonitoring() throws IOException {
-        byte[] excelData = excelGenerationService.generateMotoConsolidatedExcel(
-                monitoringUseCase.getConsolidatedMonitoring(), RespuestaExcel.usuarioActual());
-        return RespuestaExcel.de(excelData, "consolidado_motos_" + java.time.LocalDate.now() + ".xlsx");
+        return motorReportes.descargar("consolidado-motos", null, null, java.util.Map.of());
     }
 
     @GetMapping("/monitoring/alerts/yellow")
@@ -157,10 +154,7 @@ public class MotoController {
     public ResponseEntity<byte[]> exportMotoInspections(
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-        Periodo periodo = new Periodo(desde, hasta);
-        List<VehicleInspectionReportDTO> inspections = getInspectionsUseCase.getMotoInspectionsHistory();
-        byte[] excelData = excelGenerationService.generateVehicleInspectionsExcel(inspections, RespuestaExcel.usuarioActual(), periodo, "Motos");
-        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("inspecciones_motos", periodo));
+        return motorReportes.descargar("inspecciones-motos", desde, hasta, java.util.Map.of());
     }
 
     @GetMapping("/inspections/reports/history")

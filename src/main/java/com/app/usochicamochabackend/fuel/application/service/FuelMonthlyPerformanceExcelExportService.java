@@ -4,6 +4,10 @@ import com.app.usochicamochabackend.common.excel.ColumnaExcel;
 import com.app.usochicamochabackend.common.excel.LibroExcel;
 import com.app.usochicamochabackend.common.excel.Periodo;
 import com.app.usochicamochabackend.common.excel.RespuestaExcel;
+import com.app.usochicamochabackend.common.excel.reporte.FiltroReporte;
+import com.app.usochicamochabackend.common.excel.reporte.MotorReportes;
+import com.app.usochicamochabackend.common.excel.reporte.PeticionReporte;
+import com.app.usochicamochabackend.common.excel.reporte.ReporteExcel;
 import com.app.usochicamochabackend.fuel.application.port.ExportFuelMonthlyPerformanceUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.AssetFuelConfigEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
@@ -54,7 +58,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class FuelMonthlyPerformanceExcelExportService implements ExportFuelMonthlyPerformanceUseCase {
+public class FuelMonthlyPerformanceExcelExportService implements ExportFuelMonthlyPerformanceUseCase, ReporteExcel {
 
     private static final DateTimeFormatter MES_TITULO_FORMATTER = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.forLanguageTag("es-CO"));
     private static final DateTimeFormatter MES_SHEET_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM");
@@ -76,11 +80,40 @@ public class FuelMonthlyPerformanceExcelExportService implements ExportFuelMonth
     private record FilaActivoMes(String nombre, String consumoEstandarLabel, BigDecimal primero, BigDecimal ultimo,
             BigDecimal consumo, BigDecimal recorrido, BigDecimal eficiencia) {}
 
+    // --- Reporte del motor único (GET /api/v1/reportes/rendimiento-mensual) ---
+
+    @Override public String clave() { return "rendimiento-mensual"; }
+    @Override public String titulo() { return "Rendimiento mensual de combustible"; }
+    @Override public String modulo() { return ReporteExcel.COMBUSTIBLE; }
+    @Override public boolean usaPeriodo() { return true; }
+    @Override public String periodoInicial() { return "mes"; }
+
+    /** Sin fechas: el año en curso hasta hoy (una hoja por mes, no puede ser "todo"). */
+    @Override
+    public Periodo periodo(PeticionReporte p) {
+        LocalDate hoy = LocalDate.now();
+        LocalDate desde = p.periodo().desde();
+        LocalDate hasta = p.periodo().hasta();
+        return new Periodo(desde != null ? desde : (hasta != null ? hasta : hoy).withDayOfYear(1),
+                hasta != null ? hasta : hoy);
+    }
+
+    /** El endpoint anterior: mismo motor. */
     @Override
     public byte[] exportarMensual(LocalDate fechaInicio, LocalDate fechaFin) {
-        LocalDate hoy = LocalDate.now();
-        LocalDate inicio = fechaInicio != null ? fechaInicio : hoy.withDayOfYear(1);
-        LocalDate fin = fechaFin != null ? fechaFin : hoy;
+        try {
+            return MotorReportes.generar(this, PeticionReporte.de(fechaInicio, fechaFin, Map.of(),
+                    RespuestaExcel.usuarioActual())).contenido();
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo generar el archivo Excel de rendimiento mensual.", e);
+        }
+    }
+
+    @Override
+    public void llenar(LibroExcel libro, PeticionReporte p) {
+        Periodo periodo = periodo(p);
+        LocalDate inicio = periodo.desde();
+        LocalDate fin = periodo.hasta();
         Timestamp inicioTs = Timestamp.valueOf(LocalDateTime.of(inicio, LocalTime.MIN));
         Timestamp finTs = Timestamp.valueOf(LocalDateTime.of(fin, LocalTime.MAX));
 
@@ -113,8 +146,7 @@ public class FuelMonthlyPerformanceExcelExportService implements ExportFuelMonth
                 ColumnaExcel.decimal("Rendimiento real (recorrido ÷ galón)", FilaActivoMes::eficiencia));
         YearMonth mesInicio = YearMonth.from(inicio);
         YearMonth mesFin = YearMonth.from(fin);
-        try (LibroExcel libro = new LibroExcel("Rendimiento mensual de combustible", RespuestaExcel.usuarioActual(),
-                new Periodo(inicio, fin))) {
+        {
             libro.cifra("Activos configurados", configsOrdenados.size())
                     .cifra("Meses", mesInicio.until(mesFin, java.time.temporal.ChronoUnit.MONTHS) + 1)
                     .cifra("Tanqueos", tanqueos.size())
@@ -129,9 +161,6 @@ public class FuelMonthlyPerformanceExcelExportService implements ExportFuelMonth
                         cols, filas);
             }
             log.info("Excel de rendimiento mensual generado: {} a {}, {} activos", mesInicio, mesFin, configsOrdenados.size());
-            return libro.bytes();
-        } catch (IOException e) {
-            throw new UncheckedIOException("No se pudo generar el archivo Excel de rendimiento mensual.", e);
         }
     }
 

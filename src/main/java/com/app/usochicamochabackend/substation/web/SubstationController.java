@@ -17,6 +17,7 @@ import com.app.usochicamochabackend.substation.application.port.SubstationEjecuc
 import com.app.usochicamochabackend.substation.application.port.SubstationIndicadoresUseCase;
 import com.app.usochicamochabackend.substation.application.service.CalendarioMantenimiento;
 import com.app.usochicamochabackend.substation.application.service.ExportacionEstacionesService;
+import com.app.usochicamochabackend.substation.application.service.ReportesEstaciones;
 import com.app.usochicamochabackend.substation.application.dto.HojaExportacionResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,6 +48,7 @@ public class SubstationController {
     private final SubstationIndicadoresUseCase indicadoresUseCase;
     private final CalendarioMantenimiento calendario;
     private final ExportacionEstacionesService exportacion;
+    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @GetMapping("/programacion")
     @Operation(summary = "Citas del cronograma para una estación+mes+disciplina",
@@ -175,10 +177,15 @@ public class SubstationController {
             @RequestParam(required = false) Long estacionId,
             @RequestParam(required = false) List<String> columnas,
             Authentication authentication) throws IOException {
-        String usuario = com.app.usochicamochabackend.common.excel.RespuestaExcel.usuarioActual();
-        var archivo = exportacion.exportar(hoja,
-                new ExportacionEstacionesService.Filtros(disciplina, anio, mes, estacionId), columnas, usuario);
-        return com.app.usochicamochabackend.common.excel.RespuestaExcel.de(archivo.contenido(), archivo.nombre());
+        if (hoja == null || ExportacionEstacionesService.HOJAS.stream().noneMatch(h -> h.getKey().equalsIgnoreCase(hoja))) {
+            throw new com.app.usochicamochabackend.exception.BadRequestException("Hoja desconocida: " + hoja);
+        }
+        java.util.Map<String, String> filtros = new java.util.HashMap<>();
+        filtros.put("disciplina", disciplina);
+        filtros.put("anio", anio == null ? null : anio.toString());
+        filtros.put("mes", mes == null ? null : mes.toString());
+        filtros.put("estacionId", estacionId == null ? null : estacionId.toString());
+        return motorReportes.descargar(ReportesEstaciones.clave(hoja), null, null, filtros, columnas);
     }
 
     @GetMapping("/indicadores/cumplimiento")

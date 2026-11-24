@@ -57,6 +57,9 @@ class OilChangeControllerTest {
     private ExcelGenerationService excelGenerationService;
 
     @MockBean
+    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
+
+    @MockBean
     private ManageMachineOilChangeHistoryUseCase manageMachineOilChangeHistoryUseCase;
 
     @MockBean

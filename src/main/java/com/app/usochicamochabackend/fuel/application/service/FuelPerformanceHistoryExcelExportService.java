@@ -5,6 +5,10 @@ import com.app.usochicamochabackend.common.excel.ColumnaExcel.Estado;
 import com.app.usochicamochabackend.common.excel.LibroExcel;
 import com.app.usochicamochabackend.common.excel.Periodo;
 import com.app.usochicamochabackend.common.excel.RespuestaExcel;
+import com.app.usochicamochabackend.common.excel.reporte.FiltroReporte;
+import com.app.usochicamochabackend.common.excel.reporte.MotorReportes;
+import com.app.usochicamochabackend.common.excel.reporte.PeticionReporte;
+import com.app.usochicamochabackend.common.excel.reporte.ReporteExcel;
 import com.app.usochicamochabackend.fuel.application.dto.FuelPerformanceResponse;
 import com.app.usochicamochabackend.fuel.application.port.ExportFuelPerformanceHistoryUseCase;
 import com.app.usochicamochabackend.fuel.application.port.GetFuelPerformanceUseCase;
@@ -50,7 +54,7 @@ import java.util.stream.Collectors;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class FuelPerformanceHistoryExcelExportService implements ExportFuelPerformanceHistoryUseCase {
+public class FuelPerformanceHistoryExcelExportService implements ExportFuelPerformanceHistoryUseCase, ReporteExcel {
 
     private static final String MAQUINARIA = "MAQUINARIA";
     private static final String VEHICULO = "VEHICULO";
@@ -76,9 +80,50 @@ public class FuelPerformanceHistoryExcelExportService implements ExportFuelPerfo
     private final AssetFuelConfigRepository assetFuelConfigRepository;
     private final FuelTypesRepository fuelTypesRepository;
 
+    // --- Reporte del motor único (GET /api/v1/reportes/rendimiento-historial) ---
+
+    @Override public String clave() { return "rendimiento-historial"; }
+    @Override public String titulo() { return "Historial de rendimiento de un activo"; }
+    @Override public String modulo() { return ReporteExcel.COMBUSTIBLE; }
+    @Override public boolean usaPeriodo() { return true; }
+    @Override public String periodoInicial() { return "todo"; }
+
+    @Override
+    public List<FiltroReporte> filtros() {
+        return List.of(FiltroReporte.contexto("tipo", "Tipo de activo", true),
+                FiltroReporte.contexto("activoId", "Activo", true));
+    }
+
+    /** "rendimiento_historial_vehiculo_12" (el motor le agrega el periodo). */
+    @Override
+    public String nombreArchivo(PeticionReporte p) {
+        return "rendimiento_historial_" + p.filtroObligatorio("tipo").toLowerCase(Locale.ROOT) + "_" + p.filtroObligatorio("activoId");
+    }
+
+    /** El endpoint anterior: mismo motor. */
     @Override
     public byte[] exportarHistorialActivo(String tipo, Long activoId, LocalDate desde, LocalDate hasta) {
-        Periodo periodo = new Periodo(desde, hasta);
+        Map<String, String> filtros = new java.util.HashMap<>();
+        filtros.put("tipo", tipo);
+        filtros.put("activoId", activoId == null ? null : activoId.toString());
+        try {
+            return MotorReportes.generar(this, PeticionReporte.de(desde, hasta, filtros, RespuestaExcel.usuarioActual()))
+                    .contenido();
+        } catch (IOException e) {
+            throw new UncheckedIOException("No se pudo generar el archivo Excel de historial de rendimiento.", e);
+        }
+    }
+
+    @Override
+    public void llenar(LibroExcel libro, PeticionReporte p) {
+        String tipo = p.filtroObligatorio("tipo");
+        Long activoId = p.filtroLong("activoId");
+        if (activoId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Falta el activo.");
+        }
+        Periodo periodo = p.periodo();
+        LocalDate desde = periodo.desde();
+        LocalDate hasta = periodo.hasta();
         if (!MAQUINARIA.equals(tipo) && !VEHICULO.equals(tipo) && !MOTOCICLETA.equals(tipo)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "tipo debe ser MAQUINARIA, VEHICULO o MOTOCICLETA.");
         }
@@ -134,8 +179,8 @@ public class FuelPerformanceHistoryExcelExportService implements ExportFuelPerfo
                         + (Boolean.FALSE.equals(f.usaRangoAprendido()) ? " *" : ""))
                         .conEstado(f -> Boolean.TRUE.equals(f.alerta()) ? Estado.MAL : null));
 
-        try (LibroExcel libro = new LibroExcel("Historial de rendimiento · " + activo, RespuestaExcel.usuarioActual(), periodo)) {
-            libro.filtro("Activo", activo).filtro("Tipo", tipo)
+        {
+            libro.titulo("Historial de rendimiento · " + activo).filtro("Activo", activo).filtro("Tipo", tipo)
                     .cifra("Tanqueos", filas.size())
                     .cifra("Meses", porMes.size())
                     .cifra("Combustible (" + unidadFisicaLabel + ")", filas.stream().map(FuelPerformanceResponse::galonesReal)
@@ -148,9 +193,6 @@ public class FuelPerformanceHistoryExcelExportService implements ExportFuelPerfo
             }
             log.info("Excel de historial de rendimiento generado: activo {} ({}), {} meses, {} filas",
                     activoId, tipo, porMes.size(), filas.size());
-            return libro.bytes();
-        } catch (IOException e) {
-            throw new UncheckedIOException("No se pudo generar el archivo Excel de historial de rendimiento.", e);
         }
     }
 

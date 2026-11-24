@@ -55,6 +55,9 @@ class SubstationSecurityTest {
     private com.app.usochicamochabackend.substation.application.service.ExportacionEstacionesService exportacion;
 
     @MockBean
+    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
+
+    @MockBean
     private SubstationCatalogAdminUseCase catalogAdminUseCase;
 
     @MockBean

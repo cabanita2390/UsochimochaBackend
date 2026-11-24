@@ -46,6 +46,9 @@ class CurriculumControllerTest {
     private ExcelGenerationService excelGenerationService;
 
     @MockBean
+    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
+
+    @MockBean
     private JwtUtils jwtUtils;
 
     @Test

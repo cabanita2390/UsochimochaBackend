@@ -32,6 +32,9 @@ class RefuelingReportControllerTest {
     @MockBean
     private ExportRefuelingReportUseCase exportRefuelingReportUseCase;
 
+    @MockBean
+    private com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
+
     @Test
     @DisplayName("GET /fuel/refueling/reporte: SUPERVISOR_OPERATIVO autorizado, devuelve 200")
     @WithMockUser(roles = "SUPERVISOR_OPERATIVO")

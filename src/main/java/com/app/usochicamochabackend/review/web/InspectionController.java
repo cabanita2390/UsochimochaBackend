@@ -7,7 +7,6 @@ import com.app.usochicamochabackend.review.application.dto.InspectionDTO;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormRequest;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormResponse;
 import com.app.usochicamochabackend.review.application.port.*;
-import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -42,7 +41,7 @@ public class InspectionController {
     private final SaveInspectionImageUseCase  saveInspectionImageUseCase;
     private final GetAllInspectionsForExportUseCase getAllInspectionsForExportUseCase;
     private final UpdateInspectionHourMeterUseCase updateInspectionHourMeterUseCase;
-    private final ExcelGenerationService excelGenerationService;
+    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(
@@ -146,10 +145,7 @@ public class InspectionController {
     public ResponseEntity<byte[]> exportInspectionsToExcel(
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-        Periodo periodo = new Periodo(desde, hasta);
-        List<com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity> inspections = getAllInspectionsForExportUseCase.getAllInspectionsForExport();
-        byte[] excelData = excelGenerationService.generateInspectionsExcel(inspections, RespuestaExcel.usuarioActual(), periodo);
-        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("inspecciones_maquinaria", periodo));
+        return motorReportes.descargar("inspecciones-maquinaria", desde, hasta, java.util.Map.of());
     }
 
 }

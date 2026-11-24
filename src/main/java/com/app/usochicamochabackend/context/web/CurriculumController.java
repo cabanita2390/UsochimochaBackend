@@ -9,7 +9,6 @@ import com.app.usochicamochabackend.context.application.port.GetVehicleCurriculu
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.machine.application.port.FindAllMachinesUseCase;
 import com.app.usochicamochabackend.moto.application.port.MotoCRUDUseCase;
-import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import com.app.usochicamochabackend.vehicle.application.port.VehicleUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -38,7 +37,7 @@ public class CurriculumController {
     private final FindAllMachinesUseCase findAllMachinesUseCase;
     private final VehicleUseCase vehicleUseCase;
     private final MotoCRUDUseCase motoCRUDUseCase;
-    private final ExcelGenerationService excelGenerationService;
+    private final com.app.usochicamochabackend.common.excel.reporte.MotorReportes motorReportes;
 
     @Operation(summary = "Get machine curriculum", description = "Returns the curriculum of a machine with inspections, orders and results")
     @ApiResponses(value = {
@@ -76,69 +75,20 @@ public class CurriculumController {
                     content = @Content)
     })
     @GetMapping("/export")
-    public ResponseEntity<byte[]> exportMachineCurricula(
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-        Periodo periodo = new Periodo(desde, hasta);
-        List<MachineCurriculumDTO> curricula = findAllMachinesUseCase.findAllMachines().stream()
-                .filter(machine -> {
-                    try {
-                        getMachineCurriculumUseCase.getMachineCurriculum(machine.id());
-                        return true;
-                    } catch (ResourceNotFoundException e) {
-                        return false;
-                    }
-                })
-                .map(machine -> getMachineCurriculumUseCase.getMachineCurriculum(machine.id()))
-                .toList();
-
-        byte[] excelData = excelGenerationService.generateMachineCurriculumExcel(curricula, RespuestaExcel.usuarioActual(), periodo);
-        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("hojas_de_vida_maquinaria", periodo));
+    public ResponseEntity<byte[]> exportMachineCurricula() throws IOException {
+        return motorReportes.descargar("hojas-de-vida-maquinaria", null, null, java.util.Map.of());
     }
 
     @Operation(summary = "Export vehicle curricula to Excel", description = "Exports the curriculum of all cars (non-moto) to an Excel file with one sheet per vehicle")
     @GetMapping("/export/vehicles")
-    public ResponseEntity<byte[]> exportVehicleCurricula(
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-        Periodo periodo = new Periodo(desde, hasta);
-        List<VehicleCurriculumDTO> curricula = vehicleUseCase.findAllVehicles().stream()
-                .filter(v -> !String.valueOf(v.tipoVehiculo()).toLowerCase(Locale.ROOT).contains("moto"))
-                .filter(v -> {
-                    try {
-                        getVehicleCurriculumUseCase.getVehicleCurriculum(v.id());
-                        return true;
-                    } catch (ResourceNotFoundException e) {
-                        return false;
-                    }
-                })
-                .map(v -> getVehicleCurriculumUseCase.getVehicleCurriculum(v.id()))
-                .toList();
-
-        byte[] excelData = excelGenerationService.generateVehicleCurriculumExcel(curricula, RespuestaExcel.usuarioActual(), periodo, "Vehículos");
-        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("hojas_de_vida_vehiculos", periodo));
+    public ResponseEntity<byte[]> exportVehicleCurricula() throws IOException {
+        return motorReportes.descargar("hojas-de-vida-vehiculos", null, null, java.util.Map.of());
     }
 
     @Operation(summary = "Export moto curricula to Excel", description = "Exports the curriculum of all motorcycles to an Excel file with one sheet per moto")
     @GetMapping("/export/motos")
-    public ResponseEntity<byte[]> exportMotoCurricula(
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate desde,
-            @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate hasta) throws IOException {
-        Periodo periodo = new Periodo(desde, hasta);
-        List<VehicleCurriculumDTO> curricula = motoCRUDUseCase.findAllMotos().stream()
-                .filter(v -> {
-                    try {
-                        getVehicleCurriculumUseCase.getVehicleCurriculum(v.id());
-                        return true;
-                    } catch (ResourceNotFoundException e) {
-                        return false;
-                    }
-                })
-                .map(v -> getVehicleCurriculumUseCase.getVehicleCurriculum(v.id()))
-                .toList();
-
-        byte[] excelData = excelGenerationService.generateVehicleCurriculumExcel(curricula, RespuestaExcel.usuarioActual(), periodo, "Motos");
-        return RespuestaExcel.de(excelData, RespuestaExcel.nombre("hojas_de_vida_motos", periodo));
+    public ResponseEntity<byte[]> exportMotoCurricula() throws IOException {
+        return motorReportes.descargar("hojas-de-vida-motos", null, null, java.util.Map.of());
     }
 
 }
